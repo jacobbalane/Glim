@@ -1,5 +1,7 @@
 # Dependencies and generated builds
 **/node_modules/
+.local/
+.tools/
 **/target/
 **/dist/
 **/.vite/

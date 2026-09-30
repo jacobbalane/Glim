@@ -1,0 +1,21 @@
+[package]
+name = "glim"
+version = "0.1.0"
+description = "Your agents, at a glance."
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+glim-core = { path = "../../crates/glim-core" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+sysinfo.workspace = true
+tokio = { version = "1", features = ["net", "io-util", "sync", "time", "macros"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_Graphics_Gdi", "Win32_UI_WindowsAndMessaging"] }

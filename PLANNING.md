@@ -1,6 +1,6 @@
 Glim — implementation plan, 2026-09-30
 
-This document records the product decisions made so far and the proposed implementation. Glim is the chosen app name. The current phase is planning; implementation and installation of integrations have not started. Proposed defaults and feasibility checks below are not confirmed requirements unless explicitly marked as confirmed.
+This document records the product decisions made so far and the proposed implementation. Glim is the chosen app name. Implementation has started with the first development prototype; integration installation and native validation remain pending. See [the implementation checkpoint](docs/IMPLEMENTATION.md) for actual results and remaining work. Proposed defaults and feasibility checks below are not confirmed requirements unless explicitly marked as confirmed.
 
 The product is a Windows desktop companion that keeps coding-agent status visible while the user works in another application, watches video, or plays a game. Success means the user can tell when an agent needs attention and return to the relevant terminal without repeatedly checking VS Code.
 

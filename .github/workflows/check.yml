@@ -1,0 +1,30 @@
+name: Check Glim
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm run test:ui
+      - name: Verify native source
+        run: |
+          rustup default stable
+          cargo test -p glim-core --locked
+          cargo check --workspace --locked

@@ -1,0 +1,16 @@
+{
+  "name": "glim-vscode", "displayName": "Glim — Terminal Bridge", "version": "0.1.0",
+  "description": "Return to the exact VS Code terminal from your Glim island.",
+  "publisher": "jacobbalane", "private": true,
+  "repository": { "type": "git", "url": "https://github.com/jacobbalane/Glim.git" },
+  "engines": { "vscode": "^1.96.0" }, "categories": ["Other"],
+  "extensionKind": ["ui"],
+  "activationEvents": ["onStartupFinished"], "main": "./dist/extension.cjs",
+  "contributes": { "commands": [{ "command": "glim.connectionStatus", "title": "Glim: Show Bridge Status" }] },
+  "scripts": {
+    "build": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=dist/extension.cjs",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package --no-dependencies --out ../.local/glim-vscode-0.1.0.vsix"
+  },
+  "dependencies": {}, "devDependencies": {}
+}

@@ -1,0 +1,9 @@
+.local/
+.tools/
+node_modules/
+target/
+**/dist/
+**/icons/
+**/gen/
+Cargo.lock
+package-lock.json

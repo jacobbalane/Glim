@@ -1,0 +1,30 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Glim",
+  "version": "0.1.0",
+  "identifier": "dev.glim.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{
+      "label": "island", "title": "Glim", "width": 306, "height": 82,
+      "resizable": false, "decorations": false, "transparent": true,
+      "alwaysOnTop": true, "skipTaskbar": true, "shadow": false,
+      "visible": false, "focus": false
+    }],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; connect-src ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "targets": ["nsis"],
+    "shortDescription": "Your agents, at a glance.",
+    "windows": { "nsis": { "displayLanguageSelector": false, "installMode": "currentUser" } }
+  }
+}
