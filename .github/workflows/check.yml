@@ -27,4 +27,6 @@ jobs:
         run: |
           rustup default stable
           cargo test -p glim-core --locked
+          cargo build -p glim-relay --locked
+          npm run test:relay
           cargo check --workspace --locked

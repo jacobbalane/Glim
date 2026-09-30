@@ -5,6 +5,11 @@ use std::{fs, io, path::{Path, PathBuf}, time::{SystemTime, UNIX_EPOCH}};
 pub const MAX_PAYLOAD: usize = 256 * 1024;
 pub fn now_ms() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64 }
 pub fn data_dir() -> io::Result<PathBuf> {
+    if let Some(override_path) = std::env::var_os("GLIM_DATA_DIR") {
+        let path = PathBuf::from(override_path);
+        if !path.is_absolute() { return Err(io::Error::new(io::ErrorKind::InvalidInput, "GLIM_DATA_DIR must be absolute")); }
+        return Ok(path);
+    }
     directories::ProjectDirs::from("dev", "Glim", "Glim")
         .map(|p| p.data_local_dir().to_path_buf())
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Local app data unavailable"))

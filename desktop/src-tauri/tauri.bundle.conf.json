@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "npm run build && npm --prefix .. run native:prepare"
+  },
+  "bundle": {
+    "resources": {
+      "../../.local/bundle/glim-relay.exe": "integrations/glim-relay.exe",
+      "../../.local/bundle/glim-vscode.vsix": "integrations/glim-vscode.vsix"
+    }
+  }
+}
