@@ -1,6 +1,6 @@
-# Development checkpoint — 2026-09-30
+# Development checkpoint — 2026-10-01
 
-This is the first implementation slice. It is a runnable browser prototype plus native integration source, not a completed Windows release. Stage 1's native integration gates remain open. The C++ prerequisite is now installed; the remaining local compilation blocker is Windows Smart App Control.
+This is the first implementation slice, not a completed Windows release. The native desktop now passes compilation checks and all workspace Rust tests run successfully. The device owner resolved the local Smart App Control blocker; stage 1's provider integration gates remain open.
 
 ## Verified on this machine
 
@@ -14,10 +14,12 @@ This is the first implementation slice. It is a runnable browser prototype plus 
 | Codex subscription feasibility | Read-only account and quota requests succeeded through installed CLI 0.159.2; both 300-minute and 10,080-minute windows were present |
 | Rust installation | Rust 1.98.1 installed |
 | C++ toolchain | Visual Studio Build Tools 2022 17.14.41 installed with MSVC; compiler and linker work |
-| Rust collector tests | `cargo test -p glim-core --locked`: all four tests passed, including concurrent persistence |
+| Rust tests | `cargo test --workspace --locked`: all four collector tests passed, including concurrent persistence; desktop and relay test targets compile |
 | Native hook helper | `cargo build -p glim-relay --locked` succeeds; eight concurrent processes wrote separate sanitized records, and three malformed/oversized inputs exited silently |
-| Native desktop check | Blocked: Windows Smart App Control rejected a generated dependency build helper, error 4551 |
-| Rust formatting | `cargo fmt` was blocked by Windows Application Control, error 4551 |
+| Native desktop check | `cargo check --workspace --locked`: pass, including tray controls |
+| Rust formatting | `cargo fmt --all`: pass; formatting verification added to CI |
+| Windows packaging | `npm run package:windows` produced `target/release/bundle/nsis/Glim_0.1.0_x64-setup.exe`, approximately 2.18 MiB; unsigned development artifact |
+| Native window smoke checks | Compact/expanded UI, eight synthetic sessions, approval/response previews, stale readings, duplicate-launch reuse, clean Quit and saved-session discovery after restarting were observed in the compiled app |
 
 The quota probe prints only sign-in type, plan type and numeric windows. No email, account identifier, tokens, transcripts, prompts or credit identifiers are emitted. Live percentages are intentionally not committed to this document.
 
@@ -27,19 +29,23 @@ The quota probe prints only sign-in type, plan type and numeric windows. No emai
 - Motion layout transitions with a critically damped 0.4-second spring, separate content positioning to avoid stretched text, 160ms fades/press feedback, immediate keyboard behavior and reduced-motion support.
 - Rust metadata allowlist, capped stdin, quiet 700ms relay deadline, per-event atomic file publication, bounded retention, process identity and lifecycle normalization. Unknown events and subagent events are ignored.
 - Tauri host source with current-user named-pipe ACL, remote-client rejection, bounded messages, reconnectable terminal registry, unique ancestry-based matching, process creation-time validation, exact-terminal reveal acknowledgements and native rounded hit-region setup.
+- Tray controls for showing, hiding, moving the island to the primary screen's top center and quitting. Closing hides to the tray; opening Glim again restores the existing instance. Background resizes respect an explicitly hidden island.
+- Startup establishes the native size, rounded region and non-activating show directly. It does not rely on a ResizeObserver firing in a hidden WebView2 window.
 - Companion extension enumerates current terminals on connect, updates on open/close and retries while Glim is closed. It never reads terminal output or executes terminal commands.
 
-The shared Rust collector and hook relay now compile and have been exercised on Windows. The desktop host is **not yet compiler-validated or exercised**; a dependency build helper was blocked before desktop checking finished.
+The collector, hook relay and desktop host are now compiler-validated on Windows. Synthetic relay tests establish sanitized metadata collection; they do not establish real CLI lifecycle compatibility or exact VS Code foreground behavior.
+
+Native visual checks used a separate `GLIM_DATA_DIR` under `.local/native-smoke`, with clearly named test sessions and a helper process kept alive across app restarts. No real CLI hooks were installed. A blank restart was observed while initial visibility depended entirely on frontend layout; explicitly initializing the native first frame fixed the reproduced restart. The rebuilt app displayed its saved eight-session count without another launch or click. The test app and helper were closed after verification. Full tray-menu behavior, focus preservation, transparent hit testing, multiple monitors and 100/150/200% DPI remain unverified.
 
 ## Native build follow-up
 
 After installing C++ Build Tools, the collector compiled successfully and all four Rust tests passed. The subsequent `cargo check --workspace --locked` stopped when Windows refused to execute `target/debug/build/serde_core-39a8ddc2f5dccb6d/build-script-build.exe`.
 
-CodeIntegrity event 3077 identifies policy `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`. Microsoft's [inbox policy reference](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/inbox-appcontrol-policies) identifies this as **VerifiedAndReputableDesktop**, the Smart App Control enforcement policy. The helper is unsigned. This establishes a security-policy block, not another missing compiler component. No policies or security settings were changed, and the blocked helper was not executed by another route.
+CodeIntegrity event 3077 identified policy `{0283ac0f-fff1-49ae-ada1-8a933130cad6}`. Microsoft's [inbox policy reference](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/inbox-appcontrol-policies) identifies this as **VerifiedAndReputableDesktop**, the Smart App Control enforcement policy. The device owner subsequently reported changing the setting manually, after which the same build path passed. No security settings were changed by Glim or its setup scripts.
 
-The npm native launcher now finds the installed Cargo directory even when the parent application has an old PATH. A packaging-only Tauri config and preparation script build and include the hook relay and companion VSIX under the installed application's `integrations` directory. This packaging path is prepared but not validated by a successful installer build. It does not install CLI hooks automatically.
+The npm native launcher finds the installed Cargo directory even when the parent application has an old PATH. The packaging-only Tauri config and preparation script successfully built the NSIS installer. Its generated installer script includes the hook relay and companion VSIX under `integrations`. CLI hooks and the extension are not installed automatically. Running the compiled executable is separate from testing the installer's clean-install, upgrade and uninstall behavior; those checks remain pending.
 
-Resume native work in an approved development environment, or after the device owner/administrator resolves the policy through an approved process. Building elsewhere does not establish that an unsigned Glim executable will be allowed to run on this PC.
+Public distribution requires trusted signing of the application, relay and installer, plus installation testing with Smart App Control enabled. Users must not need to weaken Windows protections. Unsigned local builds remain development artifacts. Building elsewhere does not make an unsigned executable trusted.
 
 ### Integration progress — 2026-10-01
 
@@ -54,14 +60,14 @@ Hook setup planning is implemented as pure functions in `contracts/src/hook-conf
 - Hook receipt timestamps order observations. Delayed provider events, parallel tools, other Stop hooks requesting continuation, and cross-turn events need real provider fixtures before state labels can be release-grade. No task success or percentage is inferred.
 - A process that still exists proves existence, not agent activity. Old readings become stale after 90 seconds. This threshold is a prototype default.
 - Usage is proven by the standalone Codex probe, but is **not wired into the native island**. Claude usage requires a compatible version and preservation/composition of the existing status line. Neither CLI's settings have been changed.
-- Native shell source positions at the primary display and permits dragging. Monitor selection, persistent placement, edge snapping, disconnect/reconnect, tray recovery and native glass remain unfinished.
+- Native shell positions at the primary display and permits dragging, with tray recovery controls. Monitor selection, persistent placement, edge snapping, disconnect/reconnect and native glass remain unfinished.
 - `Terminal.show(false)` targets the exact terminal in its own VS Code window. It does not yet establish that Windows brings the correct window to the foreground. That remains a release-blocking feasibility check.
-- No installer or native executable has been built. The `.vsix` is a development artifact, not a proven end-to-end integration.
+- An unsigned installer and native executable now build successfully. Trusted signing, clean-machine installation and real provider integration remain pending. The bundled VSIX is a development artifact, not a proven end-to-end integration.
 
 ## Next native work, in order
 
-1. The C++ toolchain and collector tests are now verified. Resolve the Smart App Control build-helper block through an approved development/signing environment before resuming `cargo check --workspace`. Rust formatting also remains affected by Application Control. Do not disable or bypass security controls as part of automated setup.
-2. Fix any native compiler findings, run Rust tests, and start `npm run desktop`. Check no-focus previews, rounded input region, window resizing and 100/150/200% DPI before adding more visual effects.
+1. Native compilation, Rust tests and packaging pass. Complete installed-app checks. Do not change Windows security controls as part of automated setup.
+2. Exercise no-focus previews, rounded input region, tray recovery, window resizing and 100/150/200% DPI before adding more visual effects.
 3. Relay compilation and synthetic stdin checks now pass. Validate provider-specific hook invocation and installed CLI compatibility next. Keep the development relay uninstalled until setup can verify the complete lifecycle path.
 4. Generate and review merged provider hook configuration, preserving all existing hooks and status-line settings. Install only Glim-owned entries and document removal. Complete Codex's `/hooks` trust flow rather than editing trust records.
 5. Install the companion VSIX and prove exact terminal selection across two VS Code windows, two sessions in one folder, split terminals and closed/recreated shells. Add a reliable Windows foreground route before describing this as complete “Return to agent.”

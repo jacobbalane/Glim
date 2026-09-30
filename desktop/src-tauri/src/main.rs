@@ -1,20 +1,32 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod bridge;
+mod shell;
 use serde::Serialize;
-use std::{collections::BTreeMap, sync::{Arc, Mutex}};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 use tauri::{Manager, State};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Session {
-    id: String, provider: String, project: String, activity: String, observed_at: u64,
+    id: String,
+    provider: String,
+    project: String,
+    activity: String,
+    observed_at: u64,
     health: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     terminal: Option<bridge::Target>,
 }
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Snapshot { sessions: Vec<Session>, accounts: Vec<serde_json::Value>, bridge_windows: usize }
+struct Snapshot {
+    sessions: Vec<Session>,
+    accounts: Vec<serde_json::Value>,
+    bridge_windows: usize,
+}
 
 #[tauri::command]
 async fn snapshot(state: State<'_, bridge::Shared>) -> Result<Snapshot, String> {
@@ -41,7 +53,12 @@ async fn snapshot(state: State<'_, bridge::Shared>) -> Result<Snapshot, String> 
 }
 
 #[tauri::command]
-async fn reveal_terminal(state: State<'_, bridge::Shared>, target: bridge::Target) -> Result<(), String> { bridge::reveal(state.inner().clone(), target).await }
+async fn reveal_terminal(
+    state: State<'_, bridge::Shared>,
+    target: bridge::Target,
+) -> Result<(), String> {
+    bridge::reveal(state.inner().clone(), target).await
+}
 
 #[tauri::command]
 fn resize_island(window: tauri::WebviewWindow, width: f64, height: f64) -> Result<(), String> {
@@ -50,53 +67,85 @@ fn resize_island(window: tauri::WebviewWindow, width: f64, height: f64) -> Resul
     let old = window.outer_size().map_err(|e| e.to_string())?;
     let position = window.outer_position().map_err(|e| e.to_string())?;
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
-    window.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
+    window
+        .set_size(tauri::LogicalSize::new(width, height))
+        .map_err(|e| e.to_string())?;
     let mut x = position.x + ((old.width as f64 - width * scale) / 2.0) as i32;
     let mut y = position.y;
     if let Ok(Some(monitor)) = window.current_monitor() {
         let area = monitor.work_area();
-        x = x.clamp(area.position.x, (area.position.x + area.size.width as i32 - (width * scale) as i32).max(area.position.x));
-        y = y.clamp(area.position.y, (area.position.y + area.size.height as i32 - (height * scale) as i32).max(area.position.y));
+        x = x.clamp(
+            area.position.x,
+            (area.position.x + area.size.width as i32 - (width * scale) as i32)
+                .max(area.position.x),
+        );
+        y = y.clamp(
+            area.position.y,
+            (area.position.y + area.size.height as i32 - (height * scale) as i32)
+                .max(area.position.y),
+        );
     }
-    window.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string())?;
+    window
+        .set_position(tauri::PhysicalPosition::new(x, y))
+        .map_err(|e| e.to_string())?;
     #[cfg(windows)]
     unsafe {
-        use windows_sys::Win32::{Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, SetWindowRgn}};
+        use windows_sys::Win32::Graphics::Gdi::{CreateRoundRectRgn, DeleteObject, SetWindowRgn};
         // Native hit region excludes transparent margins and rounded corners.
-        let region = CreateRoundRectRgn((12.0 * scale) as i32, (16.0 * scale) as i32, ((width - 12.0) * scale) as i32, ((height - 16.0) * scale) as i32, (52.0 * scale) as i32, (52.0 * scale) as i32);
+        let region = CreateRoundRectRgn(
+            (12.0 * scale) as i32,
+            (16.0 * scale) as i32,
+            ((width - 12.0) * scale) as i32,
+            ((height - 16.0) * scale) as i32,
+            (52.0 * scale) as i32,
+            (52.0 * scale) as i32,
+        );
         let hwnd = window.hwnd().map_err(|e| e.to_string())?;
-        if SetWindowRgn(hwnd.0 as _, region, 1) == 0 { DeleteObject(region); return Err("Unable to set island hit region".into()); }
+        if SetWindowRgn(hwnd.0 as _, region, 1) == 0 {
+            DeleteObject(region);
+            return Err("Unable to set island hit region".into());
+        }
     }
-    #[cfg(windows)]
-    unsafe {
-        use windows_sys::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWNOACTIVATE};
-        ShowWindow(window.hwnd().map_err(|e| e.to_string())?.0 as _, SW_SHOWNOACTIVATE);
-        Ok(())
-    }
-    #[cfg(not(windows))]
-    window.show().map_err(|e| e.to_string())
+    shell::show_if_visible(&window)
 }
 
 #[tauri::command]
-fn quit(app: tauri::AppHandle) { app.exit(0); }
+fn quit(app: tauri::AppHandle) {
+    app.exit(0);
+}
 
 fn main() {
     let registry: bridge::Shared = Arc::new(Mutex::new(bridge::Registry::default()));
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| { if let Some(window) = app.get_webview_window("island") { let _ = window.show(); } }))
-        .manage(registry.clone())
-        .setup(move |app| {
-            let window = app.get_webview_window("island").ok_or("Island window unavailable")?;
-            if let Some(monitor) = window.primary_monitor()? {
-                let area = monitor.work_area();
-                let scale = monitor.scale_factor();
-                window.set_position(tauri::PhysicalPosition::new(area.position.x + (area.size.width as i32 - (306.0 * scale) as i32) / 2, area.position.y))?;
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.get_webview_window("island") {
+                let _ = shell::show(&window);
             }
+        }))
+        .manage(registry.clone())
+        .manage(shell::Visibility::default())
+        .setup(move |app| {
+            let window = app
+                .get_webview_window("island")
+                .ok_or("Island window unavailable")?;
+            shell::setup(app, &window)?;
+            // WebView2 can defer layout in an initially hidden window. Establish the
+            // native first frame without waiting for the frontend ResizeObserver.
+            resize_island(window, 282.0, 50.0)?;
             #[cfg(windows)]
-            tauri::async_runtime::spawn(async move { if let Err(error) = bridge::serve(registry).await { eprintln!("Glim bridge unavailable: {error}"); } });
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = bridge::serve(registry).await {
+                    eprintln!("Glim bridge unavailable: {error}");
+                }
+            });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, reveal_terminal, resize_island, quit])
+        .invoke_handler(tauri::generate_handler![
+            snapshot,
+            reveal_terminal,
+            resize_island,
+            quit
+        ])
         .run(tauri::generate_context!())
         .expect("Glim could not start");
 }

@@ -4,7 +4,19 @@
 
 A Windows floating island for Claude Code and Codex CLI sessions. Keep working, watching, or playing while Glim brings the moments that need you into view.
 
-**Status:** first development prototype. The browser UI and VS Code extension build, and all four Rust collector tests pass. Native desktop compilation is blocked locally by Windows Smart App Control rejecting a generated dependency helper. The UI preview uses clearly labelled sample data. This is not yet an installable, working agent monitor.
+**Status:** first development prototype. Frontend, extension and native desktop checks pass, along with nine TypeScript tests and four Rust collector tests. Agent onboarding, native subscription usage and end-to-end terminal navigation are still in development. The browser preview uses clearly labelled sample data; this is not yet a complete agent monitor.
+
+## Install the local development preview
+
+A Windows x64 installer has been built locally at:
+
+```text
+target\release\bundle\nsis\Glim_0.1.0_x64-setup.exe
+```
+
+Run it to install Glim for your Windows account, then open Glim from the Start menu. Click the pill to expand it. The tray menu provides Show, Hide, Move to top center and Quit controls. The installer bundles the relay and companion VSIX, but does not configure your agents or install the VS Code extension automatically yet.
+
+This artifact is unsigned and is for development evaluation. Windows may block it on protected machines. No public release or clean-machine installation test has been completed. The installer is generated locally, not committed to GitHub.
 
 ## Try the interface
 
@@ -48,7 +60,9 @@ cargo check --workspace
 npm run desktop
 ```
 
-Once the native validation gates pass, `npm run package:windows` targets a per-user NSIS `.exe` installer, including the hook relay and VS Code companion under `integrations`. The packaging configuration is prepared but has not produced a verified installer. Hook onboarding and end-to-end validation are unfinished; this command is not a release claim.
+`npm run package:windows` builds the per-user NSIS `.exe` installer above, including the hook relay and VS Code companion under `integrations`. Native window checks use isolated synthetic sessions. Hook onboarding, real provider integration and clean-install validation remain unfinished.
+
+Public distribution requires trusted signing of the installer, application and executable helpers, plus installation tests with Windows Smart App Control enabled. Unsigned local builds are development previews. Ordinary users should install Glim through its setup executable without developer tools or security-setting changes.
 
 ## Structure
 

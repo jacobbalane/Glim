@@ -26,6 +26,7 @@ jobs:
       - name: Verify native source
         run: |
           rustup default stable
+          cargo fmt --all --check
           cargo test -p glim-core --locked
           cargo build -p glim-relay --locked
           npm run test:relay

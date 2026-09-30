@@ -6,6 +6,7 @@
 **/dist/
 **/.vite/
 **/coverage/
+desktop/src-tauri/gen/
 *.tsbuildinfo
 
 # Local configuration and credentials
