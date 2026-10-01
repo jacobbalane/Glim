@@ -166,6 +166,7 @@ function main() {
   mkdirSync(path.join(layout, 'integrations'), { recursive: true });
   mkdirSync(path.join(layout, 'Assets'), { recursive: true });
   const inputs = [
+    ['LICENSE', 'LICENSE'],
     ['target/release/glim.exe', 'glim.exe'],
     ['.local/bundle/glim-relay.exe', 'integrations/glim-relay.exe'],
     ['.local/bundle/glim-vscode.vsix', 'integrations/glim-vscode.vsix'],

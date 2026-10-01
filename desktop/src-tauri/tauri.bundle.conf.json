@@ -5,6 +5,7 @@
   },
   "bundle": {
     "resources": {
+      "../../LICENSE": "LICENSE",
       "../../.local/bundle/glim-relay.exe": "integrations/glim-relay.exe",
       "../../.local/bundle/glim-vscode.vsix": "integrations/glim-vscode.vsix"
     }

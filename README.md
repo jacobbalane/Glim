@@ -4,6 +4,8 @@
 
 A Windows floating island for Claude Code and Codex CLI sessions. Keep working, watching, or playing while Glim brings the moments that need you into view.
 
+Free and open source under the [MIT license](LICENSE). [Contributions welcome](CONTRIBUTING.md).
+
 [![Download Glim for Windows — development preview](assets/download-windows.svg)](https://github.com/jacobbalane/Glim/releases/download/v0.1.0-preview.1/Glim_0.1.0_x64-setup.exe)
 
 Windows x64 · **v0.1.0-preview.1** · [Release notes and checksum](https://github.com/jacobbalane/Glim/releases/tag/v0.1.0-preview.1)
@@ -87,5 +89,11 @@ Stable releases require trusted distribution and clean installation tests with W
 No prompts, code, terminal output or authentication tokens belong in Glim's status registry. Provider quotas are account-scoped; a finished response is never presented as proof that a task succeeded.
 
 The [privacy policy](PRIVACY.md) describes local metadata processing, retention, the optional VS Code companion and how to stop collection.
+
+## Contributing and license
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, validation and pull request guidance. Bug reports and feature requests can be submitted through [GitHub Issues](https://github.com/jacobbalane/Glim/issues).
+
+Copyright (c) 2026 Jacob Balane. Glim's original code is available under the [MIT license](LICENSE), which permits personal and commercial use, modification and redistribution with the copyright and license notice retained. Third-party dependencies keep their own licenses.
 
 Source: [jacobbalane/Glim](https://github.com/jacobbalane/Glim).

@@ -3,6 +3,8 @@ name = "glim"
 version = "0.1.0"
 description = "Your agents, at a glance."
 edition = "2021"
+license.workspace = true
+repository.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
