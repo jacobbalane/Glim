@@ -7,7 +7,7 @@ This is the first implementation slice, not a completed Windows release. The nat
 | Check | Result |
 | --- | --- |
 | Frontend and extension TypeScript | Pass |
-| TypeScript unit tests | Nine passing: data freshness/alerts, probe privacy, hook configuration preservation, idempotent reinstall and conservative removal |
+| TypeScript unit tests | Eleven passing: data freshness/alerts, probe privacy, hook configuration preservation, idempotent reinstall, conservative removal and MSIX identity/manifest checks |
 | Browser interaction tests | Four passing in installed Edge: empty/multiple sessions, focus/alerts, keyboard/reduced motion, interruption/narrow layout |
 | Frontend production build | Pass |
 | VS Code package | Generated `.local/glim-vscode-0.1.0.vsix`; not installed or published |
@@ -45,7 +45,17 @@ CodeIntegrity event 3077 identified policy `{0283ac0f-fff1-49ae-ada1-8a933130cad
 
 The npm native launcher finds the installed Cargo directory even when the parent application has an old PATH. The packaging-only Tauri config and preparation script successfully built the NSIS installer. Its generated installer script includes the hook relay and companion VSIX under `integrations`. CLI hooks and the extension are not installed automatically. Running the compiled executable is separate from testing the installer's clean-install, upgrade and uninstall behavior; those checks remain pending.
 
-Stable public releases require trusted signing of the application, relay and installer, plus installation testing with Smart App Control enabled. Users must not need to weaken Windows protections. At the owner's request, the current unsigned build is being shared as a clearly labelled GitHub development prerelease with a README download button and checksum. This does not complete stable-release validation. Building elsewhere does not make an unsigned executable trusted.
+Stable public releases require trusted distribution and installation testing with Windows protections enabled. The owner has selected Microsoft Store MSIX, where Microsoft signs the approved package; direct EXE releases would still require signing the application, relay and installer. Users must not need to weaken Windows protections. At the owner's request, the current unsigned build is shared as a clearly labelled GitHub development prerelease with a README download button and checksum. This does not complete stable-release validation. Building elsewhere does not make an unsigned executable trusted.
+
+### Microsoft Store preparation — 2026-10-01
+
+`npm run package:msix -- --validation` builds an unsigned Windows 11 x64 MSIX with an explicitly temporary identity. MakeAppx manifest validation and pack/unpack SHA-256 comparisons pass for the application, relay, VSIX, manifest and three icon files. The script supports the actual Partner Center identity through a separate local JSON file, rejects placeholder identities in Store mode and emits checksums/build reports. It does not sign, install or submit packages.
+
+The manifest declares a full-trust desktop application at normal user integrity and a console execution alias for the relay. This prepares a stable helper command across Store updates; installed alias invocation, packaged storage, process ancestry and the VS Code bridge still require validation. No provider hooks or extension settings were modified.
+
+Dependency inspection found that the original packaged relay imported `VCRUNTIME140.dll`. The packaging preparation now builds the helper with a static C runtime. Inspection of the rebuilt helper shows only Windows system DLL imports, and its process-level checks passed with eight concurrent synthetic sessions plus malformed/oversized inputs. This change applies to future builds; the published preview has not been replaced.
+
+Partner Center registration, name reservation and the assigned package identity are still required. Store availability, clean-account package installation, upgrade/uninstall behavior and Windows App Certification Kit results are not yet established. The native product limitations below also remain. See the [Store preparation guide](MICROSOFT_STORE.md) for the exact account fields and remaining validation steps.
 
 ### Integration progress — 2026-10-01
 

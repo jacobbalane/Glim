@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:uap11="http://schemas.microsoft.com/appx/manifest/uap/windows10/11"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 uap10 uap11 rescap">
+  <Identity Name="{{identityName}}" Publisher="{{publisher}}"
+    Version="{{packageVersion}}" ProcessorArchitecture="x64" />
+  <Properties>
+    <DisplayName>{{displayName}}</DisplayName>
+    <PublisherDisplayName>{{publisherDisplayName}}</PublisherDisplayName>
+    <Description>Your agents, at a glance.</Description>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop"
+      MinVersion="10.0.22000.0" MaxVersionTested="10.0.26200.0" />
+  </Dependencies>
+  <Applications>
+    <Application Id="Glim" Executable="glim.exe"
+      uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+      <uap:VisualElements DisplayName="{{displayName}}"
+        Description="Your agents, at a glance."
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        BackgroundColor="transparent" />
+      <Extensions>
+        <uap5:Extension Category="windows.appExecutionAlias"
+          Executable="integrations\glim-relay.exe"
+          uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL"
+          uap11:SupportsMultipleInstances="true" uap11:Subsystem="console">
+          <uap5:AppExecutionAlias>
+            <uap5:ExecutionAlias Alias="{{relayAlias}}" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

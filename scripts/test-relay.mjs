@@ -5,7 +5,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const executable = path.join(root, 'target', 'debug', 'glim-relay.exe');
+if (process.argv.length > 3)
+  throw new Error('Usage: node scripts/test-relay.mjs [relay-executable]');
+const executable = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.join(root, 'target', 'debug', 'glim-relay.exe');
 const fixtureRoot = path.join(root, '.local', 'relay-tests');
 await mkdir(fixtureRoot, { recursive: true });
 const directory = await mkdtemp(path.join(fixtureRoot, 'run-'));

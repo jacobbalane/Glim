@@ -23,6 +23,9 @@ desktop/src-tauri/gen/
 # Packaged releases
 *.vsix
 *.msi
+*.msix
+*.msixupload
+*.msixbundle
 Glim-Setup*.exe
 
 # Operating system files

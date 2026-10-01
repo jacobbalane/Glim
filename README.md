@@ -64,7 +64,9 @@ npm run desktop
 
 `npm run package:windows` builds the per-user NSIS installer at `target/release/bundle/nsis/Glim_0.1.0_x64-setup.exe`, including the hook relay and VS Code companion under `integrations`. Native window checks use isolated synthetic sessions. Hook onboarding, real provider integration and clean-install validation remain unfinished.
 
-Stable public releases require trusted signing of the installer, application and executable helpers, plus installation tests with Windows Smart App Control enabled. Unsigned prereleases are explicitly labelled development previews. Ordinary users should be able to install the finished app without developer tools or security-setting changes.
+The selected public distribution route is **Microsoft Store MSIX**, where Microsoft signs the approved package. Packaging preparation is in progress; Glim is not yet available in the Store. See the [Store setup and build guide](docs/MICROSOFT_STORE.md). The existing GitHub EXE remains an unsigned development preview.
+
+Stable releases require trusted distribution and clean installation tests with Windows protections enabled. Direct EXE distribution would still require trusted signing of the installer, application and executable helpers. Ordinary users should be able to install the finished app without developer tools or security-setting changes.
 
 ## Structure
 
@@ -76,7 +78,8 @@ Stable public releases require trusted signing of the installer, application and
 | `hook-relay` | Small, quiet Rust CLI hook executable |
 | `vscode-extension` | Terminal discovery and exact-terminal reveal |
 | `contracts` | Frontend contracts, freshness and attention policy |
-| `scripts` | Read-only capability probe |
+| `scripts` | Packaging, verification and read-only capability probes |
+| `packaging/msix` | Microsoft Store package manifest and identity template |
 | `tests/ui` | Browser interaction checks |
 
 [PLANNING.md](PLANNING.md) contains the agreed product plan. [Implementation checkpoint](docs/IMPLEMENTATION.md) records verified behavior, native blockers and the next integration gates.
