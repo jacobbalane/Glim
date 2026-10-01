@@ -86,4 +86,6 @@ Stable releases require trusted distribution and clean installation tests with W
 
 No prompts, code, terminal output or authentication tokens belong in Glim's status registry. Provider quotas are account-scoped; a finished response is never presented as proof that a task succeeded.
 
+The [privacy policy](PRIVACY.md) describes local metadata processing, retention, the optional VS Code companion and how to stop collection.
+
 Source: [jacobbalane/Glim](https://github.com/jacobbalane/Glim).

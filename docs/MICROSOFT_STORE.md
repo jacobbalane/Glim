@@ -64,6 +64,7 @@ The package registers **`glim-relay.exe`** as a console app execution alias poin
 | Updates and coexistence | Hook alias and stored observations survive a version increase. A previous NSIS installation does not silently conflict through the shared pipe/single-instance mechanism. |
 | Uninstall | Glim-owned hook entries can be removed without changing other hooks; alias and package removal leave no broken user workflow. MSIX uninstall does not run the NSIS uninstaller or custom hook cleanup. |
 | Product readiness | Complete real Claude/Codex onboarding and monitoring, quota adapters and the native interaction checks in `IMPLEMENTATION.md`. |
+| Privacy and storage | Review the current plain JSON observation files and local IPC against [Store policy 10.5](https://learn.microsoft.com/en-us/windows/apps/publish/store-policies#105-personal-information), including its data-protection requirements. The privacy policy documents current behavior; publishing it does not establish compliance. |
 | Certification | Run the Windows App Certification Kit, complete age ratings, provide accurate screenshots, support/privacy URLs and capability explanations, and review the final submission. |
 
 The underlying behaviors are documented in Microsoft's [packaged desktop app guide](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes), [execution alias schema](https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-extension) and [WebView2 distribution guide](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution). These references establish available mechanisms; installed Glim still needs the checks above.
@@ -71,3 +72,34 @@ The underlying behaviors are documented in Microsoft's [packaged desktop app gui
 For initial server-side package validation, open Glim Desktop Island in Partner Center, choose **Start submission**, then upload the identity-matched MSIX under **Packages** and save the draft. Draft upload does not publish the app. Keep certification pending until the installation, integration and product-readiness checks above are complete; then review the listing and submit for certification. See Microsoft's [submission steps](https://learn.microsoft.com/en-us/windows/apps/publish/get-started).
 
 The README can link to the actual Store listing after approval. Do not advertise an unapproved package as Store available or replace the GitHub download with an unsigned MSIX.
+
+## Properties for the current Store draft
+
+Use these values for the current preview; reassess declarations when its behavior changes.
+
+| Field | Value |
+| --- | --- |
+| Category | Developer tools |
+| Subcategory | Utilities |
+| Secondary category | Leave blank / None |
+| Accesses, collects or transmits personal information | Yes. Locally processed identifiers and project/terminal names can identify a person or their work. |
+| Privacy policy URL | `https://github.com/jacobbalane/Glim/blob/main/PRIVACY.md` |
+| Website | `https://github.com/jacobbalane/Glim` |
+| Support contact info | `https://github.com/jacobbalane/Glim/issues` |
+| Optional phone/address | Leave blank for this individual developer submission. |
+| Immersive / Windows Mixed Reality display modes | Unchecked; the app is a 2D desktop window. |
+| Optional hardware requirements | Leave blank / Not specified until measured; the package already targets Windows 11 x64. |
+
+Partner Center also supports **Provide privacy policy text**: paste the contents of [PRIVACY.md](../PRIVACY.md) if using that option. No paid policy hosting is needed. See Microsoft's [category table](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/categories-and-subcategories), [privacy and support guidance](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/support-info), and [optional system requirements](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/system-requirements).
+
+For the [documented product declarations](https://learn.microsoft.com/en-us/windows/apps/publish/publish-your-app/msix/product-declarations), use these recommendations if those exact options appear:
+
+- **Purchases outside Microsoft Store commerce:** unchecked; Glim has no purchase flow.
+- **Tested to meet accessibility guidelines:** unchecked until end-to-end accessibility testing is complete.
+- **Install to alternate drives or removable storage:** unchecked for now; validate that installation route before enabling it.
+- **Include app data in automatic OneDrive backups:** unchecked; session observations are temporary local monitoring data.
+- **Record and broadcast clips of this game:** unchecked; Glim is not a game.
+- **Pen and ink input:** unchecked; no dedicated pen or ink features.
+- **Incorporates generative AI features:** unchecked for the current status viewer; Glim does not generate content or invoke models. Reassess if agent interaction is added.
+
+Review any additional declaration by its actual label rather than assuming all checkboxes have the same meaning. Save the draft. Completing Properties does not mean the app is ready for certification; the remaining product checks above still apply.
