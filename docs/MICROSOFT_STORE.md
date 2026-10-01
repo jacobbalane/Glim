@@ -6,8 +6,10 @@ The packaging target is initially **Windows 11 x64** (minimum build 22000), matc
 
 ## Publisher account and identity
 
+The reserved Store title for this project is **Glim Desktop Island**, under publisher **jacobbalane**. The owner supplied the assigned identity on 2026-10-01, and it is configured in `.local/msix-identity.json`. The short project name and GitHub repository remain Glim.
+
 1. Begin at [storedeveloper.microsoft.com](https://storedeveloper.microsoft.com/), using the free registration flow. Individual is appropriate for a personal hobby project. Complete Microsoft sign-in, identity verification and agreements yourself. See [Microsoft's registration instructions](https://learn.microsoft.com/en-us/windows/apps/publish/partner-center/open-a-developer-account).
-2. In Partner Center, create an **MSIX/APPX app**, and reserve **Glim** if available. The EXE/MSI submission route has different signing requirements and is not this route.
+2. In Partner Center, create an **MSIX or PWA app** and reserve an available title. This project's reservation is **Glim Desktop Island** because **Glim** was unavailable. The EXE/MSI submission route has different signing requirements and is not this route.
 3. Open **Product management → Product identity**. Copy the three exact [identity values](https://learn.microsoft.com/en-us/windows/apps/publish/view-app-identity-details) into a local copy of `packaging/msix/identity.example.json`:
 
    | JSON key | Partner Center value |
@@ -43,6 +45,8 @@ Output is under `.local/msix/validation-*/` or `.local/msix/store-candidate-*/`.
 
 An unsigned MSIX is a build/submission artifact, **not a consumer download**. The script does not install a certificate, change Windows settings, register an app, or submit to Partner Center. Building and extracting successfully only validates packaging; it does not establish that Windows will install it or that Microsoft will certify it. Microsoft documents the scope of [MakeAppx validation](https://learn.microsoft.com/en-us/windows/msix/package/create-app-package-with-makeappx-tool).
 
+The first identity-matched candidate passed local package validation and a temporary development-layout registration on 2026-10-01. Its registered relay alias passed eight concurrent synthetic sessions and three malformed-input cases using isolated data. Both the registration and alias were removed afterward. This was a developer test using the PC's existing Developer Mode, not a signed MSIX installation or a Store certification result. Visual inspection was unavailable because the Computer Use helper could not connect.
+
 ## Package behavior to verify
 
 The manifest uses `packagedClassicApp` with `mediumIL` and the `runFullTrust` capability. This retains desktop window/tray behavior and normal user permissions. It does not request administrator elevation. Proposed capability explanation for certification:
@@ -54,7 +58,7 @@ The package registers **`glim-relay.exe`** as a console app execution alias poin
 | Check before submission | Required evidence |
 | --- | --- |
 | Packaged launch and WebView2 | Start menu launch renders the island on a clean Windows 11 account. WebView2 is normally included with Windows 11; handle a missing runtime explicitly. Unlike the NSIS installer, this MSIX has no bootstrapper. |
-| Hook alias | Arguments, JSON stdin, silent completion and concurrent calls work from native VS Code terminals. Calls do not flash console windows or interfere with agent behavior. |
+| Hook alias | Arguments, JSON stdin, silent completion and eight concurrent synthetic calls passed through the registered alias. Still verify actual CLI hooks from VS Code terminals, console-window behavior and agent performance. |
 | Shared storage | Packaged relay and host see the same metadata, including when the island is closed, after reboot and across upgrades. Account for MSIX AppData virtualization and any previous NSIS data. |
 | VS Code bridge | The packaged host accepts the unpackaged extension's current-user connection, matches ancestry through alias activation and returns to the exact terminal/window. |
 | Updates and coexistence | Hook alias and stored observations survive a version increase. A previous NSIS installation does not silently conflict through the shared pipe/single-instance mechanism. |
@@ -64,4 +68,6 @@ The package registers **`glim-relay.exe`** as a console app execution alias poin
 
 The underlying behaviors are documented in Microsoft's [packaged desktop app guide](https://learn.microsoft.com/en-us/windows/msix/desktop/desktop-to-uwp-behind-the-scenes), [execution alias schema](https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/uapmanifestschema/element-uap5-extension) and [WebView2 distribution guide](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution). These references establish available mechanisms; installed Glim still needs the checks above.
 
-After validation, upload the identity-matched MSIX through Partner Center and review certification results. The README can link to the actual Store listing after approval. Do not advertise an unapproved package as Store available or replace the GitHub download with an unsigned MSIX.
+For initial server-side package validation, open Glim Desktop Island in Partner Center, choose **Start submission**, then upload the identity-matched MSIX under **Packages** and save the draft. Draft upload does not publish the app. Keep certification pending until the installation, integration and product-readiness checks above are complete; then review the listing and submit for certification. See Microsoft's [submission steps](https://learn.microsoft.com/en-us/windows/apps/publish/get-started).
+
+The README can link to the actual Store listing after approval. Do not advertise an unapproved package as Store available or replace the GitHub download with an unsigned MSIX.

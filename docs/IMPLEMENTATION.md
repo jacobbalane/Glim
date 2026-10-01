@@ -55,7 +55,11 @@ The manifest declares a full-trust desktop application at normal user integrity 
 
 Dependency inspection found that the original packaged relay imported `VCRUNTIME140.dll`. The packaging preparation now builds the helper with a static C runtime. Inspection of the rebuilt helper shows only Windows system DLL imports, and its process-level checks passed with eight concurrent synthetic sessions plus malformed/oversized inputs. This change applies to future builds; the published preview has not been replaced.
 
-Partner Center registration, name reservation and the assigned package identity are still required. Store availability, clean-account package installation, upgrade/uninstall behavior and Windows App Certification Kit results are not yet established. The native product limitations below also remain. See the [Store preparation guide](MICROSOFT_STORE.md) for the exact account fields and remaining validation steps.
+The owner supplied the Partner Center identity for **Glim Desktop Island**, under publisher **jacobbalane**. It is configured in the ignored `.local/msix-identity.json`. An identity-matched `1.0.0.0` Windows package now builds, passes MakeAppx validation and preserves all staged file hashes after extraction. This Windows package version is separate from the current `0.1.0` application version.
+
+With Developer Mode already enabled on this PC, the generated layout was temporarily registered using `Add-AppxPackage -Register`. Windows reported the expected package identity and `Status: Ok`. The registered `glim-relay.exe` execution alias passed the existing process test: eight concurrent synthetic sessions persisted sanitized metadata, and three malformed/oversized inputs exited silently. The test used an isolated `GLIM_DATA_DIR`, so it does not prove the host and helper's default virtualized storage or real CLI ancestry. The test registration and alias were removed afterward; no existing Glim package was replaced, and no security settings, certificates or provider configuration were changed.
+
+Packaged visual testing could not proceed: Computer Use reported `native pipe is unavailable` on discovery and a retry. The signed MSIX installation path, packaged host/VS Code connection, clean-account installation, upgrade behavior and Windows App Certification Kit results remain unverified. The native product limitations below also remain. See the [Store preparation guide](MICROSOFT_STORE.md) for the remaining validation steps.
 
 ### Integration progress — 2026-10-01
 
