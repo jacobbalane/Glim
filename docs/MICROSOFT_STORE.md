@@ -73,6 +73,14 @@ For initial server-side package validation, open Glim Desktop Island in Partner 
 
 The README can link to the actual Store listing after approval. Do not advertise an unapproved package as Store available or replace the GitHub download with an unsigned MSIX.
 
+The [English Store listing draft](STORE_LISTING.md) provides field-by-field copy for the current preview and screenshot guidance for later updates.
+
+## Partner Center checkpoint - 2026-10-01
+
+The owner reports that all six submission sections now show **Complete**: Pricing and availability, Properties, Age ratings, Packages, Store listings (English, United States), and Submission options. Partner Center also marks `Glim_1.0.0.0_x64_store-candidate.msix` **Validated**. Generated age ratings include ESRB Everyone, PEGI 3 and IARC 3+.
+
+This records completion of the Store form. Certification and publication have not been reported as started. The uploaded listing text and screenshot have not been independently reviewed after entry. Keep the existing draft and manual publishing hold while completing the product and installation checks above. The next release work is real Claude/Codex hook setup and lifecycle validation, native subscription-usage adapters, reliable return to the correct VS Code terminal, and installed-package testing. Then upload a package with an increased version and update the listing to match its verified behavior before submitting for certification.
+
 ## Properties for the current Store draft
 
 Use these values for the current preview; reassess declarations when its behavior changes.
