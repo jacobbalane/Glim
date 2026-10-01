@@ -4,19 +4,21 @@
 
 A Windows floating island for Claude Code and Codex CLI sessions. Keep working, watching, or playing while Glim brings the moments that need you into view.
 
-**Status:** first development prototype. Frontend, extension and native desktop checks pass, along with nine TypeScript tests and four Rust collector tests. Agent onboarding, native subscription usage and end-to-end terminal navigation are still in development. The browser preview uses clearly labelled sample data; this is not yet a complete agent monitor.
+[![Download Glim for Windows — development preview](assets/download-windows.svg)](https://github.com/jacobbalane/Glim/releases/download/v0.1.0-preview.1/Glim_0.1.0_x64-setup.exe)
 
-## Install the local development preview
+Windows x64 · **v0.1.0-preview.1** · [Release notes and checksum](https://github.com/jacobbalane/Glim/releases/tag/v0.1.0-preview.1)
 
-A Windows x64 installer has been built locally at:
+**Development preview — unsigned.** This build lets you try the native island. Automatic Claude/Codex setup, live subscription usage and end-to-end terminal navigation are still in development. It is not yet a complete agent monitor. Windows may warn about or block the unsigned installer.
 
-```text
-target\release\bundle\nsis\Glim_0.1.0_x64-setup.exe
-```
+## Install the preview
 
-Run it to install Glim for your Windows account, then open Glim from the Start menu. Click the pill to expand it. The tray menu provides Show, Hide, Move to top center and Quit controls. The installer bundles the relay and companion VSIX, but does not configure your agents or install the VS Code extension automatically yet.
+1. [Download the Windows installer](https://github.com/jacobbalane/Glim/releases/download/v0.1.0-preview.1/Glim_0.1.0_x64-setup.exe).
+2. Run `Glim_0.1.0_x64-setup.exe` and complete setup for your Windows account.
+3. Open **Glim** from Start and click the pill to expand it.
 
-This artifact is unsigned and is for development evaluation. Windows may block it on protected machines. No public release or clean-machine installation test has been completed. The installer is generated locally, not committed to GitHub.
+The tray menu provides Show, Hide, Move to top center and Quit controls. The installer bundles the relay and companion VSIX, but does not configure your agents or install the VS Code extension automatically yet. No developer tools are needed to run the packaged app; setup may download Microsoft's WebView2 runtime if it is missing.
+
+The download is a GitHub **prerelease** for development evaluation. Clean-machine install/upgrade testing and trusted code signing remain pending. See the [implementation checkpoint](docs/IMPLEMENTATION.md) for what has been verified.
 
 ## Try the interface
 
@@ -60,9 +62,9 @@ cargo check --workspace
 npm run desktop
 ```
 
-`npm run package:windows` builds the per-user NSIS `.exe` installer above, including the hook relay and VS Code companion under `integrations`. Native window checks use isolated synthetic sessions. Hook onboarding, real provider integration and clean-install validation remain unfinished.
+`npm run package:windows` builds the per-user NSIS installer at `target/release/bundle/nsis/Glim_0.1.0_x64-setup.exe`, including the hook relay and VS Code companion under `integrations`. Native window checks use isolated synthetic sessions. Hook onboarding, real provider integration and clean-install validation remain unfinished.
 
-Public distribution requires trusted signing of the installer, application and executable helpers, plus installation tests with Windows Smart App Control enabled. Unsigned local builds are development previews. Ordinary users should install Glim through its setup executable without developer tools or security-setting changes.
+Stable public releases require trusted signing of the installer, application and executable helpers, plus installation tests with Windows Smart App Control enabled. Unsigned prereleases are explicitly labelled development previews. Ordinary users should be able to install the finished app without developer tools or security-setting changes.
 
 ## Structure
 

@@ -45,7 +45,7 @@ CodeIntegrity event 3077 identified policy `{0283ac0f-fff1-49ae-ada1-8a933130cad
 
 The npm native launcher finds the installed Cargo directory even when the parent application has an old PATH. The packaging-only Tauri config and preparation script successfully built the NSIS installer. Its generated installer script includes the hook relay and companion VSIX under `integrations`. CLI hooks and the extension are not installed automatically. Running the compiled executable is separate from testing the installer's clean-install, upgrade and uninstall behavior; those checks remain pending.
 
-Public distribution requires trusted signing of the application, relay and installer, plus installation testing with Smart App Control enabled. Users must not need to weaken Windows protections. Unsigned local builds remain development artifacts. Building elsewhere does not make an unsigned executable trusted.
+Stable public releases require trusted signing of the application, relay and installer, plus installation testing with Smart App Control enabled. Users must not need to weaken Windows protections. At the owner's request, the current unsigned build is being shared as a clearly labelled GitHub development prerelease with a README download button and checksum. This does not complete stable-release validation. Building elsewhere does not make an unsigned executable trusted.
 
 ### Integration progress — 2026-10-01
 

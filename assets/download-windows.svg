@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="326" height="68" viewBox="0 0 326 68" role="img" aria-labelledby="title desc">
+  <title id="title">Download Glim for Windows</title>
+  <desc id="desc">Windows x64 development preview</desc>
+  <rect x="0.5" y="0.5" width="325" height="67" rx="17" fill="#18201c" stroke="#36533f"/>
+  <rect x="15" y="15" width="38" height="38" rx="11" fill="#263d2e"/>
+  <path d="M34 23v16m-6-6 6 6 6-6M26 43h16" fill="none" stroke="#b2e2c0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="67" y="30" fill="#f0f5f1" font-family="Segoe UI,Arial,sans-serif" font-size="16" font-weight="600">Download for Windows</text>
+  <text x="67" y="49" fill="#b2c3b7" font-family="Segoe UI,Arial,sans-serif" font-size="12">x64 &#183; Development preview</text>
+</svg>
