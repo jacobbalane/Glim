@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "preview:capture": "node scripts/capture-previews.mjs",
+    "site": "vite --config site/vite.config.ts",
+    "site:build": "tsc -p site && vite build --config site/vite.config.ts",
     "test": "vitest run",
     "test:ui": "playwright test",
     "test:native": "node scripts/native-smoke.mjs",

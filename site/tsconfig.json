@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "noUnusedLocals": true },
+  "include": [".", "../preview-claude", "../src/vite-env.d.ts"]
+}

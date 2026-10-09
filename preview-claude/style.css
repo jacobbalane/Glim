@@ -8,8 +8,8 @@
   --page-line: rgba(24, 24, 27, 0.1);
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  /* Glim purple is the logo's color. State colors are shared by the island and the tray. */
-  --glim: #7b61ff;
+  /* Glim indigo is the logo's color. State colors are shared by the island and the tray. */
+  --glim: #6366f1;
   --blue: #5cc8ff;
   --teal: #36d4c4;
   --amber: #ffc53d;
@@ -629,7 +629,7 @@ html {
   fill: var(--tone);
   transition: fill 300ms var(--ease-out);
 }
-/* The primary logo: Glim purple with white eyes, on any background. */
+/* The primary logo: Glim indigo with white eyes, on any background. */
 .tone-brand {
   --tone: var(--glim);
   --eye: #fff;

@@ -136,7 +136,7 @@ function Live({ onLook }: { onLook: (look: Look) => void }) {
     setDeskWidth(el.clientWidth);
     return () => observer.disconnect();
   }, []);
-  // The page logo's eyes follow the island's current state; its color stays Glim purple.
+  // The page logo's eyes follow the island's current state; its color stays Glim indigo.
   const top = groupSessions(sessions, seenAt)[0];
   const mood: Mood = prefs.paused ? 'closed' : top ? top.look.mood : 'open';
   useEffect(() => onLook({ mood }), [mood, onLook]);
@@ -574,7 +574,7 @@ const IDEAS: [string, string][] = [
   ],
   [
     'Color means state, and only state',
-    'Amber needs you, red failed, green handed the turn back. Glim purple belongs to the logo alone; Claude orange and Codex blue stay in their logos and the usage chart.',
+    'Amber needs you, red failed, green handed the turn back. Glim indigo belongs to the logo alone; Claude orange and Codex blue stay in their logos and the usage chart.',
   ],
   [
     'The mascot is the status light',
@@ -710,7 +710,7 @@ function Page() {
                 </li>
                 <li>
                   The logo is alive: pick a state, or watch the logo at the top of this page follow
-                  the island above. It is always Glim purple with white eyes; only the eyes follow
+                  the island above. It is always Glim indigo with white eyes; only the eyes follow
                   the state.
                 </li>
               </ul>
@@ -760,12 +760,8 @@ function Page() {
               </div>
               <div className="before-after">
                 <figure>
-                  <img src="/glim.svg" width={104} height={104} alt="Current Glim app icon" />
-                  <figcaption>Today</figcaption>
-                </figure>
-                <figure>
                   <AppIcon size={104} />
-                  <figcaption>Proposed</figcaption>
+                  <figcaption>App icon</figcaption>
                 </figure>
               </div>
             </div>

@@ -50,12 +50,12 @@ export function glimPath(cx: number, top: number, w: number, eyeScale = 1) {
 
 const BODY = glimPath(32, 0, 40).body;
 
-/** Glim purple: the primary logo is this body with white eyes, on any background. */
-export const GLIM_PURPLE = '#7b61ff';
+/** Glim indigo: the primary logo is this body with white eyes, on any background. */
+export const GLIM_INDIGO = '#6366f1';
 
 /**
  * The character. Its fill is the state color and its eyes are the mood. `brand` is the
- * primary logo: Glim purple with white eyes.
+ * primary logo: Glim indigo with white eyes.
  */
 export function Eyes({
   mood,
@@ -122,7 +122,7 @@ export function Eyes({
   );
 }
 
-/** The primary logo: always Glim purple with white eyes. Only the eyes follow the state. */
+/** The primary logo: always Glim indigo with white eyes. Only the eyes follow the state. */
 export function Mark({
   size = 32,
   label,
@@ -173,7 +173,7 @@ export function LogoStage() {
 }
 
 const ICON_TONES = {
-  brand: GLIM_PURPLE,
+  brand: GLIM_INDIGO,
   attention: '#ffc53d',
   success: '#3ddc84',
   error: '#ff6a5f',
@@ -182,7 +182,7 @@ type IconTone = keyof typeof ICON_TONES;
 
 /**
  * The app icon: the primary logo centered on a slice of desktop. Small sizes get a larger
- * character with bigger eyes. The tray swaps the purple for a state color when it matters.
+ * character with bigger eyes. The tray swaps the indigo for a state color when it matters.
  */
 export function AppIcon({ size = 64, tone = 'brand' }: { size?: number; tone?: IconTone }) {
   const id = useId().replace(/:/g, '');
@@ -242,7 +242,7 @@ export function SidebarArt({ happy = false }: { happy?: boolean }) {
       <rect width="164" height="314" fill={`url(#${id}-desk)`} />
       <path
         d={shape.body}
-        fill={GLIM_PURPLE}
+        fill={GLIM_INDIGO}
         style={{ filter: 'drop-shadow(0 6px 8px rgba(9,9,11,.2))' }}
       />
       {happy ? (
@@ -264,7 +264,7 @@ export function HeaderArt() {
   return (
     <svg width="150" height="57" viewBox="0 0 150 57" aria-hidden="true">
       <rect width="150" height="57" fill="#fff" />
-      <path d={shape.body} fill={GLIM_PURPLE} />
+      <path d={shape.body} fill={GLIM_INDIGO} />
       <path d={shape.eyes} fill="#fff" />
     </svg>
   );

@@ -81,6 +81,7 @@ The owner checks what an agent cannot see:
 - Keep the existing behavior: Esc, outside click and window blur collapse the island. Background updates never expand it or take focus. Onboarding opens setup when `onboardingComplete` is false. Reduced motion is honored.
 - Keep the internal view id `history` for the Usage sheet. The tray and `open_panel` (`src-tauri/src/lib.rs`) only accept `settings`, `history` and `setup`.
 - Keep `preview-claude/` until the owner says to remove it. It is the visual spec.
+- The website in `site/` (`npm run site`, port 3000) imports the island, the character and the page theme from `preview-claude/`. Do not move or rename anything there. Once the components live in `src/`, the site can import them from there instead; ask the owner first.
 
 ## Starting point
 
@@ -96,7 +97,7 @@ The app moved on after this document was first written. Build on what is there:
 
 ## The idea
 
-The island speaks in states, not numbers. Working agents take turns in the notch; anything that needs you takes over for a moment, then waits in a banner below it until it is handled. Inside the island, color only ever means state. The Glim character is the status light: its fill is the state color and its eyes are the mood. Glim purple belongs to the logo alone. Provider color appears only in provider logos and the usage chart.
+The island speaks in states, not numbers. Working agents take turns in the notch; anything that needs you takes over for a moment, then waits in a banner below it until it is handled. Inside the island, color only ever means state. The Glim character is the status light: its fill is the state color and its eyes are the mood. Glim indigo belongs to the logo alone. Provider color appears only in provider logos and the usage chart.
 
 ## State language
 
@@ -150,7 +151,7 @@ All island values live on the `.gl` scope in `preview-claude/style.css`.
 
 | Token                           | Value                   | Use                                                            |
 | ------------------------------- | ----------------------- | -------------------------------------------------------------- |
-| `--glim`                        | `#7b61ff`               | The logo's body, with white eyes. Logo only.                   |
+| `--glim`                        | `#6366f1`               | The logo's body, with white eyes. Logo only.                   |
 | `--ink`                         | `#000`                  | Island surface, the character's eyes                           |
 | `--fg-1`                        | `#f4f4f5`               | Primary text, primary button                                   |
 | `--fg-2`                        | `#a9a9b1`               | Secondary text                                                 |
@@ -166,7 +167,7 @@ All island values live on the `.gl` scope in `preview-claude/style.css`.
 | calm / off tones                | `#8f8f99` / `#5e5e68`   | Ready, Interrupted, Paused / Quiet. Use off for graphics only. |
 | Claude / Codex series           | `#d97757` / `#7a9dff`   | Usage chart and its legend only                                |
 
-Remove the old lavender accent (`#b09afa`) from toggles, focus rings, step numbers and the star border. Purple now lives only in the logo, as `--glim` (`#7b61ff`): the same hue, deep enough that white eyes stay visible on it.
+Remove the old lavender accent (`#b09afa`) from toggles, focus rings, step numbers and the star border. Glim's color is indigo, and it lives only in the logo, as `--glim` (`#6366f1`): deep enough that white eyes stay visible on it.
 
 Meters use a `rgba(255,255,255,.12)` track and an `#e6e6ea` fill. The fill turns amber at 75% and red at 90%.
 
@@ -466,7 +467,7 @@ The top corners are round, with a radius of 15% of the body width, so no edge of
 - Line moods: strokes 3 units wide, round caps and joins.
 - `tone`:
   - A state tone fills the body with that color and draws the eyes in `--ink` (#000).
-  - `brand` is the primary logo: the body in `--glim` purple and the eyes in white, on any background.
+  - `brand` is the primary logo: the body in `--glim` indigo and the eyes in white, on any background.
 
 | Mood     | Drawing                                                              | Motion                                                                                                                                  | Used for               |
 | -------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
@@ -488,8 +489,8 @@ The character replaces the artwork in `src/Mascot.tsx` and `WorkingIndicator.tsx
 
 ### Logo
 
-- Mark: `Mark` in `brand.tsx`, the character in `brand` tone: Glim purple with white eyes, on light and dark backgrounds alike. It never changes color.
-- For static files (`public/brand/*.svg`, favicon), use two paths from `glimPath(32, 0, 40)` in the same viewBox: `body` filled `#7b61ff`, then `eyes` filled `#fff`.
+- Mark: `Mark` in `brand.tsx`, the character in `brand` tone: Glim indigo with white eyes, on light and dark backgrounds alike. It never changes color.
+- For static files (`public/brand/*.svg`, favicon), use two paths from `glimPath(32, 0, 40)` in the same viewBox: `body` filled `#6366f1`, then `eyes` filled `#fff`.
 - Lockup: the mark centered above the word `Glim` in Manrope 800 with `-0.045em` tracking.
 - The logo's eyes move with the state; its color does not. Pass the top group's mood, as in `LOGO_STATES`:
 
@@ -503,19 +504,19 @@ The character replaces the artwork in `src/Mascot.tsx` and `WorkingIndicator.tsx
 | Interrupted | `half`   |
 | Paused      | `closed` |
 
-State color belongs to the island's character and the tray, never to the logo. The review page's header logo follows the live island this way: purple, with eyes that scan, widen or close.
+State color belongs to the island's character and the tray, never to the logo. The review page's header logo follows the live island this way: indigo, with eyes that scan, widen or close.
 
-Replace `public/brand/glim-mark.svg`, `public/brand/glim-mark-dark.svg`, `GlimMark` in `src/components.tsx` and `BrandPreview.tsx` with this mark. Keep CONTRIBUTING's rule that the static mark, `components.tsx` and the animated character stay consistent.
+The static files already carry this mark in indigo: `public/brand/glim-mark.svg`, `public/brand/glim-mark-dark.svg` and `public/favicon.svg` (the browser tab icon). Replace `GlimMark` in `src/components.tsx` and the mark in `BrandPreview.tsx` with it. Keep CONTRIBUTING's rule that the static mark, `components.tsx` and the animated character stay consistent.
 
 ### App icon
 
 The primary logo centered on a slice of desktop (`AppIcon` in `brand.tsx`, 256-unit box).
 
 - Tile: rounded square, `rx` 56 (48 at 32px and below). Vertical gradient `#fdfdfe` to `#d6d9e1`. A 1.5px inner stroke in `rgba(24,24,27,.14)`.
-- Above 32px: `glimPath(128, 128 − 0.35w, w)` with `w` 132. The body is `#7b61ff` with `drop-shadow(0 8px 10px rgba(9,9,11,.22))`, and the eyes are white.
+- Above 32px: `glimPath(128, 128 − 0.35w, w)` with `w` 132. The body is `#6366f1` with `drop-shadow(0 8px 10px rgba(9,9,11,.22))`, and the eyes are white.
 - 32px and below: `w` 168 with `eyeScale` 1.1 and no shadow, so the eyes stay visible at 16px.
 
-Export:
+Export (already done in indigo at the owner’s request: `public/glim.svg` and every file in `src-tauri/icons/`, with the small character in the 16, 24 and 32px frames of `icon.ico` and in `32x32.png`; repeat only if the shapes change):
 
 1. Write the large version as `public/glim.svg`.
 2. Render the small version as 16, 24 and 32px PNGs.
@@ -525,7 +526,7 @@ Export:
 
 The tray uses `app.default_window_icon()` (`src-tauri/src/lib.rs`), so it picks up the small frames with no code change.
 
-To let a hidden island still say "an agent needs you", the tray can switch between four variants: the normal purple icon, attention, success and error. Each is `AppIcon` with `tone`. In the state variants, the body takes the state color and the eyes turn black. The variants are shown on the review page at 24px.
+To let a hidden island still say "an agent needs you", the tray can switch between four variants: the normal indigo icon, attention, success and error. Each is `AppIcon` with `tone`. In the state variants, the body takes the state color and the eyes turn black. The variants are shown on the review page at 24px.
 
 1. Ship the variants as 16, 20, 24 and 32px PNGs.
 2. Call `TrayIcon::set_icon` when the top group's tone changes, either from the Rust snapshot or through a small command the island invokes.
@@ -563,9 +564,9 @@ Every bitmap is a 24-bit BMP rendered from `brand.tsx` at 1x:
 
 | File (in `src-tauri/installer/`) | Size    | Source                 | Shows                                                                                             |
 | -------------------------------- | ------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `sidebar.bmp`                    | 164×314 | `<SidebarArt />`       | Desktop gradient, the character centered (`glimPath(82, 128, 84)`) in Glim purple with white eyes |
+| `sidebar.bmp`                    | 164×314 | `<SidebarArt />`       | Desktop gradient, the character centered (`glimPath(82, 128, 84)`) in Glim indigo with white eyes |
 | `finish.bmp`                     | 164×314 | `<SidebarArt happy />` | The same with happy eyes                                                                          |
-| `header.bmp`                     | 150×57  | `<HeaderArt />`        | White, with the purple character at the right (`glimPath(110, 13.5, 40)`)                         |
+| `header.bmp`                     | 150×57  | `<HeaderArt />`        | White, with the indigo character at the right (`glimPath(110, 13.5, 40)`)                         |
 
 Keep the art free of text, so DPI stretching only softens edges. Check it at 100% and 150% scaling.
 
@@ -622,7 +623,7 @@ Start from Tauri's handlebars template for the installed `tauri-bundler` version
 
 The owner likes the review page's own style: the fonts, the spacing, the simplicity. Reuse it for Glim's web surfaces: a docs site, a landing or download page, release notes, and the dev gallery at `/preview`.
 
-It is a neutral stage. The page stays quiet and light, so the product carries the only strong contrast and the only color: the black island and the purple mark.
+It is a neutral stage. The page stays quiet and light, so the product carries the only strong contrast and the only color: the black island and the indigo mark.
 
 Source: the first section of `preview-claude/style.css`, before `/* Island */`.
 
@@ -740,11 +741,11 @@ Titles use `text-wrap: balance`. Paragraphs use `text-wrap: pretty` and stop at 
 - Subagents never count as agents in the dots, the bar or the rows.
 - Your turn appears when a turn finishes, and becomes Ready after the island is opened and closed.
 - Connected cannot be clicked away. Disconnecting takes two clicks and names the file.
-- No text is smaller than 11px. No lavender accent remains; purple appears only in the logo. No WebGL and no `ogl`.
+- No text is smaller than 11px. No lavender accent remains; indigo appears only in the logo. No WebGL and no `ogl`.
 - The native region matches the visible island when compact (34px, radius 17, at any width from 144px to 360px, banner included) and expanded (440 wide, radius 24), shoulders included.
 - Each mood moves as listed in [The character](#the-character-eyes). Reduced motion shows no movement anywhere, logos included, and the springs jump. Keyboard: Tab reaches every control, and Esc steps back as described.
 - The compact island is as wide as its content between 144px and 360px, springs when the text changes, and scrolls a status longer than the cap without growing, while the project name stays still. Hover pauses the scroll; reduced motion shows an ellipsis.
-- The logo is Glim purple with white eyes everywhere, including the app icon and installer art. Where it is animated, only its eyes follow the state.
+- The logo is Glim indigo with white eyes everywhere, including the app icon and installer art. Where it is animated, only its eyes follow the state.
 - An interactive install takes three screens and one click. Finish opens Glim, and its setup appears.
 - An upgrade keeps Claude Code and Codex connected. Uninstalling with the checkbox ticked removes the usage history.
 - Build, unit tests, UI tests and `cargo test` pass. `/preview` and the capture script still work.

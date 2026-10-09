@@ -399,7 +399,7 @@ function Logo({ provider, size = 18 }: { provider: Provider; size?: number }) {
   return provider === 'claude' ? (
     <img
       className="logo"
-      src="/providers/claude.svg"
+      src={`${import.meta.env.BASE_URL}providers/claude.svg`}
       width={size}
       height={size}
       alt=""
