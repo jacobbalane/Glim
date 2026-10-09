@@ -1,0 +1,42 @@
+/* Browser-only scene attributes are never applied to the native application. */
+html[data-preview-scene] {
+  color-scheme: light;
+}
+html[data-preview-scene] .island {
+  color-scheme: dark;
+}
+html[data-preview-scene],
+html[data-preview-scene] body,
+html[data-preview-scene] #root {
+  min-height: 0;
+  background: transparent;
+}
+html[data-preview-scene] .native-stage {
+  min-height: 0;
+}
+html[data-preview-scene] .panel-root {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+}
+html[data-preview-motion='false'] *,
+html[data-preview-motion='false'] *::before,
+html[data-preview-motion='false'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+.brand-preview {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 280px;
+  background: #101012;
+  color: #f4f4f5;
+}
+.brand-preview[data-variant='dark'] {
+  background: #f4f4f5;
+  color: #101012;
+}
+.brand-preview[data-variant='icon'] img {
+  border-radius: 28px;
+}

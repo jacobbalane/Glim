@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "desktop",
+  "description": "The Glim island reads local events and contains every application view.",
+  "windows": ["island"],
+  "permissions": ["core:default"]
+}

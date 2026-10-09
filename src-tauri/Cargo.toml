@@ -1,0 +1,47 @@
+[package]
+name = "glim"
+version = "0.1.0"
+description = "A little island for your local coding agents"
+authors = ["Glim contributors"]
+license = "MIT"
+edition = "2021"
+default-run = "glim"
+
+[lib]
+name = "glim_lib"
+crate-type = ["lib"]
+
+[[bin]]
+name = "glim"
+path = "src/main.rs"
+
+[[bin]]
+name = "glim-bridge"
+path = "src/bin/bridge.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.38", features = ["bundled"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
+chrono = { version = "0.4", features = ["serde"] }
+sha2 = "0.10"
+uuid = { version = "1", features = ["v4"] }
+dirs = "6"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Threading", "Win32_System_Pipes", "Win32_System_Registry", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi"] }
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1

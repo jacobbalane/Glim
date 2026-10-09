@@ -1,0 +1,288 @@
+[
+  { "id": "compact", "title": "Compact", "group": "Island", "width": 680, "height": 80 },
+  {
+    "id": "compact-short",
+    "title": "Compact · short status",
+    "group": "Island",
+    "single": true,
+    "activity": "idle",
+    "detail": "Ready",
+    "width": 680,
+    "height": 80
+  },
+  {
+    "id": "compact-long",
+    "title": "Compact · scrolling status",
+    "group": "Island",
+    "single": true,
+    "activity": "working",
+    "detail": "Checking the desktop installation and verifying the agent connections",
+    "width": 680,
+    "height": 80
+  },
+  {
+    "id": "compact-rotation",
+    "title": "Compact · multiple working sessions",
+    "group": "Island",
+    "multiWorking": true,
+    "width": 680,
+    "height": 80
+  },
+  {
+    "id": "compact-attention",
+    "title": "Compact · approval and completion",
+    "group": "Island",
+    "selectedId": "demo-claude-2",
+    "activity": "finished",
+    "detail": "Session finished",
+    "width": 680,
+    "height": 100
+  },
+  {
+    "id": "working",
+    "title": "Working · Claude",
+    "group": "Island",
+    "expanded": true,
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "codex",
+    "title": "Working · Codex",
+    "group": "Island",
+    "expanded": true,
+    "selectedId": "demo-codex",
+    "activity": "working",
+    "detail": "Running tests",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "approval",
+    "title": "Approval needed",
+    "group": "Island",
+    "expanded": true,
+    "selectedId": "demo-codex",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "ready",
+    "title": "Ready",
+    "group": "Island",
+    "expanded": true,
+    "activity": "idle",
+    "detail": "Waiting for the next task",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "done",
+    "title": "Done",
+    "group": "Island",
+    "expanded": true,
+    "activity": "finished",
+    "detail": "Session finished",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "interrupted",
+    "title": "Interrupted",
+    "group": "Island",
+    "expanded": true,
+    "activity": "interrupted",
+    "detail": "Task interrupted",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "error",
+    "title": "Error",
+    "group": "Island",
+    "expanded": true,
+    "activity": "error",
+    "detail": "Agent connection interrupted",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "stale",
+    "title": "No recent activity",
+    "group": "Island",
+    "expanded": true,
+    "activity": "stale",
+    "detail": "Last event received 6 minutes ago",
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "paused",
+    "title": "Paused",
+    "group": "Island",
+    "expanded": true,
+    "paused": true,
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "empty",
+    "title": "No active agents",
+    "group": "Island",
+    "expanded": true,
+    "empty": true,
+    "width": 680,
+    "height": 190
+  },
+  {
+    "id": "details",
+    "title": "Usage, limits & tasks",
+    "group": "Island",
+    "expanded": true,
+    "detailsOpen": true,
+    "width": 680,
+    "height": 390
+  },
+  {
+    "id": "unavailable",
+    "title": "Measurements unavailable",
+    "group": "Island",
+    "expanded": true,
+    "detailsOpen": true,
+    "unavailable": true,
+    "width": 680,
+    "height": 340
+  },
+  {
+    "id": "sessions",
+    "title": "Session switcher",
+    "group": "Island",
+    "expanded": true,
+    "sessionList": true,
+    "width": 680,
+    "height": 350
+  },
+  {
+    "id": "welcome",
+    "title": "Welcome",
+    "group": "Setup",
+    "panel": "setup",
+    "step": 0,
+    "width": 680,
+    "height": 540
+  },
+  {
+    "id": "agents",
+    "title": "Connect agents",
+    "group": "Setup",
+    "panel": "setup",
+    "step": 1,
+    "disconnected": true,
+    "width": 680,
+    "height": 420
+  },
+  {
+    "id": "connect",
+    "title": "Connection details",
+    "group": "Setup",
+    "panel": "setup",
+    "step": 1,
+    "disconnected": true,
+    "connector": "claude",
+    "width": 680,
+    "height": 640
+  },
+  {
+    "id": "island-settings",
+    "title": "Island preferences",
+    "group": "Setup",
+    "panel": "setup",
+    "step": 2,
+    "width": 680,
+    "height": 460
+  },
+  {
+    "id": "settings",
+    "title": "Settings",
+    "group": "Panels",
+    "panel": "settings",
+    "width": 680,
+    "height": 860
+  },
+  {
+    "id": "connector-settings",
+    "title": "Connected agent details",
+    "group": "Panels",
+    "panel": "settings",
+    "connector": "codex",
+    "width": 680,
+    "height": 1080
+  },
+  {
+    "id": "not-installed",
+    "title": "Agents not installed",
+    "group": "Panels",
+    "panel": "settings",
+    "notInstalled": true,
+    "width": 680,
+    "height": 860
+  },
+  {
+    "id": "clear-history",
+    "title": "Clear history confirmation",
+    "group": "Panels",
+    "panel": "settings",
+    "confirmClear": true,
+    "width": 680,
+    "height": 900
+  },
+  {
+    "id": "history",
+    "title": "Usage history",
+    "group": "Panels",
+    "panel": "history",
+    "width": 680,
+    "height": 820
+  },
+  {
+    "id": "history-empty",
+    "title": "Empty history",
+    "group": "Panels",
+    "panel": "history",
+    "emptyHistory": true,
+    "width": 680,
+    "height": 860
+  },
+  {
+    "id": "logo-light",
+    "title": "Logo · white",
+    "group": "Brand",
+    "brand": "light",
+    "width": 680,
+    "height": 280
+  },
+  {
+    "id": "logo-dark",
+    "title": "Logo · black",
+    "group": "Brand",
+    "brand": "dark",
+    "width": 680,
+    "height": 280
+  },
+  {
+    "id": "app-icon",
+    "title": "Application icon",
+    "group": "Brand",
+    "brand": "icon",
+    "width": 680,
+    "height": 280
+  },
+  {
+    "id": "mascot",
+    "title": "Interactive mascot",
+    "group": "Brand",
+    "brand": "mascot",
+    "width": 680,
+    "height": 280
+  }
+]

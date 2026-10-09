@@ -1,0 +1,214 @@
+:root:has(.design-preview) {
+  background: #fafafa;
+  color-scheme: light;
+}
+.design-preview {
+  min-height: 100svh;
+  background: #fafafa;
+  color: #17171a;
+  color-scheme: light;
+  padding: 32px clamp(20px, 4vw, 64px) 64px;
+  max-width: 1680px;
+  margin: 0 auto;
+}
+.design-preview-header,
+.design-preview-header > div,
+.design-preview-tools {
+  display: flex;
+  align-items: center;
+}
+.design-preview-header {
+  justify-content: space-between;
+  gap: 24px;
+}
+.design-preview-header > div {
+  gap: 16px;
+}
+.design-preview-header h1 {
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+.design-preview-header > div > span,
+.preview-instruction {
+  color: #8e8e96;
+  font-size: 12px;
+}
+.preview-home {
+  display: flex;
+  color: #17171a;
+}
+.preview-mode {
+  display: flex;
+  padding: 4px;
+  gap: 2px;
+  background: #00000004;
+  border-radius: 10px;
+}
+.preview-mode button,
+.preview-groups button {
+  background: transparent;
+  color: #66666e;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 12px;
+}
+.preview-mode button[aria-pressed='true'],
+.preview-groups button[aria-pressed='true'] {
+  background: #00000008;
+  color: #17171a;
+}
+.preview-motion {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #aaaab2;
+}
+.preview-motion input {
+  accent-color: #b09afa;
+}
+.preview-groups {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.preview-instruction {
+  margin-top: 12px;
+  line-height: 1.6;
+}
+.preview-section {
+  margin-top: 40px;
+  scroll-margin-top: 24px;
+}
+.flow-preview {
+  margin-top: 32px;
+}
+.flow-preview-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.flow-preview-heading h2 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.flow-preview-heading > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.flow-preview-heading button {
+  background: transparent;
+  color: #9999a3;
+  font-size: 11px;
+  padding: 6px;
+}
+.flow-preview-heading select {
+  background: #eeeef0;
+  color: #25252a;
+  font-size: 11px;
+  padding: 7px 10px;
+}
+.flow-preview-stage {
+  position: relative;
+  height: 210px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+}
+.flow-preview-stage iframe {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 680px;
+  height: 640px;
+  transform: translateX(-50%);
+  border: 0;
+  background: transparent;
+  color-scheme: dark;
+}
+.preview-section > h2 {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-bottom: 18px;
+}
+.preview-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  align-items: start;
+}
+.preview-card {
+  margin: 0;
+  min-width: 0;
+}
+.preview-viewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+}
+.preview-viewport iframe {
+  display: block;
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform-origin: top left;
+  border: 0;
+  background: transparent;
+  color-scheme: dark;
+}
+.preview-viewport > img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.preview-card figcaption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 2px 0;
+  font-size: 12px;
+  color: #45454c;
+}
+.preview-card-actions {
+  display: flex;
+  gap: 6px;
+}
+.preview-card-actions a {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: #96969f;
+}
+.preview-card-actions a:hover {
+  color: #17171a;
+  background: #00000006;
+}
+@media (max-width: 760px) {
+  .design-preview {
+    padding: 24px 16px 40px;
+  }
+  .design-preview-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .preview-gallery {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .preview-groups {
+    margin-top: 22px;
+  }
+}

@@ -1,0 +1,10 @@
+node_modules
+dist
+.cache
+src-tauri/target
+src-tauri/gen
+src-tauri/icons
+src-tauri/binaries
+package-lock.json
+image.png
+test-results
