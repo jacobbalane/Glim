@@ -80,7 +80,7 @@ function lookOf(s: Session, seenAt: number): Look {
     case 'error':
       return { label: 'Error', tone: 'error', mood: 'cross', rank: 1 };
     case 'idle':
-      // A handed-back turn stays green until the island is opened, then settles.
+      // A handed-back turn stays teal until the island is opened, then settles.
       return s.updatedAt > seenAt
         ? { label: 'Your turn', tone: 'success', mood: 'happy', rank: 2 }
         : { label: 'Ready', tone: 'calm', mood: 'open', rank: 6 };
@@ -1087,6 +1087,11 @@ export function Connectors({
   const [open, setOpen] = useState<Provider | null>(initialOpen);
   const [confirm, setConfirm] = useState<Provider | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Height springs open and shut; under reduced motion it just appears.
+  const reduced = !!useReducedMotion();
+  const grow = reduced
+    ? { duration: 0 }
+    : { height: SPRING, opacity: { duration: 0.2, ease: [0.23, 1, 0.32, 1] as const } };
   const set = (c: Connector, enabled: boolean) => {
     onChange(list.map((item) => (item.provider === c.provider ? { ...item, enabled } : item)));
     setNotice(
@@ -1119,7 +1124,7 @@ export function Connectors({
                 </small>
               </span>
               {c.enabled ? (
-                <span className="conn-status tone-success">
+                <span className="conn-status">
                   <i className="dot" />
                   Connected
                 </span>
@@ -1128,56 +1133,78 @@ export function Connectors({
               ) : null}
               <ChevronDown size={15} className="conn-chev" />
             </button>
-            {isOpen && (
-              <div className="conn-body">
-                <p className="conn-lead">{c.enabled ? 'Glim added' : 'Glim will add'}</p>
-                <ul>
-                  {c.changes.map((change) => (
-                    <li key={change}>
-                      <Check size={12} strokeWidth={2.6} />
-                      {change}
-                    </li>
-                  ))}
-                </ul>
-                <code>{c.configPath}</code>
-                <p className="fine">
-                  {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
-                </p>
-                <div className="actions">
-                  {!c.enabled ? (
-                    <button
-                      className="btn small primary"
-                      disabled={!c.detected}
-                      onClick={() => set(c, true)}
-                    >
-                      Connect {PROVIDERS[c.provider].short}
-                    </button>
-                  ) : confirm === c.provider ? (
-                    <>
-                      <button className="btn small" onClick={() => setConfirm(null)}>
-                        Keep
-                      </button>
-                      <button className="btn small danger" onClick={() => set(c, false)}>
-                        Remove from {c.configPath.split('/').pop()}
-                      </button>
-                    </>
-                  ) : (
-                    <button className="btn small" onClick={() => setConfirm(c.provider)}>
-                      Disconnect…
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  key="body"
+                  className="conn-collapse"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={grow}
+                >
+                  <div className="conn-body">
+                    <p className="conn-lead">{c.enabled ? 'Glim added' : 'Glim will add'}</p>
+                    <ul>
+                      {c.changes.map((change) => (
+                        <li key={change}>
+                          <Check size={12} strokeWidth={2.6} />
+                          {change}
+                        </li>
+                      ))}
+                    </ul>
+                    <code>{c.configPath}</code>
+                    <p className="fine">
+                      {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
+                    </p>
+                    <div className="actions">
+                      {!c.enabled ? (
+                        <button
+                          className="btn small primary"
+                          disabled={!c.detected}
+                          onClick={() => set(c, true)}
+                        >
+                          Connect {PROVIDERS[c.provider].short}
+                        </button>
+                      ) : confirm === c.provider ? (
+                        <>
+                          <button className="btn small" onClick={() => setConfirm(null)}>
+                            Keep
+                          </button>
+                          <button className="btn small danger" onClick={() => set(c, false)}>
+                            Remove from {c.configPath.split('/').pop()}
+                          </button>
+                        </>
+                      ) : (
+                        <button className="btn small" onClick={() => setConfirm(c.provider)}>
+                          Disconnect…
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         );
       })}
-      {notice && (
-        <p className="notice" role="status">
-          <Check size={13} strokeWidth={2.6} />
-          {notice}
-        </p>
-      )}
+      <AnimatePresence initial={false} mode="popLayout">
+        {notice && (
+          <motion.div
+            key={notice}
+            className="conn-collapse"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={grow}
+          >
+            <p className="notice" role="status">
+              <Check size={13} strokeWidth={2.6} />
+              {notice}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

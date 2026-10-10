@@ -1,7 +1,15 @@
 // Claude's brand proposal for Glim: one character drawn from the island's pod.
 // Preview-only. Every shape comes from podPath(), so the logo, the island's status light,
 // the app icon and the installer art always agree.
-import { useEffect, useId, useRef, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentType,
+} from 'react';
 import { useReducedMotion } from 'motion/react';
 
 export type Tone = 'active' | 'attention' | 'error' | 'success' | 'done' | 'calm' | 'off';
@@ -57,19 +65,28 @@ export const GLIM_INDIGO = '#6366f1';
  * The character. Its fill is the state color and its eyes are the mood. `brand` is the
  * primary logo: Glim indigo with white eyes.
  */
-export function Eyes({
-  mood,
-  tone,
-  size = 24,
-  follow = false,
-  label,
-}: {
+export interface EyesProps {
   mood: Mood;
   tone: Tone | 'brand';
   size?: number;
   follow?: boolean;
   label?: string;
-}) {
+}
+
+/**
+ * Lets a host draw Glim its own way, as the website does with its 3D Glim. The drawing gets the
+ * same props, and must fill the box the flat character would (size wide, 32/42 of that tall).
+ */
+export const GlimDrawing = createContext<ComponentType<EyesProps> | null>(null);
+
+/** Glim: the host's drawing when there is one, else the flat character. */
+export function Eyes(props: EyesProps) {
+  const Drawing = useContext(GlimDrawing);
+  return Drawing ? <Drawing {...props} /> : <FlatEyes {...props} />;
+}
+
+/** The flat character, drawn from the pod. */
+export function FlatEyes({ mood, tone, size = 24, follow = false, label }: EyesProps) {
   const ref = useRef<SVGSVGElement>(null);
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -175,7 +192,7 @@ export function LogoStage() {
 const ICON_TONES = {
   brand: GLIM_INDIGO,
   attention: '#ffc53d',
-  success: '#3ddc84',
+  success: '#36d4c4',
   error: '#ff6a5f',
 };
 type IconTone = keyof typeof ICON_TONES;

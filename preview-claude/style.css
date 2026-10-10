@@ -510,10 +510,10 @@ html {
   --tone: var(--red);
 }
 .tone-success {
-  --tone: var(--green);
+  --tone: var(--teal);
 }
 .tone-done {
-  --tone: var(--teal);
+  --tone: var(--green);
 }
 .tone-calm {
   --tone: #8f8f99;
@@ -588,7 +588,7 @@ html {
   --glow: var(--red);
 }
 .shell[data-tone='success'] {
-  --glow: var(--green);
+  --glow: var(--teal);
 }
 .shell[data-compact='true']:is(
     [data-tone='attention'],
@@ -1580,6 +1580,71 @@ html {
   color: var(--fg-1);
   cursor: pointer;
 }
+/* Where the engine can style it (Chromium, so WebView2 too), the open list is the island's own:
+   a dark panel with rounded rows and a check on the current one, not the system menu. */
+@supports (appearance: base-select) {
+  .gl select,
+  .gl select::picker(select) {
+    appearance: base-select;
+  }
+  .gl select {
+    display: inline-flex;
+    align-items: center;
+  }
+  /* The chevron is the background image, so it also shows where this is not supported. */
+  .gl select::picker-icon {
+    display: none;
+  }
+  .gl select::picker(select) {
+    min-width: anchor-size(width);
+    margin: 6px 0;
+    padding: 4px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--control);
+    box-shadow:
+      inset 0 0 0 1px var(--hair),
+      0 14px 34px rgba(0, 0, 0, 0.55);
+    color: var(--fg-1);
+    opacity: 0;
+    translate: 0 -4px;
+    transition:
+      opacity 140ms var(--ease-out),
+      translate 140ms var(--ease-out),
+      overlay 140ms allow-discrete,
+      display 140ms allow-discrete;
+  }
+  .gl select:open::picker(select) {
+    opacity: 1;
+    translate: 0 0;
+  }
+  @starting-style {
+    .gl select:open::picker(select) {
+      opacity: 0;
+      translate: 0 -4px;
+    }
+  }
+  .gl select option {
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--fg-2);
+  }
+  .gl select option:is(:hover, :focus-visible) {
+    outline: none;
+    background: var(--control-hover);
+    color: var(--fg-1);
+  }
+  .gl select option:checked {
+    color: var(--fg-1);
+  }
+  .gl select option::checkmark {
+    font-size: 11px;
+    color: var(--fg-1);
+  }
+}
 .btn {
   display: inline-flex;
   align-items: center;
@@ -1655,6 +1720,10 @@ html {
   border-radius: 12px;
   text-align: left;
   cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+.conn-head:hover {
+  background: var(--hover);
 }
 .conn-name {
   display: flex;
@@ -1670,7 +1739,9 @@ html {
   font-size: 12px;
   color: var(--fg-3);
 }
+/* Connected is green: a status, not the Your turn tone. */
 .conn-status {
+  --tone: var(--green);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1681,10 +1752,14 @@ html {
 .conn-chev {
   flex-shrink: 0;
   color: var(--fg-3);
-  transition: transform 200ms var(--ease-out);
+  transition: transform 320ms var(--ease-out);
 }
 .conn.open .conn-chev {
   transform: rotate(180deg);
+}
+/* What opens and closes: its height is animated, so its contents must not spill out meanwhile. */
+.conn-collapse {
+  overflow: hidden;
 }
 .conn-body {
   padding: 0 14px 14px 44px;
@@ -1729,6 +1804,21 @@ html {
 .conn-body .actions {
   justify-content: flex-start;
   margin-top: 12px;
+}
+/* Disconnect… giving way to Keep and Remove: the new buttons settle in rather than pop. */
+.conn-body .actions .btn {
+  animation: conn-swap 220ms var(--ease-out) backwards;
+}
+@keyframes conn-swap {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conn-body .actions .btn {
+    animation: none;
+  }
 }
 .notice {
   display: flex;

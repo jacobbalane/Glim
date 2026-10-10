@@ -249,7 +249,7 @@ const STATES: StateCard[] = [
   },
   {
     title: 'Your turn',
-    note: 'Green and skipping when an agent hands the turn back. It settles to Ready once you have looked.',
+    note: 'Teal and skipping when an agent hands the turn back. It settles to Ready once you have looked.',
     groups: groupsOf([
       sample('demo-claude', T0, {
         activity: 'idle',
@@ -283,7 +283,7 @@ const STATES: StateCard[] = [
   },
   {
     title: 'Done',
-    note: 'Teal with content eyes and one small hop: the session ended and nothing is waiting on you.',
+    note: 'Green with content eyes and one small hop: the session ended and nothing is waiting on you.',
     groups: groupsOf([
       sample('demo-claude', T0, {
         activity: 'finished',
@@ -574,7 +574,7 @@ const IDEAS: [string, string][] = [
   ],
   [
     'Color means state, and only state',
-    'Amber needs you, red failed, green handed the turn back. Glim indigo belongs to the logo alone; Claude orange and Codex blue stay in their logos and the usage chart.',
+    'Amber needs you, red failed, teal handed the turn back, green is done. Glim indigo belongs to the logo alone; Claude orange and Codex blue stay in their logos and the usage chart.',
   ],
   [
     'The mascot is the status light',
