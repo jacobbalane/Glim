@@ -4,9 +4,9 @@
 
 A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, context, token usage, and reported task progress stay above your workspace. Your data stays on your device.
 
-[Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
+[Website](https://jacobbalane.github.io/Glim/) · [Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
 
-> The source is ready for local builds. The Download link points to GitHub Releases; an installer becomes available there after the first release is published. Local builds are unsigned until a signing certificate is configured.
+> The installer is not code-signed yet, so Windows SmartScreen may warn on first run: choose **More info**, then **Run anyway**.
 
 ## What it does
 
@@ -21,7 +21,7 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 
 ## Getting started
 
-1. Download and install the Windows setup executable from Releases.
+1. Download the Windows setup executable from the [website](https://jacobbalane.github.io/Glim/) or [Releases](https://github.com/jacobbalane/Glim/releases/latest), and run it.
 2. Open Glim. Connect Claude Code, Codex, or both in onboarding. Glim previews the configuration entries it will add and saves backups.
 3. For Codex, open `/hooks` and review and trust the Glim hooks. Glim never bypasses provider trust checks.
 4. Start a new agent session as usual. No separate Glim account or API key is required.
@@ -73,7 +73,7 @@ Glim collects locally. It stores counters, provider/model/project names, task la
 
 Configuration backups and connector manifests are in `%LOCALAPPDATA%\Glim`. Backups preserve the original agent configuration and may contain values you already saved in that configuration; treat them as private. Clearing usage history keeps ingestion cursors and deduplication baselines so old records cannot refill the chart.
 
-There is no telemetry or cloud sync. The helper sends a small allow-listed event to a local named pipe accessible only by the current Windows user. Uninstall removes Glim-owned agent hooks and the Windows startup entry; local history is retained unless cleared in settings.
+There is no telemetry or cloud sync. The helper sends a small allow-listed event to a local named pipe accessible only by the current Windows user. Uninstall removes Glim-owned agent hooks and the Windows startup entry; local history is retained unless cleared in settings or you tick **Also delete my usage history** when uninstalling.
 
 ## Contributing
 
