@@ -8,7 +8,7 @@ The working reference is the dev-only page at `http://127.0.0.1:1420/preview-cla
 | ------------------------------ | ------------------------------------------------------------------------------ |
 | `preview-claude/island.tsx`    | Every island component, the state rules, and the sample scenarios              |
 | `preview-claude/brand.tsx`     | The character (`Eyes`), `podPath()`, the logo, the app icon, installer art     |
-| `preview-claude/installer.tsx` | Mocks of the redesigned NSIS screens                                           |
+| `preview-claude/installer.tsx` | First mocks of the NSIS screens, superseded by the dark installer              |
 | `preview-claude/style.css`     | The review page theme first, then the island tokens and styles, then installer |
 | `preview-claude/main.tsx`      | The review page itself                                                         |
 
@@ -539,44 +539,48 @@ This is the only part of the brand that changes behavior, so it waits for approv
 
 ## Installer
 
-Glim ships the stock Tauri 2 NSIS wizard (`installMode: currentUser`). Today it shows these pages:
+**Owner update, 2026-10-10:** The installer and uninstaller wear the website: its dark background, its copy and its 3D Glims, with different art for installing and uninstalling. This supersedes the light sidebar design and the mocks in `preview-claude/installer.tsx`.
 
-1. Welcome.
-2. Choose install location.
-3. An install log that waits for Next.
-4. Finish, with Run and a ticked "Create desktop shortcut".
-
-Upgrades add a maintenance page with radio buttons. Uninstall shows a confirm page with "Delete the application data".
-
-Proposed: three screens and one click, then Glim opens and its own setup takes over. Mocks: `preview-claude/installer.tsx`. Everything below is reachable with Tauri's NSIS options and a custom template.
+Glim ships Tauri 2's NSIS wizard (`installMode: currentUser`) with a custom template. Every flow is three screens and one click, then Glim opens and its own setup takes over.
 
 ### Screens and copy
 
-| Screen                       | Title / header                                       | Body                                                                                                                                                                                                                                                                  | Buttons                                    |
-| ---------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| Welcome                      | `Install Glim`                                       | `Glim sits at the top of your screen and shows what Claude Code and Codex are doing, so you can stay in your own work.` / `It installs for your Windows account only. No administrator rights, no account, no telemetry.` / `Installs to %LOCALAPPDATA%\Glim` (muted) | Install (default), Cancel                  |
-| Installing                   | `Installing Glim` / `This takes a few seconds.`      | Current file, progress bar, Show details                                                                                                                                                                                                                              | Disabled while running; advances by itself |
-| Finish                       | `Glim is ready`                                      | `It lives at the top of your screen. When it opens, connect Claude Code, Codex, or both. Glim shows every change before it makes it.` Checkboxes: `Open Glim now` (on), `Add a desktop shortcut` (off)                                                                | Finish                                     |
-| Update (older version found) | `Update Glim` / `Glim {old version} is installed.`   | `Setup replaces it with this version. Your connections, settings and usage history stay as they are.` Only true after the hook fix below.                                                                                                                             | Update (default), Cancel                   |
-| Uninstall                    | `Uninstall Glim` / `Remove Glim from this computer.` | `Glim removes its hooks from Claude Code and Codex and its startup entry. Your other agent settings stay as they are.` The folder field, then a checkbox: `Also delete my usage history` (off)                                                                        | Uninstall (default), Cancel                |
+Setup decides what it is doing before the first screen (`GlimDetect` in the template): a fresh install, an update, a reinstall of the same version, or replacing a newer version.
 
-After Finish with `Open Glim now` ticked, the app starts and opens setup by itself, because `onboardingComplete` is false. That already works today.
+| Flow      | First screen (title, button)                                                        | Progress header     | Last screen                                                              |
+| --------- | ----------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------ |
+| Install   | `A glimpse at your agents.`, Install                                                | `Installing Glim`   | `Glim is ready when you are.` Open Glim now (on), desktop shortcut (off) |
+| Update    | `Update Glim`, Update                                                               | `Updating Glim`     | `Glim is up to date.`                                                    |
+| Reinstall | `Reinstall Glim`, Reinstall                                                         | `Reinstalling Glim` | `Glim is reinstalled.`                                                   |
+| Uninstall | `Uninstall Glim`, Uninstall, with the checkbox `Also delete my usage history` (off) | `Uninstalling Glim` | `Glim is uninstalled.` and where the settings backups stay               |
+
+The install screen's fine print says there are no administrator rights, no account and nothing online, and where Glim installs. An update or a reinstall says the connections, settings and usage history stay. After Finish with `Open Glim now` ticked, the app starts and opens setup by itself, because `onboardingComplete` is false.
+
+### Theme (`src-tauri/installer/theme.nsh`)
+
+Windows draws NSIS with system colors, so the theme sets each part:
+
+- The title bar and the window go dark through DWM and `SetCtlColors`, `#0A0B12` like the top of the website's hero. The buttons, the details list and the checkbox boxes take Windows' own dark theme (`DarkMode_Explorer`).
+- MUI shows its etched lines again on every page; on dark they read as white rules, so every page hides them. The version line is one flat grey label.
+- The full-window pages are laid out like the website's hero: the art across the top, the title (Segoe UI Bold) and the text centered under it.
+- Themed checkboxes ignore text colors (NSIS bug #443), so each keeps only its box, and its words move into a label beside it that toggles it. The checkbox keeps its text for screen readers.
+- The progress page has an indigo bar on a dark track, and only Cancel in the footer.
+- With high contrast on, Windows' own colors stay.
 
 ### Art
 
-Every bitmap is a 24-bit BMP rendered from `brand.tsx` at 1x:
+Every bitmap is a 24-bit BMP rendered from the shared 3D renderer by `npm run installer:art` (`scripts/render-installer-art.mjs`, with `npm run dev` running). Each is drawn at twice its size at 100% scaling and scaled to the screen with HALFTONE, so it stays sharp at any scaling. The art holds no text.
 
-| File (in `src-tauri/installer/`) | Size    | Source                 | Shows                                                                                             |
-| -------------------------------- | ------- | ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `sidebar.bmp`                    | 164×314 | `<SidebarArt />`       | Desktop gradient, the character centered (`glimPath(82, 128, 84)`) in Glim indigo with white eyes |
-| `finish.bmp`                     | 164×314 | `<SidebarArt happy />` | The same with happy eyes                                                                          |
-| `header.bmp`                     | 150×57  | `<HeaderArt />`        | White, with the indigo character at the right (`glimPath(110, 13.5, 40)`)                         |
-
-Keep the art free of text, so DPI stretching only softens edges. Check it at 100% and 150% scaling.
+| File (in `src-tauri/installer/`) | Size    | Shows                                                                                              |
+| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `install.bmp`                    | 994×300 | The website's crowd: indigo Glim in the middle, the state colors around it, rising out of the dark |
+| `finish.bmp`                     | 994×300 | The same crowd, happy                                                                              |
+| `uninstall.bmp`                  | 994×300 | The Pause card's night sky, with a big grey Glim                                                   |
+| `goodbye.bmp`                    | 994×300 | The same sky, Glim asleep under three Zs                                                           |
+| `header.bmp`                     | 300×114 | The indigo Glim at the right of the progress page's header                                         |
+| `header-uninstall.bmp`           | 300×114 | The grey Glim, for the uninstaller                                                                 |
 
 ### Configuration (`src-tauri/tauri.conf.json`, `bundle.windows.nsis`)
-
-These keys exist in the installed Tauri CLI (2.12) schema:
 
 ```json
 {
@@ -584,44 +588,33 @@ These keys exist in the installed Tauri CLI (2.12) schema:
   "installerHooks": "installer/hooks.nsh",
   "installerIcon": "icons/icon.ico",
   "uninstallerIcon": "icons/icon.ico",
-  "sidebarImage": "installer/sidebar.bmp",
+  "sidebarImage": "installer/install.bmp",
   "headerImage": "installer/header.bmp",
-  "uninstallerHeaderImage": "installer/header.bmp",
+  "uninstallerHeaderImage": "installer/header-uninstall.bmp",
   "customLanguageFiles": { "English": "installer/english.nsh" },
   "template": "installer/installer.nsi"
 }
 ```
 
-In `installer/english.nsh`, override Tauri's strings:
-
-- `createDesktop`: `Add a desktop shortcut`
-- `deleteAppData`: `Also delete my usage history`
+`installer/english.nsh` overrides Tauri's strings: `createDesktop` is `Add a desktop shortcut`, `deleteAppData` is `Also delete my usage history`.
 
 ### Template (`installer/installer.nsi`)
 
-Start from Tauri's handlebars template for the installed `tauri-bundler` version (`crates/tauri-bundler/src/bundle/windows/nsis/installer.nsi` at the matching tag), not from the rendered copy in `src-tauri/target`. Then:
+Tauri's handlebars template for `tauri-cli` 2.12.1, with Glim's changes marked `; Glim:`. When Tauri is upgraded, start from the new template and reapply them:
 
-1. **Welcome.** Before `MUI_PAGE_WELCOME`, define `MUI_WELCOMEPAGE_TITLE` and `MUI_WELCOMEPAGE_TEXT`. In the page's show function, rename Next: `GetDlgItem $0 $HWNDPARENT 1` then `SendMessage $0 ${WM_SETTEXT} 0 "STR:Install"`.
-2. **Folder page.** Remove `MUI_PAGE_DIRECTORY`. The default stays `$LOCALAPPDATA\Glim`, and `/D=` keeps working for silent installs (`scripts/install-smoke.ps1` uses it).
-3. **Installing.** Before `MUI_PAGE_INSTFILES`, define `MUI_PAGE_HEADER_TEXT` and `MUI_PAGE_HEADER_SUBTEXT`. Delete `!define MUI_FINISHPAGE_NOAUTOCLOSE`, so the page moves on by itself.
-4. **Finish.** Define:
-   - `MUI_FINISHPAGE_TITLE`
-   - `MUI_FINISHPAGE_TEXT`
-   - `MUI_FINISHPAGE_RUN_TEXT "Open Glim now"`
-   - `MUI_FINISHPAGE_SHOWREADME_NOTCHECKED`
-
-   Extract `finish.bmp` to `$PLUGINSDIR` in `.onInit` after `InitPluginsDir`. In the finish page's show function, swap it in with `${NSD_SetStretchedImage} $mui.FinishPage.Image "$PLUGINSDIR\finish.bmp" $0`.
-
-5. **Header image.** Add `!define MUI_HEADERIMAGE_RIGHT`.
-6. **Update page.** When an older version is installed, replace the radio buttons with the Update copy and always uninstall it first. Keep the existing warning for a newer installed version.
-7. **Uninstall confirm.** Set `MUI_UNCONFIRMPAGE_TEXT_TOP` to the Uninstall body text.
+1. The welcome, finish and progress texts come from variables that `GlimDetect` sets in `.onInit`. The folder page is gone; `/D=` still chooses the folder.
+2. Tauri's maintenance page with radio buttons is gone. Replacing an older or a newer version happens on the progress page, after Setup has asked to close a running Glim (`GlimReplacePrevious`): the old uninstaller runs silently with `/UPDATE`, so it keeps the agents connected, the startup entry and the usage history. No second wizard appears.
+3. The uninstaller has a welcome page with the checkbox, the progress page and a finish page. It skips its pages when run with `/P` or `/UPDATE`.
+4. The art is extracted to `$PLUGINSDIR` in `.onInit` and `un.onInit`, and `theme.nsh` is included after the pages and languages.
 
 ### Hooks (`src-tauri/installer/hooks.nsh`)
 
-- **Upgrades likely disconnect the agents today.** `NSIS_HOOK_PREUNINSTALL` runs `glim-bridge.exe disconnect-all` on every uninstall, and that includes the old uninstaller Setup runs when it replaces a version. Confirm this with an upgrade test.
-  The fix: guard the hook with `${If} $UpdateMode <> 1`, and make the template always pass `/UPDATE` when it uninstalls a previous version. The first upgrade from 0.1.0 still runs 0.1.0's old uninstaller.
-- **Delete the history when asked.** Today's checkbox only removes `%APPDATA%\dev.glim.desktop` and `%LOCALAPPDATA%\dev.glim.desktop`. Glim's data lives in `%LOCALAPPDATA%\Glim` (`src-tauri/src/connectors.rs`).
-  Add `NSIS_HOOK_POSTUNINSTALL`: when `$DeleteAppDataCheckboxState = 1`, delete `$LOCALAPPDATA\Glim\usage.sqlite3`, `usage.sqlite3-wal` and `usage.sqlite3-shm`. Leave `backups\`, which holds the original agent configurations, unless the owner decides otherwise.
+- `NSIS_HOOK_PREUNINSTALL` disconnects the agents and removes the startup entry, except during an update (`$UpdateMode = 1`).
+- `NSIS_HOOK_POSTUNINSTALL` deletes `usage.sqlite3` (and its `-wal` and `-shm`) in `%LOCALAPPDATA%\Glim` when the checkbox is ticked, and not during an update. `backups\`, which holds the original agent configurations, stays.
+
+### Tests
+
+`npm run test:install` installs into an isolated folder, connects isolated agents through the app, and checks that uninstalling restores them. Updating with agents connected, by clicking Update and passively, keeps both connected and the usage history. Check the screens by eye at 100% and 150% scaling after changing the theme or the art.
 
 ## Review page theme
 
