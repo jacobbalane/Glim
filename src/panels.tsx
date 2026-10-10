@@ -4,7 +4,7 @@ import { api } from './api';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
 import { ago, limitName, type Group } from './session-presentation';
-import { compactNumber, totalTokens } from './format';
+import { compactNumber, freshInput, totalTokens } from './format';
 import {
   PROVIDERS,
   type Connector,
@@ -75,7 +75,7 @@ export function Details({
   const limits = s.limits.filter((limit) => limit.resetsAt > now);
   const done = s.tasks.filter((task) => task.status === 'completed').length;
   const ledger: [string, number | null][] = [
-    ['Input', t?.input ?? null],
+    ['Input', t ? freshInput(t) : null],
     ['Output', t?.output ?? null],
     ['Cache writes', t?.cacheWrite ?? null],
   ];
@@ -578,7 +578,7 @@ export function UsageSheet({ onBack, scroll }: { onBack?: () => void; scroll?: b
         ? 0
         : history
             .filter((h) => h.day === day && h.provider === p)
-            .reduce((n, h) => n + h.input + h.output + h.cacheWrite, 0);
+            .reduce((n, h) => n + (totalTokens(h) ?? 0), 0);
     return { day, claude: of('claude'), codex: of('codex') };
   });
   const rows = history.filter(
@@ -586,14 +586,13 @@ export function UsageSheet({ onBack, scroll }: { onBack?: () => void; scroll?: b
   );
   const sum = (key: 'input' | 'output' | 'cacheWrite' | 'cached') =>
     rows.reduce((n, h) => n + h[key], 0);
-  const total = sum('input') + sum('output') + sum('cacheWrite');
+  const fresh = freshInput({ input: sum('input'), cached: sum('cached') });
+  const total = fresh + sum('output') + sum('cacheWrite');
   const max = Math.max(1, ...series.map((d) => d.claude + d.codex));
   const projects = [...new Set(rows.map((h) => h.project))]
     .map((project) => ({
       project,
-      n: rows
-        .filter((h) => h.project === project)
-        .reduce((n, h) => n + h.input + h.output + h.cacheWrite, 0),
+      n: rows.filter((h) => h.project === project).reduce((n, h) => n + (totalTokens(h) ?? 0), 0),
     }))
     .sort((a, b) => b.n - a.n);
   const top = Math.max(1, ...projects.map((p) => p.n));
@@ -636,9 +635,8 @@ export function UsageSheet({ onBack, scroll }: { onBack?: () => void; scroll?: b
             <b className="num">{compactNumber(total)} tokens</b> in the last {days} days
           </p>
           <p className="usage-split num">
-            Input {compactNumber(sum('input'))} · Output {compactNumber(sum('output'))} · Cache
-            writes {compactNumber(sum('cacheWrite'))} · Read from cache{' '}
-            {compactNumber(sum('cached'))}
+            Input {compactNumber(fresh)} · Output {compactNumber(sum('output'))} · Cache writes{' '}
+            {compactNumber(sum('cacheWrite'))} · Read from cache {compactNumber(sum('cached'))}
           </p>
           <div className="chart" onPointerLeave={() => setHover(null)}>
             <p className="chart-readout num" aria-live="polite">

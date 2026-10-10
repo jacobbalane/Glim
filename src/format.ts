@@ -1,6 +1,12 @@
 import type { Session, Tokens } from './types';
+// Input as the agents count it includes what was read from cache. Glim shows that apart and keeps
+// it out of the total: a long Claude Code session re-reads its context on every turn, and those
+// cheap reads would otherwise swamp the real input.
+export function freshInput(t: Pick<Tokens, 'input' | 'cached'>) {
+  return Math.max(0, t.input - t.cached);
+}
 export function totalTokens(t: Tokens | null) {
-  return t ? t.input + t.output + t.cacheWrite : null;
+  return t ? freshInput(t) + t.output + t.cacheWrite : null;
 }
 export function compactNumber(value: number | null) {
   if (value === null) return '—';
