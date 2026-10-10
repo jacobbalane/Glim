@@ -160,20 +160,29 @@ pub fn run() {
                 .collect();
             let shared = Arc::new(Mutex::new(Collector::new(store, connectors)));
             app.manage(shared.clone());
+            app.manage(platform::IslandShape::default());
             let preferences = lock(&shared)
                 .map_err(std::io::Error::other)?
                 .preferences
                 .clone();
             platform::position_island(app.handle(), &preferences).map_err(std::io::Error::other)?;
-            platform::shape(app.handle(), 292, 42, Some(false)).map_err(std::io::Error::other)?;
+            platform::shape(app.handle(), 300, 34, Some(false)).map_err(std::io::Error::other)?;
             if let Some(window) = app.get_webview_window("island") {
                 window.show()?;
                 window.on_window_event({
                     let window = window.clone();
+                    let app = app.handle().clone();
                     move |event| {
                         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                             api.prevent_close();
                             let _ = window.hide();
+                        }
+                        if matches!(
+                            event,
+                            tauri::WindowEvent::ScaleFactorChanged { .. }
+                                | tauri::WindowEvent::Resized(_)
+                        ) {
+                            let _ = platform::refresh_shape(&app);
                         }
                     }
                 });

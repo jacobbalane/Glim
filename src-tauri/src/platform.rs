@@ -1,6 +1,115 @@
 use crate::model::Preferences;
 use tauri::{AppHandle, Manager, PhysicalPosition};
 
+#[derive(Default)]
+pub struct IslandShape(std::sync::Mutex<ShapeState>);
+
+struct ShapeState {
+    width: u32,
+    height: u32,
+    applied: Option<RegionGeometry>,
+}
+impl Default for ShapeState {
+    fn default() -> Self {
+        Self {
+            width: 300,
+            height: 34,
+            applied: None,
+        }
+    }
+}
+
+// Logical dimensions match IslandSurface.tsx and the 8px shoulders in styles.css.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct RegionGeometry {
+    x: i32,
+    width: i32,
+    height: i32,
+    radius: i32,
+    shoulder: i32,
+}
+impl RegionGeometry {
+    fn new(width: u32, height: u32, scale: f64, host_width: u32) -> Self {
+        let wide = (host_width as f64 / scale - 40.).clamp(204., 440.);
+        let cap = 360_f64.min(wide - 60.);
+        let logical_width = (width as f64).clamp(144., wide);
+        let radius = 17. + ((logical_width - cap) / (wide - cap)).clamp(0., 1.) * 7.;
+        let width = (logical_width * scale).round() as i32;
+        Self {
+            x: ((host_width as f64 - width as f64) / 2.).round() as i32,
+            width,
+            height: (height.clamp(34, 616) as f64 * scale).round() as i32,
+            radius: (radius * scale).round() as i32,
+            shoulder: (8. * scale).round() as i32,
+        }
+    }
+}
+
+#[cfg(windows)]
+mod region {
+    use super::RegionGeometry;
+    use windows_sys::Win32::Graphics::Gdi::{
+        CombineRgn, CreateEllipticRgn, CreateRectRgn, CreateRoundRectRgn, DeleteObject, HRGN,
+        RGN_AND, RGN_DIFF, RGN_OR,
+    };
+
+    pub(super) struct Region(pub HRGN);
+    impl Region {
+        fn owned(handle: HRGN) -> Result<Self, String> {
+            if handle.is_null() {
+                Err(std::io::Error::last_os_error().to_string())
+            } else {
+                Ok(Self(handle))
+            }
+        }
+        fn combine(&self, other: &Self, mode: i32) -> Result<(), String> {
+            if unsafe { CombineRgn(self.0, self.0, other.0, mode) } == 0 {
+                Err(std::io::Error::last_os_error().to_string())
+            } else {
+                Ok(())
+            }
+        }
+        pub fn transfer(self) {
+            std::mem::forget(self);
+        }
+    }
+    impl Drop for Region {
+        fn drop(&mut self) {
+            unsafe {
+                DeleteObject(self.0);
+            }
+        }
+    }
+    pub(super) fn create(g: RegionGeometry) -> Result<Region, String> {
+        let RegionGeometry {
+            x,
+            width: w,
+            height: h,
+            radius: r,
+            shoulder: s,
+        } = g;
+        unsafe {
+            let body = Region::owned(CreateRoundRectRgn(x, -r, x + w + 1, h + 1, r * 2, r * 2))?;
+            // GDI's rounded primitive needs the extra endpoint pixel. Clip to the exact
+            // painted extent so neither the first transparent bottom row nor the area
+            // above the screen becomes part of the window's hit region.
+            let bounds = Region::owned(CreateRectRgn(x, 0, x + w, h))?;
+            body.combine(&bounds, RGN_AND)?;
+            let top = Region::owned(CreateRectRgn(x, 0, x + w, r.min(h)))?;
+            body.combine(&top, RGN_OR)?;
+            let left = Region::owned(CreateRectRgn(x - s, 0, x, s))?;
+            let left_cut = Region::owned(CreateEllipticRgn(x - 2 * s, 0, x, 2 * s))?;
+            left.combine(&left_cut, RGN_DIFF)?;
+            body.combine(&left, RGN_OR)?;
+            let right = Region::owned(CreateRectRgn(x + w, 0, x + w + s, s))?;
+            let right_cut = Region::owned(CreateEllipticRgn(x + w, 0, x + w + 2 * s, 2 * s))?;
+            right.combine(&right_cut, RGN_DIFF)?;
+            body.combine(&right, RGN_OR)?;
+            Ok(body)
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 pub struct Display {
     pub id: String,
@@ -50,10 +159,13 @@ pub fn position_island(app: &AppHandle, prefs: &Preferences) -> Result<(), Strin
         || current_size.height != (available_height * monitor.scale_factor()).round() as u32
     {
         window
-            .set_size(tauri::LogicalSize::new(680., available_height))
+            .set_size(tauri::PhysicalSize::new(
+                (680. * monitor.scale_factor()).round() as u32,
+                (available_height * monitor.scale_factor()).round() as u32,
+            ))
             .map_err(|e| e.to_string())?;
     }
-    let window_width = (680. * monitor.scale_factor()) as i32;
+    let window_width = (680. * monitor.scale_factor()).round() as i32;
     let x = left + (width - window_width) / 2;
     let current = window.outer_position().map_err(|e| e.to_string())?;
     if current.x != x || current.y != top {
@@ -104,40 +216,35 @@ pub fn shape(app: &AppHandle, width: u32, height: u32, focus: Option<bool>) -> R
         .ok_or("Island window not found")?;
     #[cfg(windows)]
     {
-        use windows_sys::Win32::Graphics::Gdi::{
-            CombineRgn, CreateEllipticRgn, CreateRectRgn, CreateRoundRectRgn, DeleteObject,
-            SetWindowRgn, RGN_DIFF, RGN_OR,
-        };
+        use windows_sys::Win32::Graphics::Gdi::SetWindowRgn;
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0;
         let scale = window.scale_factor().map_err(|e| e.to_string())?;
-        let width = width.clamp(144, 440) as f64;
-        let height = height.clamp(42, 616) as f64;
-        let x = ((680. - width) / 2. * scale).round() as i32;
-        let w = (width * scale).round() as i32;
-        let h = (height * scale).round() as i32;
-        let radius = ((19. + (width - 144.) / 296. * 7.) * scale).round() as i32;
-        let shoulder = (18. * scale).round() as i32;
-        unsafe {
-            let round = CreateRoundRectRgn(x, -radius, x + w + 1, h + 1, radius * 2, radius * 2);
-            let top = CreateRectRgn(x, 0, x + w, radius);
-            CombineRgn(round, round, top, RGN_OR);
-            DeleteObject(top);
-            let left = CreateRectRgn(x - shoulder, 0, x, shoulder);
-            let left_cut = CreateEllipticRgn(x - 2 * shoulder, 0, x, 2 * shoulder);
-            CombineRgn(left, left, left_cut, RGN_DIFF);
-            CombineRgn(round, round, left, RGN_OR);
-            let right = CreateRectRgn(x + w, 0, x + w + shoulder, shoulder);
-            let right_cut = CreateEllipticRgn(x + w, 0, x + w + 2 * shoulder, 2 * shoulder);
-            CombineRgn(right, right, right_cut, RGN_DIFF);
-            CombineRgn(round, round, right, RGN_OR);
-            for region in [left, left_cut, right, right_cut] {
-                DeleteObject(region);
+        let host_width = window.inner_size().map_err(|e| e.to_string())?.width;
+        let geometry = RegionGeometry::new(width, height, scale, host_width);
+        let state = app.state::<IslandShape>();
+        let changed = {
+            let mut state = state.0.lock().map_err(|e| e.to_string())?;
+            state.width = width;
+            state.height = height;
+            let changed = state.applied != Some(geometry);
+            // SetWindowRgn sends window-position events. Cache before applying so
+            // a resulting resize callback cannot recursively apply the same region.
+            state.applied = Some(geometry);
+            changed
+        };
+        if changed {
+            let apply = || -> Result<(), String> {
+                let region = region::create(geometry)?;
+                if unsafe { SetWindowRgn(hwnd as _, region.0, 1) } == 0 {
+                    return Err(std::io::Error::last_os_error().to_string());
+                }
+                region.transfer(); // Windows now owns it.
+                Ok(())
+            };
+            if let Err(error) = apply() {
+                state.0.lock().map_err(|e| e.to_string())?.applied = None;
+                return Err(error);
             }
-            if SetWindowRgn(hwnd as _, round, 1) == 0 {
-                DeleteObject(round);
-                return Err(std::io::Error::last_os_error().to_string());
-            }
-            // Windows owns the region after successful SetWindowRgn.
         }
         if let Some(expanded) = focus {
             window.set_focusable(expanded).map_err(|e| e.to_string())?;
@@ -147,6 +254,14 @@ pub fn shape(app: &AppHandle, width: u32, height: u32, focus: Option<bool>) -> R
         }
     }
     Ok(())
+}
+pub fn refresh_shape(app: &AppHandle) -> Result<(), String> {
+    let (width, height) = {
+        let state = app.state::<IslandShape>();
+        let state = state.0.lock().map_err(|e| e.to_string())?;
+        (state.width, state.height)
+    };
+    shape(app, width, height, None)
 }
 pub fn fullscreen_over_island(app: &AppHandle) -> bool {
     #[cfg(windows)]
@@ -250,4 +365,85 @@ pub fn autostart(enabled: bool) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use windows_sys::Win32::{
+        Foundation::RECT,
+        Graphics::Gdi::{GetRgnBox, PtInRegion},
+    };
+
+    #[test]
+    fn native_region_excludes_the_first_transparent_row_at_each_scale() {
+        for scale in [1., 1.25, 1.5, 2.] {
+            for width in [144, 211, 300, 360, 400, 440] {
+                for height in [34, 101, 348, 616] {
+                    let g = RegionGeometry::new(width, height, scale, (680. * scale) as u32);
+                    let region = region::create(g).unwrap();
+                    let mut bounds: RECT = unsafe { std::mem::zeroed() };
+                    assert_ne!(unsafe { GetRgnBox(region.0, &mut bounds) }, 0);
+                    assert_eq!(bounds.top, 0, "{g:?}");
+                    assert_eq!(bounds.bottom, g.height, "{g:?}");
+                    assert_ne!(
+                        unsafe { PtInRegion(region.0, g.x + g.width / 2, g.height - 1) },
+                        0
+                    );
+                    for x in (g.x - g.shoulder)..=(g.x + g.width + g.shoulder) {
+                        assert_eq!(
+                            unsafe { PtInRegion(region.0, x, g.height) },
+                            0,
+                            "below {g:?}"
+                        );
+                    }
+                    assert_eq!(unsafe { PtInRegion(region.0, g.x + 1, g.height - 1) }, 0);
+                    assert_eq!(
+                        unsafe { PtInRegion(region.0, g.x + g.width - 2, g.height - 1) },
+                        0
+                    );
+                    assert_eq!(unsafe { PtInRegion(region.0, g.x - 1, g.shoulder) }, 0);
+                    assert_eq!(
+                        unsafe { PtInRegion(region.0, g.x + g.width, g.shoulder) },
+                        0
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_shoulders_are_small_circles_with_click_through_cutouts() {
+        for scale in [1., 1.5] {
+            let g = RegionGeometry::new(300, 34, scale, (680. * scale) as u32);
+            let region = region::create(g).unwrap();
+            let point = |x: f64, y: f64| unsafe {
+                PtInRegion(
+                    region.0,
+                    (x * scale).round() as i32,
+                    (y * scale).round() as i32,
+                ) != 0
+            };
+            assert!(point(188., 1.));
+            assert!(point(491., 1.));
+            assert!(!point(183., 7.));
+            assert!(!point(497., 7.));
+            assert!(!point(189., 9.));
+            assert!(!point(491., 9.));
+            assert!(point(198., 28.), "17px bottom corner at scale {scale}");
+        }
+    }
+
+    #[test]
+    fn native_geometry_tracks_the_surface_radius_and_host_size() {
+        for (width, radius) in [(144, 17), (300, 17), (360, 17), (400, 21), (440, 24)] {
+            assert_eq!(RegionGeometry::new(width, 34, 1., 680).radius, radius);
+        }
+        assert_eq!(RegionGeometry::new(300, 1, 1.5, 1020).height, 51);
+        assert_eq!(RegionGeometry::new(440, 900, 1.5, 1020).height, 924);
+        let narrow = RegionGeometry::new(350, 200, 1., 390);
+        assert_eq!((narrow.x, narrow.width, narrow.radius), (20, 350, 24));
+        let narrow_compact = RegionGeometry::new(290, 34, 1., 390);
+        assert_eq!(narrow_compact.radius, 17);
+    }
 }

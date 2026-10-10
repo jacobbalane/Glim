@@ -39,6 +39,8 @@ The helper inherits these overrides from the agent environment during testing. D
 
 `npm run test:native` launches a standalone build with isolated directories automatically. First build the helper and application with `node scripts/prepare-bridge.mjs` and `cargo build --manifest-path src-tauri/Cargo.toml --bin glim --features custom-protocol` after `npm run build`. It exercises the real WebView2, private named pipe, connector installation/restoration, usage replay handling, pause, status-line relay, limits, history clearing, and raw-content exclusion. Test artifacts remain in ignored `.cache/native-smoke-*` directories. Set `GLIM_TEST_EXE` and `GLIM_TEST_BRIDGE` to test release executables. This uses synthetic provider records, not an authenticated provider session.
 
+The native smoke also calls `scripts/inspect-native-region.ps1` for the compact notch, Settings, Usage, and live-agent views. It saves the actual Windows region, DPI, and pointer-hit results in `native-regions.json`, alongside the WebView screenshot. The probe is read-only and checks that the first transparent row below the notch reaches another window. It uses the display's current scaling without changing Windows settings. Rust geometry tests cover 100%, 125%, 150%, and 200%; actual desktop rendering and monitor transitions still need separate checks on those displays. The smoke refuses to start if its debugger port is already in use.
+
 The collector accepts only local JSONL files under the configured provider directory. Event input is capped at 1 MB; pipe messages at 64 KB; each transcript poll at 8 MB. App state changes occur under a collector lock; ingestion cursor and usage updates share a SQLite transaction.
 
 ## Installer testing

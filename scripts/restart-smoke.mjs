@@ -52,7 +52,7 @@ try {
   const [code] = await once(secondary, 'exit');
   clearTimeout(timeout);
   assert.equal(code, 0, 'A second launch must route to the existing app.');
-  await page.getByRole('heading', { name: 'Agents', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
   assert.equal(
     browser.contexts().flatMap((context) => context.pages()).length,
     1,

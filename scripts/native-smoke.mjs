@@ -36,6 +36,17 @@ const originalClaude = {
 await writeFile(join(codexDir, 'hooks.json'), JSON.stringify(original));
 await writeFile(join(claudeDir, 'settings.json'), JSON.stringify(originalClaude));
 const port = Number(process.env.GLIM_TEST_CDP_PORT ?? 9223);
+const debuggerInUse = await fetch(`http://127.0.0.1:${port}/json/version`, {
+  signal: AbortSignal.timeout(1000),
+}).then(
+  () => true,
+  () => false,
+);
+assert.equal(
+  debuggerInUse,
+  false,
+  'Test debugger port is already in use; refusing to attach to another app.',
+);
 const env = {
   ...process.env,
   GLIM_DATA_DIR: data,
@@ -90,6 +101,8 @@ try {
     'island WebView',
   );
   await page.waitForFunction(() => !!window.__TAURI_INTERNALS__);
+  page.setDefaultTimeout(15000);
+  await page.locator('.glim-character[data-renderer="3d"]').first().waitFor();
   const invoke = async (command, args = {}) => {
     const watchdog = setTimeout(() => app.kill(), 20000);
     try {
@@ -101,24 +114,83 @@ try {
       clearTimeout(watchdog);
     }
   };
+  const regionChecks = [];
+  const checkRegion = async (label) => {
+    await delay(600); // Let the surface spring and its native IPC updates settle.
+    const surface = await page.getByTestId('island').evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      return { width: rect.width, height: rect.height, viewportWidth: innerWidth };
+    });
+    const probe = spawn(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-File',
+        resolve('scripts/inspect-native-region.ps1'),
+        '-GlimProcessId',
+        String(app.pid),
+      ],
+      { windowsHide: true, stdio: 'pipe' },
+    );
+    let output = '',
+      error = '';
+    probe.stdout.on('data', (chunk) => {
+      output += chunk;
+    });
+    probe.stderr.on('data', (chunk) => {
+      error += chunk;
+    });
+    const [code] = await once(probe, 'exit');
+    assert.equal(code, 0, error);
+    const native = JSON.parse(output);
+    regionChecks.push({ label, surface, ...native });
+    await writeFile(join(root, 'native-regions.json'), JSON.stringify(regionChecks, null, 2));
+    const scale = native.dpi / 96;
+    assert.ok(
+      Math.abs(native.region.Bottom - Math.round(surface.height) * scale) <= 1,
+      `${label}: region follows painted height`,
+    );
+    assert.equal(native.region.Top, 0);
+    assert.equal(native.lastRowInside, true);
+    assert.equal(native.firstRowBelowOutside, true);
+    assert.equal(
+      native.actualHitInside,
+      true,
+      `${label}: native body receives pointer hits: ${native.insideHitWindow}`,
+    );
+    assert.equal(
+      native.actualHitBelowPassesThrough,
+      true,
+      `${label}: first transparent row passes through`,
+    );
+    console.log(
+      `Native ${label}: ${native.dpi} DPI, ${native.region.Bottom}px region; actual click-through below verified.`,
+    );
+  };
   const initial = await invoke('snapshot');
   assert.equal(initial.sessions.length, 0, 'Native mode must never include demo sessions.');
   console.log('Native startup and onboarding responsive.');
   await page.getByRole('button', { name: 'Get started', exact: true }).click();
   for (const provider of ['Codex', 'Claude Code']) {
-    const row = page.locator('.connector-card').filter({ hasText: provider });
-    await row.getByRole('button', { name: 'Connect', exact: true }).click();
+    const row = page.locator('.conn').filter({ hasText: provider });
+    await row.locator('.conn-head').click();
     if (provider === 'Codex')
       assert.match(await row.innerText(), /\/hooks/, 'Setup must explain Codex hook trust.');
-    await row.getByRole('button', { name: 'Confirm', exact: true }).click();
-    await row.getByRole('button', { name: 'Connected', exact: true }).waitFor();
+    await row
+      .getByRole('button', {
+        name: `Connect ${provider === 'Codex' ? 'Codex' : 'Claude'}`,
+        exact: true,
+      })
+      .click();
+    await row.locator('.conn-status').waitFor();
   }
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await page.getByLabel('When idle').selectOption('pill');
+  await page.getByRole('button', { name: 'Keep visible', exact: true }).click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   const preferences = (await invoke('snapshot')).preferences;
   assert.equal(preferences.onboardingComplete, true);
   await page.getByRole('button', { name: 'Collapse Glim' }).click();
+  await checkRegion('compact');
   assert.ok((await invoke('snapshot')).connectors.every((connector) => connector.enabled));
   console.log('Onboarding completed and isolated provider connectors installed through the UI.');
   await page
@@ -127,7 +199,7 @@ try {
   for (const view of ['settings', 'history']) {
     await invoke('open_panel', { view });
     await page
-      .getByRole('heading', { name: view === 'settings' ? 'Agents' : 'Usage', exact: true })
+      .getByRole('heading', { name: view === 'settings' ? 'Settings' : 'Usage', exact: true })
       .waitFor();
     assert.equal(
       browser.contexts().flatMap((c) => c.pages()).length,
@@ -135,14 +207,15 @@ try {
       'All views must share one WebView.',
     );
     assert.equal(await page.getByTestId('island').getAttribute('data-persistence-check'), 'same');
+    await checkRegion(view);
     await page.mouse.click(40, 100);
-    await page.getByRole('button', { name: 'Expand Glim' }).waitFor();
+    await page.getByRole('button', { name: /^Glim:/ }).waitFor();
     assert.equal(await page.getByTestId('island').getAttribute('data-expanded'), 'false');
   }
   await invoke('open_panel', { view: 'setup' });
   await page.getByRole('button', { name: 'Get started', exact: true }).waitFor();
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-  await page.getByRole('button', { name: 'Expand Glim' }).waitFor();
+  await page.getByRole('button', { name: /^Glim:/ }).waitFor();
   console.log('Settings, history, and setup collapse on outside clicks or focus loss.');
   const transcript = join(codexDir, 'sessions', 'native-smoke.jsonl');
   const token = JSON.parse(await readFile('src-tauri/tests/fixtures/codex-token.json', 'utf8'));
@@ -248,16 +321,12 @@ try {
       'waiting',
     'UI attention state',
   );
-  await page.getByRole('button', { name: 'Expand Glim' }).click();
+  await page.getByRole('button', { name: /^Glim:/ }).click();
   await page.getByRole('button', { name: 'Collapse Glim' }).waitFor();
-  await page.getByRole('button', { name: 'Choose session' }).waitFor({ state: 'visible' });
-  await page.getByRole('button', { name: 'Choose session' }).click();
-  await page.locator('.session-choice').filter({ hasText: 'Claude Code' }).click();
-  await page.locator('.working-indicator').waitFor();
-  assert.equal(
-    await page.locator('.notch-toolbar .agent-mark').getAttribute('src'),
-    '/providers/claude.svg',
-  );
+  await page.getByRole('button', { name: /glim-smoke, Claude Code:/ }).click();
+  await page.locator('.hero .glim-character[data-renderer="3d"]').waitFor();
+  await checkRegion('live-agent');
+  assert.equal(await page.locator('.hero-head .logo').getAttribute('src'), '/providers/claude.svg');
   await delay(400);
   await page
     .getByTestId('island')
@@ -266,11 +335,11 @@ try {
   await page.getByRole('region', { name: 'Session usage details' }).waitFor();
   assert.match(
     await page.getByRole('region', { name: 'Session usage details' }).innerText(),
-    /24% used/,
+    /24%/,
   );
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Expand Glim' }).waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: /^Glim:/ }).waitFor({ state: 'visible' });
   await invoke('clear_history');
   assert.deepEqual(await invoke('history'), []);
   await appendFile(transcript, JSON.stringify(token) + '\n');
