@@ -281,10 +281,23 @@ pub fn set_connector_at(
             &serde_json::to_vec_pretty(&m).map_err(|e| e.to_string())?,
         )?;
     }
-    atomic_write(
-        path,
-        &serde_json::to_vec_pretty(&config).map_err(|e| e.to_string())?,
-    )?;
+    // Disconnecting from a file that held only Glim's entries (Glim created it) removes the file,
+    // as it was before.
+    let nothing_left = config.as_object().is_some_and(|o| {
+        o.iter()
+            .all(|(k, v)| k == "hooks" && v.as_object().is_some_and(|h| h.is_empty()))
+    });
+    if !enabled && nothing_left {
+        fs::remove_file(path).map_err(|e| e.to_string())?;
+    } else {
+        // Written the way Claude Code and Codex write it, keys in their order, and ending as it
+        // did, so disconnecting gives the file back byte for byte.
+        let mut written = serde_json::to_vec_pretty(&config).map_err(|e| e.to_string())?;
+        if original_bytes.ends_with(b"\n") {
+            written.push(b'\n');
+        }
+        atomic_write(path, &written)?;
+    }
     if !enabled {
         let _ = fs::remove_file(manifest_path(root, provider));
         if let Some(relay) = old.and_then(|m| m.relay_file) {
@@ -422,6 +435,32 @@ mod tests {
         .unwrap();
         let (_, restored) = read_config(&path).unwrap();
         assert_eq!(original, restored);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn disconnecting_gives_the_settings_file_back_byte_for_byte() {
+        let root = sandbox();
+        let path = root.join("settings.json");
+        // As Claude Code writes it: its own key order, two-space indent, a final newline.
+        let original = "{\n  \"model\": \"opus\",\n  \"hooks\": {\n    \"Stop\": [\n      {\n        \"hooks\": [\n          {\n            \"type\": \"command\",\n            \"command\": \"my-script\"\n          }\n        ]\n      }\n    ]\n  },\n  \"statusLine\": {\n    \"type\": \"command\",\n    \"command\": \"my-status\"\n  },\n  \"enabledPlugins\": {}\n}\n";
+        fs::write(&path, original).unwrap();
+        let bridge = Path::new("C:/Glim/glim-bridge.exe");
+        set_connector_at(Provider::Claude, true, &path, &root, bridge).unwrap();
+        let connected = fs::read_to_string(&path).unwrap();
+        assert!(connected.starts_with("{\n  \"model\""));
+        set_connector_at(Provider::Claude, false, &path, &root, bridge).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn a_file_glim_created_goes_when_glim_disconnects() {
+        let root = sandbox();
+        let path = root.join("hooks.json");
+        let bridge = Path::new("C:/Glim/glim-bridge.exe");
+        set_connector_at(Provider::Codex, true, &path, &root, bridge).unwrap();
+        assert!(path.exists());
+        set_connector_at(Provider::Codex, false, &path, &root, bridge).unwrap();
+        assert!(!path.exists());
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
