@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { hasGpu } from './gpu';
 const scenes = JSON.parse(
   readFileSync(new URL('../../src/preview-scenes.json', import.meta.url), 'utf8'),
 ) as { id: string; width: number; height: number }[];
@@ -107,12 +108,15 @@ test('interactive notch keeps one surface and animates working activity', async 
   await frame.getByRole('button', { name: /glim-desktop, Claude Code/ }).click();
   await expect.poll(async () => (await island.boundingBox())?.height).toBeLessThan(400);
   const character = frame.locator('.glim-character[data-mood="scan"]').first();
-  await expect(character).toHaveAttribute('data-renderer', '3d');
+  const gpu = await hasGpu(page);
+  await expect(character).toHaveAttribute('data-renderer', gpu ? '3d' : 'fallback');
   await expect(character).toHaveAttribute('data-motion', 'true');
-  const firstFrame = await character.locator('canvas').evaluate((node) => node.toDataURL());
-  await expect
-    .poll(() => character.locator('canvas').evaluate((node) => node.toDataURL()))
-    .not.toBe(firstFrame);
+  if (gpu) {
+    const firstFrame = await character.locator('canvas').evaluate((node) => node.toDataURL());
+    await expect
+      .poll(() => character.locator('canvas').evaluate((node) => node.toDataURL()))
+      .not.toBe(firstFrame);
+  }
   await page.mouse.click(24, 220);
   await expect(frame.getByRole('button', { name: /^Glim:/ })).toBeVisible();
   await expect(island).toHaveAttribute('data-expanded', 'false');

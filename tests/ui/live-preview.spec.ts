@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { hasGpu } from './gpu';
 
 async function simulate(page: Page, activity: string, id: string, detail?: string) {
   await page.evaluate(
@@ -40,7 +41,10 @@ test('compact fits its text, loops only the status, and respects reduced motion'
   await simulate(page, 'working', 'demo-claude', long);
   await expect(ticker).toHaveCSS('animation-name', 'none');
   const character = island.locator('.glim-character[data-mood="scan"]');
-  await expect(character).toHaveAttribute('data-renderer', '3d');
+  await expect(character).toHaveAttribute(
+    'data-renderer',
+    (await hasGpu(page)) ? '3d' : 'fallback',
+  );
   await expect(character).toHaveAttribute('data-motion', 'false');
   await expect(trigger).toHaveAttribute('title', `glim-desktop · ${long}`);
 });

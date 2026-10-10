@@ -52,6 +52,8 @@ const COLORS: Record<Tone, string> = {
   calm: '#a3a3b2',
   off: '#6b6b78',
 };
+// Renderer names of WebGL without a GPU: Chrome's, Mesa's and Windows'.
+const SOFTWARE = /SwiftShader|llvmpipe|Basic Render/i;
 // Half the distance between the eyes.
 const EYE_X = 0.205;
 const clamp = (n: number, lo = -1, hi = 1) => Math.max(lo, Math.min(hi, n));
@@ -89,6 +91,16 @@ function buildStage() {
     preserveDrawingBuffer: true,
     powerPreference: 'low-power',
   });
+  // Without a GPU (a VM, a remote desktop, a CI runner) WebGL is drawn on the CPU: building the
+  // stage blocks the page for seconds and every frame stalls on the copy out. Glim stays flat
+  // there. `failIfMajorPerformanceCaveat` would be the native check, but SwiftShader passes it.
+  const gl = renderer.getContext();
+  const gpu = gl.getExtension('WEBGL_debug_renderer_info');
+  if (gpu && SOFTWARE.test(gl.getParameter(gpu.UNMASKED_RENDERER_WEBGL))) {
+    renderer.forceContextLoss();
+    renderer.dispose();
+    throw new Error('WebGL is software rendered');
+  }
   canvas.addEventListener('webglcontextlost', (event) => {
     event.preventDefault();
     // A retired context may be evicted after a newer stage has taken its place.

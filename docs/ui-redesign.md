@@ -759,4 +759,5 @@ Titles use `text-wrap: balance`. Paragraphs use `text-wrap: pretty` and stop at 
 - The Codex PNG needs the luminance mask described above.
 - A view on its way out must keep its original width. Content fade must follow the spring position, or text shows clipped mid-resize.
 - The shoulders need `clip-path: path()` and a 1px tuck under the island, as described in [Surface and motion](#surface-and-motion). A radial mask leaves a step at the side, and edge-to-edge boxes leave a hairline seam.
+- WebGL without a GPU (a VM, a remote desktop, a CI runner) is drawn on the CPU by SwiftShader or WARP. The 3D stage then blocks the page for seconds and every frame stalls on the copy out, which timed out the UI tests on CI. `buildStage` refuses those renderers so Glim stays flat, and `tests/ui/gpu.ts` tells the tests which to expect. `failIfMajorPerformanceCaveat` does not catch SwiftShader.
 - The Tauri CSP already allows what the design needs: a same-origin mask URL, an SVG `data:` URI for the select chevron, and inline styles from motion.

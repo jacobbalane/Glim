@@ -1,9 +1,22 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { hasGpu } from './gpu';
+
+// The 3D checks need a GPU; without one, Glim must be flat.
+async function needsGpu(page: Page) {
+  const gpu = await hasGpu(page);
+  if (!gpu)
+    await expect(page.locator('.compact .glim-character')).toHaveAttribute(
+      'data-renderer',
+      'fallback',
+    );
+  test.skip(!gpu, 'Glim is flat without a GPU');
+}
 
 test('3D Glim follows status changes and keeps its compact footprint', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/?scene=compact-long&motion=1');
+  await needsGpu(page);
   const character = page.locator('.compact .glim-character');
   await expect(character).toHaveAttribute('data-renderer', '3d');
   await expect(character).toHaveCSS('width', '28px');
@@ -52,6 +65,7 @@ test('3D motion stops for reduced motion and hidden windows, then resumes', asyn
   });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?scene=compact-short&motion=1');
+  await needsGpu(page);
   const character = page.locator('.compact .glim-character');
   await expect(character).toHaveAttribute('data-renderer', '3d');
   const frames = () =>
@@ -119,6 +133,7 @@ test('GPU context loss restores the flat status character', async ({ page }) => 
     } as typeof original;
   });
   await page.goto('/?scene=compact-short');
+  await needsGpu(page);
   const character = page.locator('.compact .glim-character');
   await expect(character).toHaveAttribute('data-renderer', '3d');
   await page.evaluate(() =>
