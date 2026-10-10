@@ -269,7 +269,21 @@ pub fn parse_record(provider: Provider, v: &Value) -> ParsedRecord {
                     result.activity = Some(("working".into(), "Thinking".into()))
                 }
                 (Some("event_msg"), Some("task_complete")) => {
-                    result.activity = Some(("idle".into(), "Turn finished".into()))
+                    // A turn that failed (a usage limit, a network error) ends with an error, not a
+                    // handed-back turn. Only the error kind is read, never its message.
+                    result.activity = Some(match payload.get("error").filter(|e| !e.is_null()) {
+                        Some(error) => (
+                            "error".into(),
+                            if str_field(error, "codex_error_info") == Some("usage_limit_exceeded")
+                            {
+                                "Usage limit reached"
+                            } else {
+                                "Agent reported an error"
+                            }
+                            .into(),
+                        ),
+                        None => ("idle".into(), "Turn finished".into()),
+                    })
                 }
                 (Some("event_msg"), Some("turn_aborted")) => {
                     result.activity = Some(("interrupted".into(), "Turn interrupted".into()))
@@ -402,6 +416,23 @@ mod tests {
         let mut s = Session::new(Provider::Codex, "a".into());
         apply_hook(&mut s, &e);
         assert_eq!(s.activity, "idle");
+    }
+    #[test]
+    fn a_failed_codex_turn_is_an_error_not_a_handed_back_turn() {
+        let done = |error: Value| {
+            parse_record(
+                Provider::Codex,
+                &json!({"type":"event_msg","payload":{"type":"task_complete","error":error}}),
+            )
+            .activity
+            .unwrap()
+        };
+        assert_eq!(done(Value::Null), ("idle".into(), "Turn finished".into()));
+        let limit = done(
+            json!({"message":"You've hit your usage limit.","codex_error_info":"usage_limit_exceeded"}),
+        );
+        assert_eq!(limit, ("error".into(), "Usage limit reached".into()));
+        assert_eq!(done(json!({"message":"stream disconnected"})).0, "error");
     }
     #[test]
     fn questions_wait_for_an_answer_then_resume() {
