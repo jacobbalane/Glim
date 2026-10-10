@@ -130,29 +130,7 @@ impl Collector {
                     .take(8)
                     .filter_map(|line| serde_json::from_slice(line).ok())
                     .collect();
-                let found = meta.iter().find_map(|v| {
-                    if c.provider == Provider::Codex
-                        && v.get("type").and_then(|v| v.as_str()) == Some("session_meta")
-                    {
-                        let p = v.get("payload")?;
-                        Some((
-                            p.get("id")?.as_str()?.to_string(),
-                            p.get("cwd").and_then(|v| v.as_str()).map(basename),
-                            p.pointer("/source/subagent").is_some(),
-                        ))
-                    } else if c.provider == Provider::Claude {
-                        Some((
-                            v.get("sessionId")?.as_str()?.to_string(),
-                            v.get("cwd").and_then(|v| v.as_str()).map(basename),
-                            v.get("isSidechain")
-                                .and_then(|v| v.as_bool())
-                                .unwrap_or(false),
-                        ))
-                    } else {
-                        None
-                    }
-                });
-                if let Some((id, project, child)) = found {
+                if let Some((id, project, child)) = transcript_identity(c.provider, &meta) {
                     if child {
                         continue;
                     } // Child files are registered through hooks instead.
@@ -221,6 +199,34 @@ impl Collector {
         }
         changed
     }
+}
+/// Who a transcript belongs to, from its first lines: the session, its project folder, and whether
+/// it is a subagent's. Claude Code opens a transcript with records that carry the session but not
+/// the folder (last-prompt, mode, queue-operation); the folder comes a few lines on.
+fn transcript_identity(
+    provider: Provider,
+    meta: &[serde_json::Value],
+) -> Option<(String, Option<String>, bool)> {
+    if provider == Provider::Codex {
+        let p = meta
+            .iter()
+            .find(|v| v.get("type").and_then(|v| v.as_str()) == Some("session_meta"))?
+            .get("payload")?;
+        return Some((
+            p.get("id")?.as_str()?.to_string(),
+            p.get("cwd").and_then(|v| v.as_str()).map(basename),
+            p.pointer("/source/subagent").is_some(),
+        ));
+    }
+    let id = meta.iter().find_map(|v| v.get("sessionId")?.as_str())?;
+    Some((
+        id.to_string(),
+        meta.iter()
+            .find_map(|v| v.get("cwd")?.as_str())
+            .map(basename),
+        meta.iter()
+            .any(|v| v.get("isSidechain").and_then(|v| v.as_bool()) == Some(true)),
+    ))
 }
 fn safe_transcript(path: &Path, provider: Provider) -> bool {
     if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
@@ -363,6 +369,29 @@ fn tail(store: &Store, file: &TrackedFile, s: &mut Session) -> Result<bool, Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn a_found_transcript_knows_its_project_folder() {
+        // How Claude Code 2.1 opens a transcript: the folder is not on the first records.
+        let claude: Vec<serde_json::Value> = [
+            r#"{"type":"queue-operation","sessionId":"abc"}"#,
+            r#"{"type":"last-prompt","sessionId":"abc"}"#,
+            r#"{"type":"user","sessionId":"abc","cwd":"C:\\work\\glim-site","isSidechain":false}"#,
+        ]
+        .iter()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+        assert_eq!(
+            transcript_identity(Provider::Claude, &claude),
+            Some(("abc".into(), Some("glim-site".into()), false))
+        );
+        let codex: Vec<serde_json::Value> = vec![
+            serde_json::json!({"type":"session_meta","payload":{"id":"x1","cwd":"C:\\work\\api"}}),
+        ];
+        assert_eq!(
+            transcript_identity(Provider::Codex, &codex),
+            Some(("x1".into(), Some("api".into()), false))
+        );
+    }
     #[test]
     fn first_hook_uses_event_clock_and_applies_activity() {
         let db = Store::open(Path::new(":memory:")).unwrap();
