@@ -11,8 +11,8 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: npm
@@ -41,7 +41,7 @@ jobs:
             $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Set-Content -LiteralPath "$($_.FullName).sha256"
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Glim-windows-x64
           path: |
@@ -57,14 +57,14 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: Glim-windows-x64
           path: artifacts
       - uses: actions/attest-build-provenance@v4
         with:
           subject-path: artifacts/*.exe
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           draft: true
           generate_release_notes: true
