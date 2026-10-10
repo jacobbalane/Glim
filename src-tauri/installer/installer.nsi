@@ -168,13 +168,13 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !endif
 
 ; Glim: the dark theme (theme.nsh): the website's colors, and the art that sits beside the
-; sidebar image (install.bmp) in src-tauri/installer.
-!searchreplace GLIMART "${SIDEBARIMAGE}" "install.bmp" ""
+; sidebar image (crowd.bmp, the crowd's background) in src-tauri/installer.
+!searchreplace GLIMART "${SIDEBARIMAGE}" "crowd.bmp" ""
 !define MUI_BGCOLOR "0A0B12"
 !define MUI_TEXTCOLOR "FFFFFF"
 !define MUI_CUSTOMFUNCTION_GUIINIT GlimGUIInit
 !define MUI_CUSTOMFUNCTION_UNGUIINIT un.GlimGUIInit
-!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${GLIMART}uninstall.bmp"
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${GLIMART}sky.bmp"
 
 ; Uninstaller header image
 !if "${UNINSTALLERHEADERIMAGE}" != ""
@@ -199,6 +199,7 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !define MUI_WELCOMEPAGE_TEXT "$GlimText"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW GlimWelcomeShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE GlimAnimStop
 !insertmacro MUI_PAGE_WELCOME
 
 ; 2. License Page (if defined)
@@ -328,6 +329,7 @@ Var AppStartMenuFolder
 !define MUI_FINISHPAGE_TEXT "$GlimDoneText"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW GlimFinishShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE GlimAnimStop
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
@@ -348,6 +350,7 @@ Var DeleteAppDataCheckboxState
 !insertmacro MUI_UNPAGE_WELCOME
 Function un.ConfirmLeave
   SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
+  Call un.GlimAnimStop
 FunctionEnd
 
 ; 2. Uninstalling Page
@@ -361,6 +364,7 @@ FunctionEnd
 !define MUI_FINISHPAGE_TEXT "Claude Code and Codex are back the way they were. Glim's backups of their settings stay in $INSTDIR\backups."
 !define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW un.GlimFinishShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.GlimAnimStop
 !insertmacro MUI_UNPAGE_FINISH
 
 ;Languages
@@ -379,8 +383,8 @@ FunctionEnd
 Function .onInit
   ; Glim: the art, ready before the pages show (theme.nsh).
   InitPluginsDir
-  File "/oname=$PLUGINSDIR\glim-welcome.bmp" "${GLIMART}install.bmp"
-  File "/oname=$PLUGINSDIR\glim-finish.bmp" "${GLIMART}finish.bmp"
+  File "/oname=$PLUGINSDIR\glim-banner.bmp" "${GLIMART}crowd.bmp"
+  File "/oname=$PLUGINSDIR\glim-sprites.bmp" "${GLIMART}crowd-sprites.bmp"
   File "/oname=$PLUGINSDIR\glim-header.bmp" "${GLIMART}header.bmp"
 
   ${GetOptions} $CMDLINE "/P" $PassiveMode
@@ -688,8 +692,8 @@ Function un.onInit
 
   ; Glim: the night sky and Glim asleep, ready before the pages show (theme.nsh).
   InitPluginsDir
-  File "/oname=$PLUGINSDIR\glim-welcome.bmp" "${GLIMART}uninstall.bmp"
-  File "/oname=$PLUGINSDIR\glim-finish.bmp" "${GLIMART}goodbye.bmp"
+  File "/oname=$PLUGINSDIR\glim-banner.bmp" "${GLIMART}sky.bmp"
+  File "/oname=$PLUGINSDIR\glim-sprites.bmp" "${GLIMART}sky-sprites.bmp"
   File "/oname=$PLUGINSDIR\glim-header.bmp" "${GLIMART}header-uninstall.bmp"
 FunctionEnd
 
