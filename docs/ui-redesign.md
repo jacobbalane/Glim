@@ -539,7 +539,7 @@ This is the only part of the brand that changes behavior, so it waits for approv
 
 ## Installer
 
-**Owner update, 2026-10-10:** The installer and uninstaller wear the website: its dark background, its copy and its 3D Glims, with different art for installing and uninstalling. This supersedes the light sidebar design and the mocks in `preview-claude/installer.tsx`.
+**Owner update, 2026-10-10:** The installer and uninstaller wear the website: its dark background, its copy and its 3D Glims, which move, with different art for installing and uninstalling. This supersedes the light sidebar design and the mocks in `preview-claude/installer.tsx`.
 
 Glim ships Tauri 2's NSIS wizard (`installMode: currentUser`) with a custom template. Every flow is three screens and one click, then Glim opens and its own setup takes over.
 
@@ -563,22 +563,26 @@ Windows draws NSIS with system colors, so the theme sets each part:
 - The title bar and the window go dark through DWM and `SetCtlColors`, `#0A0B12` like the top of the website's hero. The buttons, the details list and the checkbox boxes take Windows' own dark theme (`DarkMode_Explorer`).
 - MUI shows its etched lines again on every page; on dark they read as white rules, so every page hides them. The version line is one flat grey label.
 - The full-window pages are laid out like the website's hero: the art across the top, the title (Segoe UI Bold) and the text centered under it.
-- Themed checkboxes ignore text colors (NSIS bug #443), so each keeps only its box, and its words move into a label beside it that toggles it. The checkbox keeps its text for screen readers.
+- Checkboxes take the same dark theme, which draws their words light (Windows' default theme ignores text colors, NSIS bug #443), with the page color filling behind them and a space between box and words. Focus outlines and access-key underlines appear once the keyboard is used, as in Windows' own dialogs.
+- The banners move, about 15 frames a second: a timer draws each frame from a background and sprites and copies it straight onto the banner, so nothing else on the page repaints. The crowd bobs and blinks, and hops once on the finish page; the uninstaller's Glim breathes and blinks, then sleeps under rising Zs. The motion stops when its page goes, costs about 1% CPU, and holds still when Windows' animation effects are off.
 - The progress page has an indigo bar on a dark track, and only Cancel in the footer.
 - With high contrast on, Windows' own colors stay.
 
 ### Art
 
-Every bitmap is a 24-bit BMP rendered from the shared 3D renderer by `npm run installer:art` (`scripts/render-installer-art.mjs`, with `npm run dev` running). Each is drawn at twice its size at 100% scaling and scaled to the screen with HALFTONE, so it stays sharp at any scaling. The art holds no text.
+`npm run installer:art` (`scripts/render-installer-art.mjs`, with `npm run dev` running) renders everything from the shared 3D renderer, at twice its size at 100% scaling; the installer scales each frame to the screen with HALFTONE, so it stays sharp at any scaling. The art holds no text.
 
-| File (in `src-tauri/installer/`) | Size    | Shows                                                                                              |
-| -------------------------------- | ------- | -------------------------------------------------------------------------------------------------- |
-| `install.bmp`                    | 994×300 | The website's crowd: indigo Glim in the middle, the state colors around it, rising out of the dark |
-| `finish.bmp`                     | 994×300 | The same crowd, happy                                                                              |
-| `uninstall.bmp`                  | 994×300 | The Pause card's night sky, with a big grey Glim                                                   |
-| `goodbye.bmp`                    | 994×300 | The same sky, Glim asleep under three Zs                                                           |
-| `header.bmp`                     | 300×114 | The indigo Glim at the right of the progress page's header                                         |
-| `header-uninstall.bmp`           | 300×114 | The grey Glim, for the uninstaller                                                                 |
+| File (in `src-tauri/installer/`) | Shows                                                                                          |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `crowd.bmp`                      | The crowd's background: the hero's faint terminal dots and indigo light rising (994×300)       |
+| `crowd-sprites.bmp`              | One Glim in each state color, with its eyes open, closed and happy, and the fade at the bottom |
+| `sky.bmp`                        | The Pause card's night sky with its stars (994×300)                                            |
+| `sky-sprites.bmp`                | The grey Glim awake and asleep, the three sleep Zs, and the fade                               |
+| `art.nsh`                        | Generated: where each sprite sits in its sheet and on the banner, and its moves                |
+| `header.bmp`                     | The indigo Glim at the right of the progress page's header (300×114)                           |
+| `header-uninstall.bmp`           | The grey Glim, for the uninstaller                                                             |
+
+The sprite sheets are 32-bit with premultiplied alpha, as `AlphaBlend` needs.
 
 ### Configuration (`src-tauri/tauri.conf.json`, `bundle.windows.nsis`)
 
@@ -588,7 +592,7 @@ Every bitmap is a 24-bit BMP rendered from the shared 3D renderer by `npm run in
   "installerHooks": "installer/hooks.nsh",
   "installerIcon": "icons/icon.ico",
   "uninstallerIcon": "icons/icon.ico",
-  "sidebarImage": "installer/install.bmp",
+  "sidebarImage": "installer/crowd.bmp",
   "headerImage": "installer/header.bmp",
   "uninstallerHeaderImage": "installer/header-uninstall.bmp",
   "customLanguageFiles": { "English": "installer/english.nsh" },
@@ -605,7 +609,7 @@ Tauri's handlebars template for `tauri-cli` 2.12.1, with Glim's changes marked `
 1. The welcome, finish and progress texts come from variables that `GlimDetect` sets in `.onInit`. The folder page is gone; `/D=` still chooses the folder.
 2. Tauri's maintenance page with radio buttons is gone. Replacing an older or a newer version happens on the progress page, after Setup has asked to close a running Glim (`GlimReplacePrevious`): the old uninstaller runs silently with `/UPDATE`, so it keeps the agents connected, the startup entry and the usage history. No second wizard appears.
 3. The uninstaller has a welcome page with the checkbox, the progress page and a finish page. It skips its pages when run with `/P` or `/UPDATE`.
-4. The art is extracted to `$PLUGINSDIR` in `.onInit` and `un.onInit`, and `theme.nsh` is included after the pages and languages.
+4. The art is extracted to `$PLUGINSDIR` in `.onInit` and `un.onInit`, and `theme.nsh` is included after the pages and languages. Each full-window page starts its banner when it shows and stops it when it leaves (`GlimAnimStart`, `GlimAnimStop`).
 
 ### Hooks (`src-tauri/installer/hooks.nsh`)
 
@@ -614,7 +618,7 @@ Tauri's handlebars template for `tauri-cli` 2.12.1, with Glim's changes marked `
 
 ### Tests
 
-`npm run test:install` installs into an isolated folder, connects isolated agents through the app, and checks that uninstalling restores them. Updating with agents connected, by clicking Update and passively, keeps both connected and the usage history. Check the screens by eye at 100% and 150% scaling after changing the theme or the art.
+`npm run test:install` installs into an isolated folder, connects isolated agents through the app, and checks that uninstalling restores them. Updating with agents connected, by clicking Update and passively, keeps both connected and the usage history. Check the screens by eye at 100% and 150% scaling after changing the theme or the art, and watch each banner move on screen: every frame should move, and the text under it should never flicker.
 
 ## Review page theme
 
