@@ -14,6 +14,9 @@ export interface Group {
   children: Session[];
 }
 
+// A session that has only just started has handed nothing back yet: it is Ready, not Your turn.
+const FRESH = 'Ready for your next idea';
+
 export function lookOf(s: Session, seenAt: number): Look {
   switch (s.activity) {
     case 'waiting':
@@ -31,7 +34,7 @@ export function lookOf(s: Session, seenAt: number): Look {
       return { label: 'Error', tone: 'error', mood: 'cross', rank: 1 };
     case 'idle':
       // A handed-back turn stays teal until the island is opened, then settles.
-      return s.updatedAt > seenAt
+      return s.updatedAt > seenAt && s.detail !== FRESH
         ? { label: 'Your turn', tone: 'success', mood: 'happy', rank: 2 }
         : { label: 'Ready', tone: 'calm', mood: 'open', rank: 6 };
     case 'working':
@@ -146,6 +149,7 @@ export function attentionKind(s: Session, now: number, seenAt = -Infinity): Atte
   if (s.activity === 'error') return 'error';
   if (s.updatedAt <= seenAt) return null;
   if (s.activity === 'interrupted') return 'interrupted';
+  if (s.activity === 'idle' && s.detail === FRESH) return null;
   if ((s.activity === 'idle' || s.activity === 'finished') && now - s.updatedAt < DONE_WINDOW)
     return 'done';
   return null;

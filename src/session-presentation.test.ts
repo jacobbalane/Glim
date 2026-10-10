@@ -24,6 +24,14 @@ describe('session presentation', () => {
     expect(groups.map((g) => g.session.id)).toEqual(['blocked', 'orphan', 'parent']);
     expect(groups[2].children.map((s) => s.id)).toEqual(['child']);
   });
+  it('shows a just-started session as Ready, and only a finished turn as Your turn', () => {
+    const fresh = session({ activity: 'idle', detail: 'Ready for your next idea' });
+    expect(lookOf(fresh, now - 1).label).toBe('Ready');
+    expect(attentionKind(fresh, now, now - 1)).toBeNull();
+    const handedBack = session({ activity: 'idle', detail: 'Turn finished' });
+    expect(lookOf(handedBack, now - 1).label).toBe('Your turn');
+    expect(attentionKind(handedBack, now, now - 1)).toBe('done');
+  });
   it('distinguishes questions, approval and a general attention request', () => {
     const s = session({ activity: 'waiting', detail: 'Waiting for your answer' });
     expect(attentionKind(s, now)).toBe('answer');
