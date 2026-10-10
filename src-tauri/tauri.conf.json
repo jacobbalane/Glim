@@ -39,14 +39,24 @@
     "resources": {
       "../LICENSE": "licenses/glim.txt",
       "../public/fonts/Manrope-LICENSE.txt": "licenses/manrope.txt",
-      "../src/react-bits/LICENSE.react-bits": "licenses/react-bits.txt",
+      "../public/licenses/three.txt": "licenses/three.txt",
       "../THIRD_PARTY_NOTICES.md": "licenses/third-party-notices.md"
     },
     "shortDescription": "A glimpse at your local coding agents",
     "longDescription": "Live activity, token usage, and progress for Claude Code and Codex, in a minimal desktop island. Local by design.",
     "windows": {
       "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
-      "nsis": { "installMode": "currentUser", "installerHooks": "installer/hooks.nsh" }
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "installer/hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "sidebarImage": "installer/sidebar.bmp",
+        "headerImage": "installer/header.bmp",
+        "uninstallerHeaderImage": "installer/header.bmp",
+        "customLanguageFiles": { "English": "installer/english.nsh" },
+        "template": "installer/installer.nsi"
+      }
     }
   }
 }
