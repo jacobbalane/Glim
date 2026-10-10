@@ -31,22 +31,26 @@ Do these once, before the first phase:
 
 ### Phases
 
-| Phase               | File plan steps                            | Done when                                                                                                                            |
-| ------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| 1. Interface        | 1–3: styles, components, surface and notch | Every view matches the preview, the notch rotates, presents and docks as described, and the build and tests pass                     |
-| 2. Native and brand | 4–5                                        | `npm run check:rust` passes, and the new mark, character and icons are in place                                                      |
-| 3. Installer        | 6                                          | The installer builds with the new art, copy, template and hooks                                                                      |
-| 4. Cleanup          | 7–9                                        | React Bits, `ogl` and WebGL are gone, `/preview` and the capture script work, and every [acceptance check](#acceptance-checks) holds |
+| Phase               | File plan steps                            | Done when                                                                                                                                  |
+| ------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1. Interface        | 1–3: styles, components, surface and notch | Every view matches the preview, the notch rotates, presents and docks as described, and the build and tests pass                           |
+| 2. Native and brand | 4–5                                        | `npm run check:rust` passes, and the new mark, character and icons are in place                                                            |
+| 3. Installer        | 6                                          | The installer builds with the new art, copy, template and hooks                                                                            |
+| 4. Cleanup          | 7–9                                        | React Bits and `ogl` are gone from the app, `/preview` and the capture script work, and every [acceptance check](#acceptance-checks) holds |
 
 - Update the tests a phase breaks within that phase, using [Tests to update](#tests-to-update). Do not leave them for phase 4.
 - Do not start the next phase in the same session. Stop and report.
 
 Progress is the one part of this document you may edit. Tick a phase when its "Done when" holds, and add the date:
 
-- [ ] Phase 1: Interface
-- [ ] Phase 2: Native and brand
-- [ ] Phase 3: Installer
-- [ ] Phase 4: Cleanup
+- [x] Phase 1: Interface — 2026-10-09
+- [x] Phase 2: Native and brand — 2026-10-10. Native geometry and 3D brand implemented; 20 Rust tests and isolated native smoke passed. Actual desktop testing covered 100% scaling; a physical 150% display and mixed-DPI monitor move still need visual review.
+- [x] Phase 3: Installer — 2026-10-10. Built with the 3D art, copy, template and hooks. `npm run test:install` passed, and an isolated passive upgrade from 0.1.0 to 0.1.1 kept both agents connected and the usage history. The welcome screen was checked by eye. Still for the owner to check by eye: the update, finish and uninstall screens, and that uninstalling with the checkbox ticked removes the usage history (a silent uninstall cannot tick it).
+- [x] Phase 4: Cleanup — 2026-10-10. React Bits, `WorkingIndicator` and the `/preview-3d` page are gone from the app; `ogl` is a dev dependency for the website. The `sessions` scene is removed. Build, 8 unit tests, 20 UI tests, 20 Rust tests, Clippy, `/preview` and `npm run preview:capture` (31 views) pass, and a scripted user walkthrough of the browser preview found no errors.
+
+**Owner update, 2026-10-10:** Use the website's 3D Glim throughout the app, with its enlarged eyes and satin finish. This supersedes the SVG-only character and no-WebGL requirements below. App and website share `src/mascot-renderer.ts`; the app uses `src/Character.tsx` at the original 24/28px footprints, lazy-loads Three.js, and keeps the flat character as a rendering fallback. Reduced motion and still previews draw one frame per state change. Native app/tray icons and favicon use rendered PNG/ICO assets from `npm run brand:render`. This change does not mark the remaining native-window or installer phases complete.
+
+**Phase 2 implementation note, 2026-10-10:** The later owner-approved 8px circular shoulders supersede the 26×15px shoulder dimensions in the original native-window section. The Windows region now follows the current 34px compact height, 17–24px bottom radius, and 8px shoulders already used by the app and website. No frontend notch design changed in this phase; the website needs no corresponding edits. Future visible notch changes must be listed for the owner to mirror on the website.
 
 Start each session from the first unticked phase.
 
@@ -81,7 +85,7 @@ The owner checks what an agent cannot see:
 - Keep the existing behavior: Esc, outside click and window blur collapse the island. Background updates never expand it or take focus. Onboarding opens setup when `onboardingComplete` is false. Reduced motion is honored.
 - Keep the internal view id `history` for the Usage sheet. The tray and `open_panel` (`src-tauri/src/lib.rs`) only accept `settings`, `history` and `setup`.
 - Keep `preview-claude/` until the owner says to remove it. It is the visual spec.
-- The website in `site/` (`npm run site`, port 3000) imports the island, the character and the page theme from `preview-claude/`. Do not move or rename anything there. Once the components live in `src/`, the site can import them from there instead; ask the owner first.
+- The website in `site/` (`npm run site`, port 3000) imports the island, the character and the page theme from `preview-claude/`. Do not move or rename anything there. The website also uses `ogl` and `three`; leave both installed. The website renders the app's own notch: `site/AppIsland.tsx` imports `src/IslandSurface`, `src/island-views` (`Compact`, `Glance`), `src/panels` (`Details`, `SettingsSheet`, `UsageSheet`, `SetupSheet`), `src/session-presentation` (`groupSessions`, `notchView`), `src/useSessionPreview`, `src/useReducedMotion` and `src/styles.css`. Renaming or changing the props of these breaks the website build (`npm run site:build`), so run it after such changes. Once the components live in `src/`, the site can import them from there instead; ask the owner first.
 
 ## Starting point
 
@@ -128,8 +132,8 @@ Each tone has one color. Light in that color spills under the compact notch only
 | `active`    | Working                           | `--blue` `#5cc8ff`        | No, it is the normal state |
 | `attention` | Needs approval, an answer, or you | `--amber` `#ffc53d`       | Yes                        |
 | `error`     | Error                             | `--red` `#ff6a5f`         | Yes                        |
-| `success`   | Your turn                         | `--green` `#3ddc84`       | Yes                        |
-| `done`      | Done (session ended)              | `--teal` `#36d4c4`        | No                         |
+| `success`   | Your turn                         | `--teal` `#36d4c4`        | Yes                        |
+| `done`      | Done (session ended)              | `--green` `#3ddc84`       | No                         |
 | `calm`      | Ready, Interrupted, Paused        | `#8f8f99`                 | No                         |
 | `off`       | Quiet                             | `#5e5e68` (graphics only) | No                         |
 
@@ -160,10 +164,10 @@ All island values live on the `.gl` scope in `preview-claude/style.css`.
 | `--hover`                       | `rgba(255,255,255,.06)` | Row and icon hover                                             |
 | `--control` / `--control-hover` | `#1c1c20` / `#27272d`   | Buttons, segmented controls, selects                           |
 | `--blue`                        | `#5cc8ff`               | active tone (Working), the current plan step                   |
-| `--teal`                        | `#36d4c4`               | done tone                                                      |
+| `--teal`                        | `#36d4c4`               | success tone (Your turn), and its glow under the island        |
 | `--amber`                       | `#ffc53d`               | attention tone                                                 |
 | `--red`                         | `#ff6a5f`               | error tone                                                     |
-| `--green`                       | `#3ddc84`               | success tone, connected status, completed plan steps           |
+| `--green`                       | `#3ddc84`               | done tone, connected status, completed plan steps              |
 | calm / off tones                | `#8f8f99` / `#5e5e68`   | Ready, Interrupted, Paused / Quiet. Use off for graphics only. |
 | Claude / Codex series           | `#d97757` / `#7a9dff`   | Usage chart and its legend only                                |
 
@@ -355,7 +359,7 @@ Agents uses the connector flow below.
 Island fields, separated by hairlines:
 
 - `When idle`: segmented control, Keep visible or Hide.
-- `Display`: select.
+- `Display`: select. Its open list is styled with `appearance: base-select` (the `@supports` block after `.gl select` in `preview-claude/style.css`): a `--control` panel with rounded rows and a check on the current display, never the system's white menu.
 - Switches: `Start with Windows`, `Hide over fullscreen apps`, `Pause monitoring`.
 
 Data:
@@ -373,7 +377,7 @@ Each agent is a card (`rgba(255,255,255,.045)`, 12px radius) whose head is a dis
 - When connected: `● Connected` in green as plain text. It is a status, not a button. Today one click on "✓ Connected" disconnects the agent (`src/panels.tsx:142`); that must not survive.
 - When not connected: a Connect pill.
 
-The open body shows `Glim added` or `Glim will add`, the `changes` with green checks, the `configPath` in Cascadia Code or Consolas, and either `c.note` or `Disconnecting removes only these entries.`
+The open body shows `Glim added` or `Glim will add`, the `changes` with green checks, the `configPath` in Cascadia Code or Consolas, and either `c.note` or `Disconnecting removes only these entries.` Opening and closing a connector, and the notice after connecting or disconnecting, spring their height open and shut (motion `AnimatePresence`, height `auto`, the island spring) instead of jumping; the swapped buttons fade in.
 
 Actions:
 
@@ -700,7 +704,7 @@ Titles use `text-wrap: balance`. Paragraphs use `text-wrap: pretty` and stop at 
 6. **Installer.** Add the bitmaps, the language file, the template and the hook changes from [Installer](#installer).
 7. **Remove.**
    - Delete `WorkingIndicator.tsx`, `AccentButton` and `AgentTile`.
-   - Delete `src/react-bits/` (CrystalizedBall, StarBorder, `LICENSE.react-bits`, `UPSTREAM`) and the `ogl` dependency.
+   - Delete `src/react-bits/` (CrystalizedBall, StarBorder, `LICENSE.react-bits`, `UPSTREAM`). Move `ogl` to `devDependencies` instead of removing it: the website draws its hero background with it (`site/react-bits/FaultyTerminal.tsx`).
    - Update `THIRD_PARTY_NOTICES.md` and the README line that mentions React Bits.
    - Remove the `../src/react-bits/LICENSE.react-bits` resource from `src-tauri/tauri.conf.json`, or the bundle fails.
    - Remove `licenses\react-bits.txt` from the expected files in `scripts/install-smoke.ps1`.
@@ -741,7 +745,7 @@ Titles use `text-wrap: balance`. Paragraphs use `text-wrap: pretty` and stop at 
 - Subagents never count as agents in the dots, the bar or the rows.
 - Your turn appears when a turn finishes, and becomes Ready after the island is opened and closed.
 - Connected cannot be clicked away. Disconnecting takes two clicks and names the file.
-- No text is smaller than 11px. No lavender accent remains; indigo appears only in the logo. No WebGL and no `ogl`.
+- No text is smaller than 11px. No lavender accent remains; indigo appears only in the logo. No `ogl` in the app (`src/`); its only WebGL is the shared 3D Glim renderer, per the owner update above. The website in `site/` keeps `ogl` for its hero.
 - The native region matches the visible island when compact (34px, radius 17, at any width from 144px to 360px, banner included) and expanded (440 wide, radius 24), shoulders included.
 - Each mood moves as listed in [The character](#the-character-eyes). Reduced motion shows no movement anywhere, logos included, and the springs jump. Keyboard: Tab reaches every control, and Esc steps back as described.
 - The compact island is as wide as its content between 144px and 360px, springs when the text changes, and scrolls a status longer than the cap without growing, while the project name stays still. Hover pauses the scroll; reduced motion shows an ellipsis.
