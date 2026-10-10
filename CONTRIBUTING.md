@@ -8,4 +8,4 @@ Use synthetic prompts and identifiers in fixtures. Do not commit personal transc
 
 Motion should have a clear interaction purpose, remain interruptible, and support reduced motion. Background updates must not steal focus or expand the island.
 
-The original notch logo is editable SVG in `public/brand/`; [Inkscape](https://inkscape.org/) is an open source vector editor. Keep the static mark, `src/components.tsx`, and the animated variant in `src/Mascot.tsx` consistent. Regenerate Windows icons with `npx tauri icon public/glim.svg` after updating the application icon.
+The app and website share the 3D character in `src/mascot-renderer.ts`; `src/Character.tsx` fits it into the app's UI and provides the SVG fallback. Keep its proportions and state colors consistent. With `npm run dev` running, use `npm run brand:render` to regenerate the static 3D mark, favicon, and Windows icons, then `npm run preview:capture` to refresh the gallery. Generated brand assets are committed; screenshots stay in `.cache/`. The original SVGs in `public/brand/` remain editable source artwork.

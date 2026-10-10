@@ -14,6 +14,7 @@ export interface PreviewScene {
   detail?: string;
   single?: boolean;
   multiWorking?: boolean;
+  mixedStatuses?: boolean;
   paused?: boolean;
   empty?: boolean;
   unavailable?: boolean;
@@ -33,7 +34,7 @@ export const PREVIEW_SCENES = scenes as PreviewScene[];
 export const PREVIEW_GROUPS = ['Island', 'Setup', 'Panels', 'Brand'] as const;
 
 export function sceneSnapshot(scene: PreviewScene): Snapshot {
-  const snapshot = previewSnapshot();
+  const snapshot = previewSnapshot({ mixedStatuses: !!scene.mixedStatuses });
   if (scene.single)
     snapshot.sessions = snapshot.sessions.filter(
       (s) => s.id === (scene.selectedId ?? 'demo-claude'),

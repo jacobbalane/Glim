@@ -1,119 +1,107 @@
-import { forwardRef, useLayoutEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion, useIsPresent } from 'motion/react';
-
-export function WorkingDots({ reduced }: { reduced: boolean }) {
-  return (
-    <span className={`working-dots ${reduced ? 'still' : ''}`} aria-hidden="true">
-      <span>.</span>
-      <span>.</span>
-      <span>.</span>
-    </span>
-  );
-}
-
-const TextFrame = forwardRef<
-  HTMLSpanElement,
-  {
-    value: string;
-    reduced: boolean;
-    marquee: boolean;
-    working: boolean;
-  }
->(function TextFrame({ value, reduced, marquee, working }, forwardedRef) {
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+} from 'react';
+import { animate, motion, useIsPresent, useMotionValue } from 'motion/react';
+import useReducedMotion from './useReducedMotion';
+import { SurfaceInk as Ink } from './IslandSurface';
+// The notch line: the project stays put and the status after it scrolls. Text that fits sets
+// the island's width; a status past the cap scrolls instead, so the island never grows beyond
+// it. Mount it with a key per text so each change starts from the left.
+export default function Ticker({
+  title,
+  children,
+  onRun,
+  ref,
+}: {
+  title: ReactNode;
+  children?: ReactNode;
+  onRun?: (px: number) => void;
+  ref?: Ref<HTMLSpanElement>;
+}) {
+  const reduced = useReducedMotion();
+  const ink = useContext(Ink);
   const present = useIsPresent();
-  const viewport = useRef<HTMLSpanElement>(null);
-  const text = useRef<HTMLSpanElement>(null);
-  const [distance, setDistance] = useState(0);
+  const box = useRef<HTMLSpanElement>(null);
+  const copy = useRef<HTMLSpanElement>(null);
+  const [run, setRun] = useState(0);
+  // New text waits until the island has reached its new width, then fades in. Once it has
+  // been shown it stays, so a width change caused by something else never blinks it.
+  // The short guard lets the new width be measured before "settled" means anything.
+  const settled = useMotionValue(ink ? 0 : 1);
+  useEffect(() => {
+    if (!ink) return;
+    const start = performance.now();
+    let frame = requestAnimationFrame(function wait() {
+      if (performance.now() - start > 90 && ink.settle.get() > 0.97) {
+        animate(settled, 1, { duration: reduced ? 0 : 0.18, ease: [0.23, 1, 0.32, 1] });
+        return;
+      }
+      frame = requestAnimationFrame(wait);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [ink, settled, reduced]);
+  // The notch stays on a scrolling text long enough to read it once.
+  useEffect(() => onRun?.(run), [run, onRun]);
   useLayoutEffect(() => {
-    if (!marquee || !viewport.current || !text.current) return;
-    const measure = () =>
-      setDistance(Math.max(0, text.current!.scrollWidth - viewport.current!.clientWidth));
+    const b = box.current;
+    const c = copy.current;
+    if (!b || !c) return;
+    if (reduced) {
+      setRun(0);
+      return;
+    }
+    const measure = () => setRun(c.scrollWidth > b.clientWidth + 1 ? c.offsetWidth : 0);
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(viewport.current);
-    observer.observe(text.current);
+    observer.observe(b);
+    observer.observe(c);
     return () => observer.disconnect();
-  }, [marquee, value]);
-  const travel = distance / 28;
+  }, [reduced]);
   return (
     <motion.span
-      className={`live-text-frame ${marquee ? 'can-scroll' : ''} ${distance > 1 && !reduced ? 'overflows' : ''}`}
-      ref={(node) => {
-        viewport.current = node;
-        if (typeof forwardedRef === 'function') forwardedRef(node);
-        else if (forwardedRef) forwardedRef.current = node;
-      }}
+      ref={ref}
+      className="compact-text"
       aria-hidden={!present || undefined}
-      initial={{ opacity: 0, transform: reduced ? 'none' : 'translateY(6px)' }}
-      animate={{ opacity: 1, transform: reduced ? 'none' : 'translateY(0px)' }}
-      exit={{ opacity: 0, transform: reduced ? 'none' : 'translateY(-6px)' }}
-      transition={{ duration: reduced ? 0.08 : 0.18, ease: [0.23, 1, 0.32, 1] }}
+      aria-live={present ? 'polite' : undefined}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: reduced ? 0 : present ? 0.2 : 0.12, ease: [0.23, 1, 0.32, 1] }}
     >
-      <motion.span
-        ref={text}
-        className="live-text-value"
-        animate={
-          distance > 1 && !reduced
-            ? {
-                transform: [
-                  'translateX(0px)',
-                  'translateX(0px)',
-                  `translateX(-${distance}px)`,
-                  `translateX(-${distance}px)`,
-                ],
+      <motion.span className="compact-line" style={{ opacity: present ? settled : 1 }}>
+        <b className="compact-title">{title}</b>
+        {children && (
+          <span ref={box} className={`ticker-box${run ? ' is-marquee' : ''}`}>
+            <span
+              className="ticker"
+              style={
+                run
+                  ? ({
+                      '--run': `${run}px`,
+                      '--speed': `${Math.max(6, run / 40)}s`,
+                    } as CSSProperties)
+                  : undefined
               }
-            : { transform: 'translateX(0px)' }
-        }
-        transition={
-          distance > 1 && !reduced
-            ? {
-                duration: travel + 4,
-                times: [0, 2 / (travel + 4), (travel + 2) / (travel + 4), 1],
-                ease: 'linear',
-                repeat: Infinity,
-                repeatType: 'reverse',
-              }
-            : { duration: 0 }
-        }
-      >
-        {value}
-        {working && <WorkingDots reduced={reduced} />}
+            >
+              <span className="ticker-copy" ref={copy}>
+                {children}
+              </span>
+              {run > 0 && (
+                <span className="ticker-copy" aria-hidden="true">
+                  {children}
+                </span>
+              )}
+            </span>
+          </span>
+        )}
       </motion.span>
     </motion.span>
   );
-});
-
-export default function LiveText({
-  value,
-  reduced,
-  marquee = false,
-  working = false,
-  identity = value,
-}: {
-  value: string;
-  reduced: boolean;
-  marquee?: boolean;
-  working?: boolean;
-  identity?: string;
-}) {
-  return (
-    <span
-      className={`changing-text ${marquee ? 'live-text-marquee' : ''}`}
-      title={marquee ? value : undefined}
-    >
-      <AnimatePresence initial={false} mode="popLayout">
-        <TextFrame
-          key={identity}
-          value={value}
-          reduced={reduced}
-          marquee={marquee}
-          working={working}
-        />
-      </AnimatePresence>
-    </span>
-  );
-}
-
-export function StatusDot({ tone }: { tone: string }) {
-  return <i className={`status-dot ${tone}`} aria-hidden="true" />;
 }

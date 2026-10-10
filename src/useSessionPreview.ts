@@ -1,90 +1,116 @@
-import { useEffect, useRef, useState } from 'react';
-import { attentionKind, PREVIEW_INTERVAL, rotationGroups } from './session-presentation';
-import type { Session } from './types';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { holdOf, isNotice, notchView, PREVIEW_INTERVAL, type Group } from './session-presentation';
 
-// Only the compact glance rotates. Reading an expanded session never moves its selection.
+// Keep notice delivery separate from the working rotation. Nothing here opens the island.
 export default function useSessionPreview(
-  sessions: Session[],
+  groups: Group[],
+  seenAt: number,
   {
     enabled,
     held,
-    initialId,
     dwell,
-  }: { enabled: boolean; held: boolean; initialId?: string | null; dwell: number },
+    ready,
+  }: { enabled: boolean; held: boolean; dwell: number; ready: boolean },
 ) {
-  const [id, setId] = useState(initialId ?? null);
-  const current = useRef(id);
-  const latest = useRef(sessions);
-  latest.current = sessions;
-  const known = useRef<Map<string, string | null> | null>(null);
-  const queue = useRef<string[]>([]);
-  const deadline = useRef(Date.now() + PREVIEW_INTERVAL);
-  const priorityUntil = useRef(0);
-  const shownAt = useRef(Date.now());
-  const cursors = useRef({ working: 0, other: 0, turn: 0 });
-
-  useEffect(() => {
-    if (!sessions.length && known.current === null) return;
-    const next = new Map(
-      sessions.map((session) => [session.id, attentionKind(session, Date.now())]),
+  const [, redraw] = useState(0);
+  const latest = useRef({ groups, enabled, held, dwell, seenAt });
+  latest.current = { groups, enabled, held, dwell, seenAt };
+  const state = useRef({
+    known: null as Map<string, string> | null,
+    queue: [] as string[],
+    presenting: null as { id: string; remaining: number } | null,
+    docked: new Set<string>(),
+    rotation: 0,
+    remaining: PREVIEW_INTERVAL,
+    dwell: PREVIEW_INTERVAL,
+  });
+  const presentNext = () => {
+    const s = state.current,
+      all = latest.current.groups;
+    s.queue.sort(
+      (a, b) => all.findIndex((g) => g.session.id === a) - all.findIndex((g) => g.session.id === b),
     );
-    if (known.current) {
-      for (const [sessionId, kind] of next) {
-        if (kind && known.current.get(sessionId) !== kind && !queue.current.includes(sessionId))
-          queue.current.push(sessionId);
-      }
-    }
-    known.current = next;
-    if (!sessions.some((session) => session.id === current.current)) {
-      const groups = rotationGroups(sessions, Date.now());
-      const first = groups.working[0] ?? groups.other[0];
-      current.current = first?.id ?? null;
-      setId(current.current);
-    }
-  }, [sessions]);
-
+    const id = s.queue.shift();
+    const group = all.find((g) => g.session.id === id);
+    if (id && group) s.presenting = { id, remaining: holdOf(group.session) };
+  };
+  const now = Date.now();
+  const keys = groups
+    .filter((g) => isNotice(g, seenAt, now))
+    .map((g) => `${g.session.id}:${g.session.activity}:${g.session.updatedAt}`)
+    .join('|');
+  useLayoutEffect(() => {
+    if (!ready) return;
+    const s = state.current;
+    const next = new Map(
+      latest.current.groups
+        .filter((g) => isNotice(g, seenAt, Date.now()))
+        .map((g) => [g.session.id, `${g.session.activity}:${g.session.updatedAt}`]),
+    );
+    if (!s.known) next.forEach((_, id) => s.docked.add(id));
+    else
+      next.forEach((key, id) => {
+        if (s.known!.get(id) === key || s.queue.includes(id)) return;
+        if (s.presenting?.id === id) {
+          s.presenting.remaining = holdOf(
+            latest.current.groups.find((g) => g.session.id === id)!.session,
+          );
+          return;
+        }
+        s.docked.delete(id);
+        s.queue.push(id);
+      });
+    for (const id of s.docked) if (!next.has(id)) s.docked.delete(id);
+    s.queue = s.queue.filter((id) => next.has(id));
+    if (s.presenting && !next.has(s.presenting.id)) s.presenting = null;
+    s.known = next;
+    if (latest.current.enabled && !document.hidden && !s.presenting && s.queue.length)
+      presentNext();
+    redraw((n) => n + 1);
+  }, [keys, seenAt, ready]);
   useEffect(() => {
-    deadline.current = Math.max(deadline.current, shownAt.current + dwell);
-  }, [dwell, id]);
-
+    const s = state.current;
+    s.remaining += Math.max(0, dwell - s.dwell);
+    s.dwell = dwell;
+  }, [dwell]);
   useEffect(() => {
-    if (!enabled || held) return;
-    deadline.current = Date.now() + Math.max(PREVIEW_INTERVAL, dwell);
+    if (!enabled || !ready) return;
+    let previous = Date.now();
+    const visible = () => {
+      previous = Date.now();
+    };
+    document.addEventListener('visibilitychange', visible);
     const timer = setInterval(() => {
-      if (document.hidden) {
-        deadline.current = Date.now() + PREVIEW_INTERVAL;
-        return;
+      const at = Date.now(),
+        delta = at - previous;
+      previous = at;
+      if (document.hidden) return;
+      const s = state.current,
+        current = latest.current;
+      if (s.presenting) {
+        if (current.held) return;
+        s.presenting.remaining -= delta;
+        if (s.presenting.remaining > 0) return;
+        s.docked.add(s.presenting.id);
+        s.presenting = null;
+        s.remaining = current.dwell;
       }
-      const now = Date.now();
-      if (now < priorityUntil.current) return;
-      let next: Session | undefined;
-      while (queue.current.length && !next) {
-        const queued = queue.current.shift();
-        next = latest.current.find(
-          (session) => session.id === queued && attentionKind(session, now),
-        );
+      if (s.queue.length) presentNext();
+      else if (!current.held) {
+        s.remaining -= delta;
+        if (s.remaining <= 0) {
+          const count = current.groups.filter((g) => g.session.activity === 'working').length;
+          if (count > 1) s.rotation = (s.rotation + 1) % count;
+          s.remaining = current.dwell;
+        }
       }
-      if (next) priorityUntil.current = now + PREVIEW_INTERVAL;
-      else {
-        if (now < deadline.current) return;
-        const { working, other } = rotationGroups(latest.current, now);
-        const showOther = other.length > 0 && (!working.length || cursors.current.turn % 3 === 2);
-        const pool = showOther ? other : working;
-        const key = showOther ? 'other' : 'working';
-        const index = pool.findIndex((session) => session.id === current.current);
-        next = pool[(index >= 0 ? index + 1 : cursors.current[key]) % pool.length];
-        cursors.current[key]++;
-        cursors.current.turn++;
-      }
-      if (next) {
-        current.current = next.id;
-        setId(next.id);
-        shownAt.current = now;
-        deadline.current = now + PREVIEW_INTERVAL;
-      }
+      redraw((n) => n + 1);
     }, 250);
-    return () => clearInterval(timer);
-    // Dwell changes extend the current reading window without restarting the rotation clock.
-  }, [enabled, held]);
-  return sessions.find((session) => session.id === id) ?? sessions[0];
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [enabled, ready]);
+  const s = state.current;
+  return notchView(groups, seenAt, now, s.rotation, s.presenting?.id ?? null, s.docked);
 }

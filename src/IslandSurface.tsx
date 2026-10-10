@@ -3,71 +3,115 @@ import {
   useContext,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
 import {
+  AnimatePresence,
   motion,
-  useMotionValueEvent,
   useIsPresent,
+  useMotionValue,
+  useMotionValueEvent,
   useSpring,
   useTransform,
   type MotionValue,
 } from 'motion/react';
 import { api, native, designScene } from './api';
+import type { Tone } from './Character';
 
-export const SURFACE_SPRING = { type: 'spring' as const, stiffness: 430, damping: 42, mass: 1 };
-const SurfaceInk = createContext<{
+export const SURFACE_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 1 };
+export const SurfaceInk = createContext<{
   compact: MotionValue<number>;
   expanded: MotionValue<number>;
-  width: MotionValue<number>;
+  settle: MotionValue<number>;
 } | null>(null);
 
-export function IslandInk({ compact, children }: { compact: boolean; children: ReactNode }) {
+// An exiting view keeps its own layout; only the incoming view measures the surface.
+function ViewFrame({
+  width,
+  compact,
+  reduced,
+  onSize,
+  children,
+}: {
+  width: number;
+  compact: boolean;
+  reduced: boolean;
+  onSize: (width: number, height: number) => void;
+  children: ReactNode;
+}) {
   const ink = useContext(SurfaceInk);
   const present = useIsPresent();
+  const ref = useRef<HTMLDivElement>(null);
+  const report = useRef(onSize);
+  report.current = onSize;
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!present || !el) return;
+    const send = () => report.current(el.offsetWidth, el.offsetHeight);
+    send();
+    const observer = new ResizeObserver(send);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [present]);
   return (
     <motion.div
-      aria-hidden={!present || undefined}
+      ref={ref}
+      className="frame"
+      style={
+        compact
+          ? { width: 'max-content', minWidth: 144, maxWidth: width, left: 0 }
+          : { width, marginLeft: -width / 2 }
+      }
       inert={!present}
-      style={{
-        opacity: ink ? (compact ? ink.compact : ink.expanded) : 1,
-        width: compact ? ink?.width : '100%',
-        marginInline: 'auto',
-      }}
+      aria-hidden={!present || undefined}
+      initial={{ opacity: 0, filter: reduced ? 'none' : 'blur(3px)' }}
+      animate={{ opacity: 1, filter: reduced ? 'none' : 'blur(0px)' }}
+      exit={{ opacity: 0, filter: reduced ? 'none' : 'blur(3px)' }}
+      transition={{ duration: reduced ? 0.06 : 0.2, ease: [0.23, 1, 0.32, 1] }}
     >
-      {children}
+      <motion.div style={{ opacity: ink ? (compact ? ink.compact : ink.expanded) : 1 }}>
+        {children}
+      </motion.div>
     </motion.div>
   );
 }
 
-// Bounds change without scaling the typography. Retargeting preserves spring velocity.
 export default function IslandSurface({
   expanded,
-  compactWidth,
+  viewKey,
+  tone,
   reduced,
   children,
   onError,
 }: {
   expanded: boolean;
-  compactWidth: number;
+  viewKey: string;
+  tone: Tone;
   reduced: boolean;
   children: ReactNode;
   onError: (error: string) => void;
 }) {
-  const content = useRef<HTMLDivElement>(null);
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
-  const canvasWidth = Math.max(144, Math.min(440, viewportWidth - 40));
-  const targetWidth = expanded ? canvasWidth : Math.min(compactWidth, canvasWidth);
+  const wide = Math.max(204, Math.min(440, viewportWidth - 40));
+  const cap = Math.min(360, wide - 60);
+  const [fitted, setFitted] = useState(300);
+  const targetWidth = expanded ? wide : Math.max(144, Math.min(cap, fitted));
   const width = useSpring(targetWidth, SURFACE_SPRING);
-  const openness = useSpring(expanded ? 1 : 0, SURFACE_SPRING);
-  const height = useSpring(expanded ? 154 : 42, SURFACE_SPRING);
-  const radius = useTransform(width, [144, 440], [19, 26]);
-  // Text is revealed by the actual spring position, so it never scales or overlaps
-  // the previous view while the surface opens or reverses direction.
-  const compactInk = useTransform(openness, [0, 0.35], [1, 0]);
-  const expandedInk = useTransform(openness, [0.6, 1], [0, 1]);
+  const height = useSpring(34, SURFACE_SPRING);
+  const target = useMotionValue(targetWidth);
+  const radius = useTransform(width, [cap, wide], [17, 24]);
+  const compactInk = useTransform(width, [cap, cap + 26], [1, 0]);
+  const expandedInk = useTransform(width, [wide - 30, wide], [0, 1]);
+  const settle = useTransform(() =>
+    Math.max(0, Math.min(1, 1 - (Math.abs(width.get() - target.get()) - 3) / 16)),
+  );
+  const ink = useMemo(
+    () => ({ compact: compactInk, expanded: expandedInk, settle }),
+    [compactInk, expandedInk, settle],
+  );
   const expandedRef = useRef(expanded);
   expandedRef.current = expanded;
   const scheduled = useRef<number | null>(null);
@@ -78,32 +122,22 @@ export default function IslandSurface({
     return () => window.removeEventListener('resize', resize);
   }, []);
   useLayoutEffect(() => {
+    target.set(targetWidth);
     if (reduced) width.jump(targetWidth);
     else width.set(targetWidth);
-  }, [targetWidth, reduced, width]);
-  useLayoutEffect(() => {
-    if (reduced) openness.jump(expanded ? 1 : 0);
-    else openness.set(expanded ? 1 : 0);
-  }, [expanded, reduced, openness]);
-  useLayoutEffect(() => {
-    if (!content.current) return;
-    const resize = () => {
-      const target = Math.max(42, content.current!.offsetHeight);
-      if (reduced) height.jump(target);
-      else height.set(target);
-    };
-    resize();
-    const observer = new ResizeObserver(resize);
-    observer.observe(content.current);
-    return () => observer.disconnect();
-  }, [expanded, reduced, height]);
+  }, [targetWidth, reduced, width, target]);
+  const onSize = (w: number, h: number) => {
+    if (!expanded) setFitted(Math.ceil(w));
+    if (reduced) height.jump(Math.max(34, h));
+    else height.set(Math.max(34, h));
+  };
   const synchronize = () => {
     if (scheduled.current !== null) return;
     scheduled.current = requestAnimationFrame(() => {
       scheduled.current = null;
       const w = Math.round(width.get()),
         h = Math.round(height.get());
-      if (designScene && new URLSearchParams(location.search).get('flow') === '1')
+      if (designScene)
         window.parent.postMessage({ type: 'glim:preview:size', height: h }, location.origin);
       if (!native) return;
       const key = `${expandedRef.current}:${w}:${h}`;
@@ -126,22 +160,32 @@ export default function IslandSurface({
   );
   return (
     <motion.div
-      className="island-shell"
-      style={{ width, height }}
+      className="gl shell island-shell"
+      data-tone={tone}
+      data-compact={!expanded}
       data-testid="island"
       data-expanded={expanded}
+      style={{ width, height }}
     >
-      <span className="island-shoulder left" aria-hidden="true" />
-      <span className="island-shoulder right" aria-hidden="true" />
+      <span className="shoulder l" aria-hidden="true" />
+      <span className="shoulder r" aria-hidden="true" />
       <motion.div
-        className={`island ${expanded ? 'expanded' : 'collapsed'}`}
+        className="surface island"
         style={{ borderBottomLeftRadius: radius, borderBottomRightRadius: radius }}
       >
-        <div className="island-content" ref={content} style={{ width: canvasWidth }}>
-          <SurfaceInk.Provider value={{ compact: compactInk, expanded: expandedInk, width }}>
-            {children}
-          </SurfaceInk.Provider>
-        </div>
+        <SurfaceInk.Provider value={ink}>
+          <AnimatePresence initial={false}>
+            <ViewFrame
+              key={viewKey}
+              width={expanded ? wide : cap}
+              compact={!expanded}
+              reduced={reduced}
+              onSize={onSize}
+            >
+              {children}
+            </ViewFrame>
+          </AnimatePresence>
+        </SurfaceInk.Provider>
       </motion.div>
     </motion.div>
   );

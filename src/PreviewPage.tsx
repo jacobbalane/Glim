@@ -19,6 +19,7 @@ function FlowPreview() {
   const frame = useRef<HTMLIFrameElement>(null);
   const stage = useRef<HTMLDivElement>(null);
   const controls = useRef<HTMLDivElement>(null);
+  const [ready, setReady] = useState(false);
   const send = (value: object) =>
     frame.current?.contentWindow?.postMessage({ type: 'glim:preview', ...value }, location.origin);
   useEffect(() => {
@@ -28,15 +29,15 @@ function FlowPreview() {
       if (!controls.current?.contains(event.target as Node)) send({ view: 'compact' });
     };
     const resize = (event: MessageEvent) => {
-      if (
-        event.origin !== location.origin ||
-        event.source !== frame.current?.contentWindow ||
-        event.data?.type !== 'glim:preview:size'
-      )
+      if (event.origin !== location.origin || event.source !== frame.current?.contentWindow) return;
+      if (event.data?.type === 'glim:preview:ready') {
+        setReady(true);
         return;
+      }
+      if (event.data?.type !== 'glim:preview:size') return;
       if (
         Number.isFinite(event.data.height) &&
-        event.data.height >= 42 &&
+        event.data.height >= 34 &&
         event.data.height <= 640 &&
         stage.current
       )
@@ -56,6 +57,7 @@ function FlowPreview() {
         <div>
           <select
             aria-label="Agent activity"
+            disabled={!ready}
             defaultValue="working"
             onChange={(event) => send({ status: event.target.value })}
           >
@@ -63,10 +65,18 @@ function FlowPreview() {
             <option value="waiting">Approval</option>
             <option value="finished">Done</option>
           </select>
-          <button onClick={() => send({ view: 'compact' })}>Collapse</button>
-          <button onClick={() => send({ view: 'glance' })}>Expand</button>
-          <button onClick={() => send({ view: 'settings' })}>Settings</button>
-          <button onClick={() => send({ view: 'setup' })}>Setup</button>
+          <button disabled={!ready} onClick={() => send({ view: 'compact' })}>
+            Collapse
+          </button>
+          <button disabled={!ready} onClick={() => send({ view: 'glance' })}>
+            Expand
+          </button>
+          <button disabled={!ready} onClick={() => send({ view: 'settings' })}>
+            Settings
+          </button>
+          <button disabled={!ready} onClick={() => send({ view: 'setup' })}>
+            Setup
+          </button>
         </div>
       </div>
       <div className="flow-preview-stage" ref={stage}>
@@ -190,13 +200,29 @@ function PreviewCard({
   capturedAt?: string;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [liveHeight, setLiveHeight] = useState(scene.height);
   const [scale, setScale] = useState(1);
   const [failed, setFailed] = useState(false);
-  const height = capture?.height ?? scene.height;
-  const width = capture?.width ?? scene.width;
   const source = `/?scene=${scene.id}&motion=${motion ? '1' : '0'}`;
   const screenshot = `/__preview_shots/${scene.id}.png?v=${encodeURIComponent(capturedAt ?? '')}`;
   const showScreenshot = mode === 'screenshots' && !!capture && !failed;
+  const height = showScreenshot ? capture.height : liveHeight;
+  const width = showScreenshot ? capture.width : scene.width;
+  useEffect(() => {
+    const resize = (event: MessageEvent) => {
+      if (
+        event.origin !== location.origin ||
+        event.source !== frame.current?.contentWindow ||
+        event.data?.type !== 'glim:preview:size'
+      )
+        return;
+      if (Number.isFinite(event.data.height) && event.data.height >= 34 && event.data.height <= 640)
+        setLiveHeight(event.data.height + 28);
+    };
+    window.addEventListener('message', resize);
+    return () => window.removeEventListener('message', resize);
+  }, []);
   useEffect(() => {
     setFailed(false);
   }, [capturedAt]);
@@ -224,6 +250,7 @@ function PreviewCard({
           />
         ) : (
           <iframe
+            ref={frame}
             key={`${scene.id}-${motion}`}
             src={source}
             title={scene.title}

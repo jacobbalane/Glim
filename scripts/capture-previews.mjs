@@ -25,6 +25,20 @@ try {
     await page.goto(`${baseURL}/?scene=${scene.id}`);
     await page.waitForFunction(() => document.documentElement.dataset.previewReady === 'true');
     await page.evaluate(() => document.fonts.ready);
+    // The fallback is replaced only after the first 3D frame has painted.
+    await page.waitForFunction(
+      () => !document.querySelector('.glim-character[data-renderer="loading"]'),
+    );
+    // Compact text waits for the width spring before it appears. Capture its settled
+    // state rather than the intentional blank frame at the start of the morph.
+    await page.waitForFunction(() => {
+      const frame = document.querySelector('.frame:not([aria-hidden])');
+      const line = frame?.querySelector('.compact-text:not([aria-hidden]) .compact-line');
+      return (
+        (!frame || Number(getComputedStyle(frame).opacity) >= 0.99) &&
+        (!line || Number(getComputedStyle(line).opacity) >= 0.99)
+      );
+    });
     const surface = page.locator(
       scene.brand ? '[data-preview-surface="brand"]' : '[data-testid="island"]',
     );

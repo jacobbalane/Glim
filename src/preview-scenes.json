@@ -63,8 +63,9 @@
     "group": "Island",
     "expanded": true,
     "selectedId": "demo-codex",
+    "mixedStatuses": true,
     "width": 680,
-    "height": 190
+    "height": 480
   },
   {
     "id": "ready",

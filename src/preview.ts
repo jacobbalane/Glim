@@ -81,12 +81,79 @@ export const previewConnectors: Connector[] = (['claude', 'codex'] as const).map
       : 'Start a new session after enabling the connector.',
   error: null,
 }));
-export function previewSnapshot(): Snapshot {
-  return {
+// The main browser demo and Reset share the larger sample. Gallery scenes can
+// opt into it while keeping their focused three-session fixtures by default.
+export function previewSnapshot({ mixedStatuses = true } = {}): Snapshot {
+  const snapshot: Snapshot = {
     sessions: structuredClone(previewSessions),
     preferences: { ...DEFAULT_PREFERENCES, onboardingComplete: true },
     connectors: structuredClone(previewConnectors),
   };
+  if (mixedStatuses) {
+    const now = Date.now();
+    const completed = snapshot.sessions.find((s) => s.id === 'demo-claude-2')!;
+    completed.activity = 'finished';
+    completed.detail = 'Component audit complete';
+    completed.tasks = [{ id: 'audit', label: 'Audit the shared components', status: 'completed' }];
+    const extra: (Pick<Session, 'id' | 'project' | 'provider' | 'activity' | 'detail'> & {
+      age: number;
+    })[] = [
+      {
+        id: 'demo-web-client',
+        project: 'web-client',
+        provider: 'claude',
+        activity: 'waiting',
+        detail: 'Approve dependency installation',
+        age: 55_000,
+      },
+      {
+        id: 'demo-release-tools',
+        project: 'release-tools',
+        provider: 'codex',
+        activity: 'waiting',
+        detail: 'Approve the release build command',
+        age: 128_000,
+      },
+      {
+        id: 'demo-docs-site',
+        project: 'docs-site',
+        provider: 'codex',
+        activity: 'finished',
+        detail: 'Installation guide updated',
+        age: 40_000,
+      },
+      {
+        id: 'demo-payments-api',
+        project: 'payments-api',
+        provider: 'claude',
+        activity: 'error',
+        detail: 'Payment integration tests failed',
+        age: 15_000,
+      },
+      {
+        id: 'demo-worker-queue',
+        project: 'worker-queue',
+        provider: 'codex',
+        activity: 'error',
+        detail: 'Could not connect to the test database',
+        age: 45_000,
+      },
+    ];
+    snapshot.sessions.push(
+      ...extra.map(({ age, ...session }) => ({
+        ...structuredClone(snapshot.sessions.find((s) => s.provider === session.provider)!),
+        ...session,
+        startedAt: now - age - 240_000,
+        updatedAt: now - age,
+        tasks:
+          session.activity === 'finished'
+            ? [{ id: 'docs', label: 'Update the installation guide', status: 'completed' as const }]
+            : [],
+        limits: [],
+      })),
+    );
+  }
+  return snapshot;
 }
 export const previewHistory: DailyUsage[] = Array.from({ length: 14 }, (_, i) => {
   const day = new Date(now - (13 - i) * 86400000).toISOString().slice(0, 10);

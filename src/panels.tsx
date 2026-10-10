@@ -1,583 +1,818 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import useReducedMotion from './useReducedMotion';
-import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUpRight,
-  Check,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  CircleHelp,
-  Download,
-  ExternalLink,
-  Link2,
-  Loader2,
-  ShieldCheck,
-  Trash2,
-  Unplug,
-} from 'lucide-react';
-import { api, demo } from './api';
-import { AccentButton, AgentTile, GlimMark, Toggle } from './components';
-import Mascot from './Mascot';
-import { compactNumber } from './format';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ShieldCheck } from 'lucide-react';
+import { api } from './api';
+import { Eyes, HelloCharacter } from './Character';
+import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
+import { ago, limitName, type Group } from './session-presentation';
+import { compactNumber, totalTokens } from './format';
 import {
   PROVIDERS,
   type Connector,
-  type DailyUsage,
-  type Monitor,
   type Preferences,
   type Provider,
-  type Snapshot,
+  type DailyUsage,
+  type Monitor,
 } from './types';
-
-export function SettingsPanel({
-  snapshot,
-  onboarding,
-  onDone,
-  onHistory,
-  initialStep = 0,
-  initialConnector = null,
-  initialConfirmClear = false,
-  stillMascot = false,
+function Sheet({
+  title,
+  sub,
+  end,
+  onBack,
+  scroll = false,
+  children,
+  foot,
+  bodyLabel,
 }: {
-  snapshot: Snapshot;
-  onboarding: boolean;
-  onDone: () => void;
-  onHistory: () => void;
-  initialStep?: number;
-  initialConnector?: Provider | null;
-  initialConfirmClear?: boolean;
-  stillMascot?: boolean;
+  title: string;
+  bodyLabel?: string;
+  sub?: string;
+  end?: ReactNode;
+  onBack?: () => void;
+  scroll?: boolean;
+  children: ReactNode;
+  foot?: ReactNode;
 }) {
-  const [step, setStep] = useState(initialStep);
-  const reduced = useReducedMotion() || stillMascot;
-  const [busy, setBusy] = useState<Provider | 'preferences' | 'clear' | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [monitors, setMonitors] = useState<Monitor[]>([]);
-  const [confirmClear, setConfirmClear] = useState(initialConfirmClear);
-  const [expandedConnector, setExpandedConnector] = useState<Provider | null>(initialConnector);
-  useEffect(() => {
-    api
-      .monitors()
-      .then(setMonitors)
-      .catch((e) => setError(String(e)));
-  }, []);
-  async function save(patch: Partial<Preferences>) {
-    setBusy('preferences');
-    setError(null);
-    try {
-      await api.savePreferences({ ...snapshot.preferences, ...patch });
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(null);
-    }
-  }
-  async function connector(c: Connector) {
-    setBusy(c.provider);
-    setError(null);
-    try {
-      await api.connector(c.provider, !c.enabled);
-      setNotice(
-        c.enabled
-          ? `${PROVIDERS[c.provider].name} disconnected.`
-          : `${PROVIDERS[c.provider].name} connected. ${c.note}`,
-      );
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(null);
-    }
-  }
-  async function finish() {
-    setBusy('preferences');
-    try {
-      await api.savePreferences({ ...snapshot.preferences, onboardingComplete: true });
-      onDone();
-    } catch (e) {
-      setError(String(e));
-      setBusy(null);
-    }
-  }
-  const connectorSection = (
-    <section className="panel-section">
-      <div className="section-heading">
-        <div>
-          <h2>Agents</h2>
-        </div>
-        {!onboarding && (
-          <button className="text-button" onClick={onHistory}>
-            History <ArrowUpRight size={12} />
-          </button>
-        )}
-      </div>
-      {snapshot.connectors.length === 0 && (
-        <p className="inline-note">
-          {demo
-            ? 'Loading connectors…'
-            : 'No supported agent installation detected. Install Claude Code or Codex CLI, then reopen settings.'}
-        </p>
-      )}
-      {snapshot.connectors.map((c) => (
-        <div className="connector-card" key={c.provider}>
-          <div className="connector-summary">
-            <AgentTile provider={c.provider} small />
-            <div className="connector-name">
-              <strong>{PROVIDERS[c.provider].name}</strong>
-              <span>
-                {c.detected
-                  ? c.version
-                    ? `v${c.version}`
-                    : 'Detected on this device'
-                  : 'Not installed'}
-                {c.enabled ? ' · Connected' : ''}
-              </span>
-            </div>
-            <button
-              className="secondary-button connector-button"
-              disabled={busy !== null || (!c.detected && !c.enabled)}
-              onClick={() =>
-                c.enabled
-                  ? connector(c)
-                  : expandedConnector === c.provider
-                    ? connector(c)
-                    : setExpandedConnector(c.provider)
-              }
-            >
-              {busy === c.provider ? (
-                <Loader2 size={13} className="spin" />
-              ) : c.enabled ? (
-                <Check size={13} />
-              ) : (
-                <Link2 size={13} />
-              )}{' '}
-              {c.enabled ? 'Connected' : expandedConnector === c.provider ? 'Confirm' : 'Connect'}
-            </button>
-            <button
-              className="icon-button"
-              aria-label={`Details for ${PROVIDERS[c.provider].name}`}
-              onClick={() =>
-                setExpandedConnector(expandedConnector === c.provider ? null : c.provider)
-              }
-            >
-              <ChevronDown size={15} className={expandedConnector === c.provider ? 'rotate' : ''} />
-            </button>
-          </div>
-          {expandedConnector === c.provider && (
-            <div className="connector-details">
-              <span className="eyebrow">
-                {c.enabled ? 'INSTALLED CONNECTION' : 'GLIM WILL ADD'}
-              </span>
-              <ul>
-                {c.changes.map((change) => (
-                  <li key={change}>
-                    <Check size={12} />
-                    {change}
-                  </li>
-                ))}
-              </ul>
-              <code>{c.configPath}</code>
-              <p>{c.note}</p>
-              {c.error && <p className="inline-error">{c.error}</p>}
-              {c.enabled && (
-                <button
-                  className="text-button"
-                  disabled={busy !== null}
-                  onClick={() => connector(c)}
-                >
-                  <Unplug size={12} />
-                  Disconnect
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      ))}
-    </section>
-  );
-  const preferencesSection = (
-    <section className="panel-section">
-      <div className="section-heading">
-        <div>
-          <h2>Island</h2>
-        </div>
-      </div>
-      <div className="setting-row">
-        <div>
-          <label htmlFor="idle-select">When idle</label>
-        </div>
-        <select
-          id="idle-select"
-          value={snapshot.preferences.idleBehavior}
-          disabled={busy !== null}
-          onChange={(e) => save({ idleBehavior: e.target.value as Preferences['idleBehavior'] })}
-        >
-          <option value="pill">Keep visible</option>
-          <option value="hidden">Hide</option>
-        </select>
-      </div>
-      <Toggle
-        label="Start with Windows"
-        checked={snapshot.preferences.startAtLogin}
-        onChange={(v) => save({ startAtLogin: v })}
-      />
-      <Toggle
-        label="Hide over fullscreen apps"
-        checked={snapshot.preferences.hideFullscreen}
-        onChange={(v) => save({ hideFullscreen: v })}
-      />
-      {!onboarding && (
-        <>
-          <div className="setting-row">
-            <div>
-              <label htmlFor="monitor-select">Display</label>
-            </div>
-            <select
-              id="monitor-select"
-              value={snapshot.preferences.monitor ?? ''}
-              disabled={busy !== null}
-              onChange={(e) => save({ monitor: e.target.value || null })}
-            >
-              <option value="">Primary display</option>
-              {monitors.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Toggle
-            label="Pause monitoring"
-            checked={snapshot.preferences.paused}
-            onChange={(v) => save({ paused: v })}
-          />
-        </>
-      )}
-    </section>
-  );
   return (
-    <div className="panel-body">
-      {onboarding && (
-        <div className="onboarding-progress" aria-label={`Setup step ${step + 1} of 3`}>
-          {['Welcome', 'Agents', 'Island'].map((label, i) => (
-            <span key={label} className={i <= step ? 'current' : ''}>
-              <i>{i < step ? <Check size={10} /> : i + 1}</i>
-              {label}
-            </span>
-          ))}
+    <div className="sheet">
+      <header className="sheet-head">
+        {onBack && (
+          <IconButton label="Back" onClick={onBack}>
+            <ArrowLeft size={15} />
+          </IconButton>
+        )}
+        <div className="sheet-title">
+          <h2>{title}</h2>
+          {sub && <p>{sub}</p>}
         </div>
-      )}
-      <AnimatePresence initial={false} mode="popLayout">
-        <motion.div
-          key={onboarding ? step : 'settings'}
-          initial={{ opacity: 0, y: reduced ? 0 : 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: reduced ? 0 : 4 }}
-          transition={{ duration: reduced ? 0.08 : 0.18 }}
-        >
-          {onboarding && step === 0 ? (
-            <div className="welcome">
-              <Mascot still={stillMascot} />
-              <h1>Glim</h1>
-              <p>A glimpse at your agents.</p>
-              <AccentButton onClick={() => setStep(1)}>
-                Get started <ArrowRight size={15} />
-              </AccentButton>
-              <span className="welcome-note">Local. No extra account.</span>
-            </div>
-          ) : (
-            <>
-              {(!onboarding || step === 1) && connectorSection}
-              {(!onboarding || step === 2) && preferencesSection}
-              {!onboarding && (
-                <section className="panel-section">
-                  <div className="section-heading">
-                    <div>
-                      <h2>Data</h2>
-                    </div>
-                    <ShieldCheck size={19} className="muted" />
-                  </div>
-                  <div className="privacy-note">
-                    <p>
-                      Usage stays on this device for 30 days. No prompts or responses are saved.
-                    </p>
-                  </div>
-                  <div className="setting-row">
-                    <div>
-                      <strong>Clear usage history</strong>
-                      <p>Delete Glim’s saved counters. Agent files stay intact.</p>
-                    </div>
-                    <button
-                      className={`secondary-button ${confirmClear ? 'danger' : ''}`}
-                      disabled={busy !== null}
-                      onClick={async () => {
-                        if (!confirmClear) {
-                          setConfirmClear(true);
-                          return;
-                        }
-                        setBusy('clear');
-                        try {
-                          await api.clearHistory();
-                          setNotice('Usage history cleared.');
-                          setConfirmClear(false);
-                        } catch (e) {
-                          setError(String(e));
-                        } finally {
-                          setBusy(null);
-                        }
-                      }}
-                    >
-                      <Trash2 size={13} />
-                      {confirmClear ? 'Confirm clear' : 'Clear history'}
-                    </button>
-                  </div>
-                  {confirmClear && (
-                    <button className="text-button" onClick={() => setConfirmClear(false)}>
-                      Cancel
-                    </button>
-                  )}
-                  <div className="setting-row">
-                    <div>
-                      <strong>Glim 0.1.0</strong>
-                    </div>
-                    <button
-                      className="secondary-button"
-                      onClick={() => api.openRelease().catch((e) => setError(String(e)))}
-                    >
-                      <Download size={13} />
-                      Releases <ExternalLink size={11} />
-                    </button>
-                  </div>
-                </section>
-              )}
-            </>
-          )}
-          {error && (
-            <p role="alert" className="inline-error">
-              {error}
-            </p>
-          )}
-          {notice && (
-            <p role="status" className="inline-notice">
-              <CheckCircle2 size={15} />
-              {notice}
-            </p>
-          )}
-          {onboarding && step > 0 && (
-            <footer className="setup-footer">
-              <button
-                className="text-button"
-                disabled={busy !== null}
-                onClick={() => setStep(step - 1)}
-              >
-                <ArrowLeft size={13} />
-                Back
-              </button>
-              <AccentButton
-                disabled={busy !== null}
-                onClick={() => (step === 1 ? setStep(2) : finish())}
-              >
-                {busy === 'preferences' ? <Loader2 size={14} className="spin" /> : null}
-                {step === 2 ? 'Done' : 'Continue'}
-                <ArrowRight size={14} />
-              </AccentButton>
-            </footer>
-          )}
-        </motion.div>
-      </AnimatePresence>
+        {end}
+      </header>
+      <div
+        role={bodyLabel ? 'region' : undefined}
+        aria-label={bodyLabel}
+        className={`sheet-body${scroll ? ' scroll' : ''}`}
+      >
+        {children}
+      </div>
+      {foot}
     </div>
   );
 }
 
-export function HistoryPanel({ onBack }: { onBack: () => void }) {
-  const [history, setHistory] = useState<DailyUsage[]>([]);
-  const [provider, setProvider] = useState('all');
-  const [project, setProject] = useState('all');
-  const [days, setDays] = useState(14);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    api
-      .history()
-      .then(setHistory)
-      .catch((e) => setError(String(e)));
-  }, []);
-  const projects = [...new Set(history.map((h) => h.project))].sort();
-  const filtered = useMemo(() => {
-    const cutoff = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
-    return history.filter(
-      (h) =>
-        h.day >= cutoff &&
-        (provider === 'all' || h.provider === provider) &&
-        (project === 'all' || h.project === project),
-    );
-  }, [history, provider, project, days]);
-  const input = filtered.reduce((sum, h) => sum + h.input, 0);
-  const output = filtered.reduce((sum, h) => sum + h.output, 0);
-  const cached = filtered.reduce((sum, h) => sum + h.cached, 0);
-  const writes = filtered.reduce((sum, h) => sum + h.cacheWrite, 0);
-  const chart = Array.from({ length: days }, (_, i) => {
-    const day = new Date(Date.now() - (days - 1 - i) * 86400000).toISOString().slice(0, 10);
-    return {
-      day,
-      claude: filtered
-        .filter((h) => h.day === day && h.provider === 'claude')
-        .reduce((sum, h) => sum + h.input + h.output + h.cacheWrite, 0),
-      codex: filtered
-        .filter((h) => h.day === day && h.provider === 'codex')
-        .reduce((sum, h) => sum + h.input + h.output + h.cacheWrite, 0),
-    };
-  });
-  const max = Math.max(1, ...chart.map((d) => d.claude + d.codex));
+export function Details({
+  group,
+  now,
+  onBack,
+  scroll,
+}: {
+  group: Group;
+  now: number;
+  onBack?: () => void;
+  scroll?: boolean;
+}) {
+  const { session: s, look } = group;
+  const t = s.tokens;
+  const agent = PROVIDERS[s.provider].short;
+  const limits = s.limits.filter((limit) => limit.resetsAt > now);
+  const done = s.tasks.filter((task) => task.status === 'completed').length;
+  const ledger: [string, number | null][] = [
+    ['Input', t?.input ?? null],
+    ['Output', t?.output ?? null],
+    ['Cache writes', t?.cacheWrite ?? null],
+  ];
+  const value = (n: number | null) => (n === null ? 'Unavailable' : compactNumber(n));
   return (
-    <div className="panel-body history-body">
-      <div className="section-heading">
-        <div>
-          <h1>Usage</h1>
-        </div>
-      </div>
-      <div className="history-filters">
-        <select
-          aria-label="Filter by agent"
-          value={provider}
-          onChange={(e) => setProvider(e.target.value)}
-        >
-          <option value="all">All agents</option>
-          <option value="claude">Claude Code</option>
-          <option value="codex">Codex</option>
-        </select>
-        <select
-          aria-label="Filter by project"
-          value={project}
-          onChange={(e) => setProject(e.target.value)}
-        >
-          <option value="all">All projects</option>
-          {projects.map((p) => (
-            <option key={p}>{p}</option>
+    <Sheet
+      bodyLabel="Session usage details"
+      title={s.project}
+      sub={`${PROVIDERS[s.provider].name} · ${s.model} · started ${ago(now - s.startedAt)} ago`}
+      onBack={onBack}
+      scroll={scroll}
+      end={
+        <span className={`chip tone-${look.tone}`}>
+          <Eyes mood={look.mood} tone={look.tone} size={24} />
+          {look.label}
+        </span>
+      }
+    >
+      <section className="sec">
+        <h4>Budget</h4>
+        <div className="stack">
+          <Meter
+            large
+            label="Context window"
+            value={s.contextPercent}
+            note={
+              s.provider === 'codex' && s.contextPercent !== null
+                ? 'Estimated from Codex records.'
+                : undefined
+            }
+          />
+          {limits.map((limit) => (
+            <Meter
+              large
+              key={limit.label}
+              label={limitName(limit.label)}
+              value={limit.usedPercent}
+              note={`Resets in ${ago(limit.resetsAt - now)}`}
+            />
           ))}
-        </select>
-        <select
-          aria-label="History period"
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-        >
-          <option value={7}>Last 7 days</option>
-          <option value={14}>Last 14 days</option>
-          <option value={30}>Last 30 days</option>
-        </select>
-      </div>
-      <div className="history-metrics">
-        <div>
-          <span>Total tokens</span>
-          <strong>{compactNumber(input + output + writes)}</strong>
+          {limits.length === 0 && <p className="fine">{agent} hasn't reported account limits.</p>}
         </div>
-        <div>
-          <span>Input</span>
-          <strong>{compactNumber(input)}</strong>
-        </div>
-        <div>
-          <span>Output</span>
-          <strong>{compactNumber(output)}</strong>
-        </div>
-        <div>
-          <span>Cached reads</span>
-          <strong>{compactNumber(cached)}</strong>
-        </div>
-      </div>
-      <section className="chart-section">
-        <header>
-          <h2>Daily usage</h2>
-          <div className="chart-legend">
-            <span>
-              <i className="claude" />
-              Claude
+      </section>
+      {s.tasks.length > 0 && (
+        <section className="sec">
+          <h4>
+            Plan
+            <span className="num">
+              {done} of {s.tasks.length} done
             </span>
-            <span>
-              <i className="codex" />
-              Codex
-            </span>
+          </h4>
+          <ol className="checklist">
+            {s.tasks.map((task) => (
+              <li key={task.id} className={task.status}>
+                <span className="check" aria-hidden="true">
+                  {task.status === 'completed' && <Check size={10} strokeWidth={3.2} />}
+                </span>
+                <span>
+                  {task.label}
+                  {task.status === 'in_progress' && <span className="sr-only"> (in progress)</span>}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
+      <section className="sec">
+        <h4>Tokens</h4>
+        <dl className="ledger">
+          {ledger.map(([label, n]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd className="num">{value(n)}</dd>
+            </div>
+          ))}
+          {!!t?.reasoning && (
+            <div>
+              <dt>Reasoning, within output</dt>
+              <dd className="num">{compactNumber(t.reasoning)}</dd>
+            </div>
+          )}
+          <div className="sum">
+            <dt>Total</dt>
+            <dd className="num">{value(totalTokens(t))}</dd>
           </div>
-        </header>
-        <div
-          className="usage-chart"
-          role="img"
-          aria-label={`Daily token usage for the last ${days} days; total ${input + output + writes} tokens.`}
-        >
-          <div className="chart-grid">
-            <span>{compactNumber(max)}</span>
-            <span>{compactNumber(max / 2)}</span>
-            <span>0</span>
+          <div className="aside">
+            <dt>Read from cache</dt>
+            <dd className="num">{value(t?.cached ?? null)}</dd>
           </div>
-          <div className="chart-bars">
-            {chart.map((d) => (
-              <div
-                className="chart-column"
-                key={d.day}
-                title={`${d.day}: Claude ${d.claude.toLocaleString()}, Codex ${d.codex.toLocaleString()} tokens`}
-              >
-                <div
-                  className="bar-stack"
-                  style={{
-                    height: `${Math.max(d.claude + d.codex > 0 ? 2 : 0, ((d.claude + d.codex) / max) * 100)}%`,
-                  }}
-                >
-                  <span className="bar-codex" style={{ flex: d.codex }} />
-                  <span className="bar-claude" style={{ flex: d.claude }} />
+        </dl>
+        <p className="fine">
+          As {agent} reports them. Cache reads sit outside the total. Not a billing estimate.
+        </p>
+        {s.measurementNote && <p className="fine">{s.measurementNote}</p>}
+      </section>
+    </Sheet>
+  );
+}
+
+export function Connectors({
+  list,
+  onChange,
+  initialOpen = null,
+}: {
+  list: Connector[];
+  onChange: (next: Connector[]) => void;
+  initialOpen?: Provider | null;
+}) {
+  const [open, setOpen] = useState<Provider | null>(initialOpen);
+  const [confirm, setConfirm] = useState<Provider | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<Provider | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  const set = async (c: Connector, enabled: boolean) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(c.provider);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await api.connector(c.provider, enabled);
+      onChange(result.connectors);
+      setNotice(
+        enabled
+          ? `${PROVIDERS[c.provider].name} connected. ${c.note}`
+          : `${PROVIDERS[c.provider].name} disconnected. Its other settings are untouched.`,
+      );
+      setOpen(null);
+      setConfirm(null);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      pending.current = false;
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="connectors" aria-busy={busy !== null}>
+      {list.length === 0 && <p className="fine">No supported agent installation detected.</p>}
+      {list.map((c) => {
+        const isOpen = open === c.provider;
+        return (
+          <div className={`conn${isOpen ? ' open' : ''}`} key={c.provider}>
+            <button
+              className="conn-head"
+              aria-expanded={isOpen}
+              disabled={busy !== null}
+              onClick={() => {
+                setOpen(isOpen ? null : c.provider);
+                setConfirm(null);
+              }}
+            >
+              <Logo provider={c.provider} size={20} />
+              <span className="conn-name">
+                <b>{PROVIDERS[c.provider].name}</b>
+                <small>
+                  {c.detected ? (c.version ? `v${c.version}` : 'Detected') : 'Not installed'}
+                </small>
+              </span>
+              {c.enabled ? (
+                <span className="conn-status">
+                  <i className="dot" />
+                  Connected
+                </span>
+              ) : c.detected && !isOpen ? (
+                <span className="btn small">Connect</span>
+              ) : null}
+              <ChevronDown size={15} className="conn-chev" />
+            </button>
+            {isOpen && (
+              <div className="conn-body">
+                <p className="conn-lead">{c.enabled ? 'Glim added' : 'Glim will add'}</p>
+                <ul>
+                  {c.changes.map((change) => (
+                    <li key={change}>
+                      <Check size={12} strokeWidth={2.6} />
+                      {change}
+                    </li>
+                  ))}
+                </ul>
+                <code>{c.configPath}</code>
+                <p className="fine">
+                  {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
+                </p>
+                {c.error && (
+                  <p role="alert" className="inline-error">
+                    {c.error}
+                  </p>
+                )}
+                <div className="actions">
+                  {!c.enabled ? (
+                    <button
+                      className="btn small primary"
+                      disabled={busy !== null || !c.detected}
+                      onClick={() => set(c, true)}
+                    >
+                      {busy === c.provider
+                        ? 'Connecting…'
+                        : `Connect ${PROVIDERS[c.provider].short}`}
+                    </button>
+                  ) : confirm === c.provider ? (
+                    <>
+                      <button
+                        className="btn small"
+                        disabled={busy !== null}
+                        onClick={() => setConfirm(null)}
+                      >
+                        Keep
+                      </button>
+                      <button
+                        className="btn small danger"
+                        disabled={busy !== null}
+                        onClick={() => set(c, false)}
+                      >
+                        {busy === c.provider
+                          ? 'Removing…'
+                          : `Remove from ${c.configPath.split(/[\\/]/).pop()}`}
+                      </button>
+                    </>
+                  ) : (
+                    <button className="btn small" onClick={() => setConfirm(c.provider)}>
+                      Disconnect…
+                    </button>
+                  )}
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        </div>
-        <div className="chart-dates">
-          <span>
-            {new Date(chart[0].day + 'T12:00:00').toLocaleDateString('en', {
-              month: 'short',
-              day: 'numeric',
-            })}
-          </span>
-          <span>Today</span>
-        </div>
-        {filtered.length === 0 && (
-          <p className="inline-note">
-            No recorded usage yet. Connect an agent and start a session.
-          </p>
-        )}
-      </section>
-      <section className="history-table">
-        <h2>By agent</h2>
-        {(['claude', 'codex'] as const)
-          .filter((p) => provider === 'all' || provider === p)
-          .map((p) => {
-            const rows = filtered.filter((h) => h.provider === p);
-            return (
-              <div className="usage-agent-row" key={p}>
-                <AgentTile provider={p} small />
-                <strong>{PROVIDERS[p].name}</strong>
-                <span>
-                  {compactNumber(
-                    rows.reduce((sum, h) => sum + h.input + h.output + h.cacheWrite, 0),
-                  )}{' '}
-                  tokens
-                </span>
-              </div>
-            );
-          })}
-      </section>
-      <p className="history-note">
-        <CircleHelp size={13} />
-        Reported tokens, including cache reads and reasoning. Not a billing estimate.
-      </p>
+        );
+      })}
       {error && (
-        <p role="alert" className="inline-error">
+        <p className="inline-error" role="alert">
           {error}
         </p>
       )}
-      <button className="text-button" onClick={onBack}>
-        <ArrowLeft size={12} />
-        Settings
-      </button>
+      {notice && (
+        <p className="notice" role="status">
+          <Check size={13} strokeWidth={2.6} />
+          {notice}
+        </p>
+      )}
     </div>
+  );
+}
+
+function IslandFields({
+  prefs,
+  onPrefs,
+  full,
+  onBusyChange,
+}: {
+  prefs: Preferences;
+  onPrefs: (next: Preferences) => Promise<void>;
+  full: boolean;
+  onBusyChange?: (busy: boolean) => void;
+}) {
+  const display = useId();
+  const [monitors, setMonitors] = useState<Monitor[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  useEffect(() => {
+    let disposed = false;
+    if (full)
+      api
+        .monitors()
+        .then((value) => {
+          if (!disposed) setMonitors(value);
+        })
+        .catch((e) => {
+          if (!disposed) setError(String(e));
+        });
+    return () => {
+      disposed = true;
+    };
+  }, [full]);
+  const save = async (next: Preferences) => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setError(null);
+    onBusyChange?.(true);
+    try {
+      await onPrefs(next);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      pending.current = false;
+      setBusy(false);
+      onBusyChange?.(false);
+    }
+  };
+  return (
+    <fieldset className="fields" disabled={busy} aria-busy={busy}>
+      <div className="field">
+        <span className="field-label">When idle</span>
+        <Segmented
+          label="When idle"
+          value={prefs.idleBehavior}
+          options={[
+            ['pill', 'Keep visible'],
+            ['hidden', 'Hide'],
+          ]}
+          onChange={(idleBehavior) => save({ ...prefs, idleBehavior })}
+        />
+      </div>
+      {full && (
+        <div className="field">
+          <label className="field-label" htmlFor={display}>
+            Display
+          </label>
+          <select
+            id={display}
+            value={prefs.monitor ?? ''}
+            onChange={(e) => save({ ...prefs, monitor: e.target.value || null })}
+          >
+            <option value="">Primary display</option>
+            {monitors.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <Switch
+        label="Start with Windows"
+        checked={prefs.startAtLogin}
+        onChange={(startAtLogin) => save({ ...prefs, startAtLogin })}
+      />
+      <Switch
+        label="Hide over fullscreen apps"
+        checked={prefs.hideFullscreen}
+        onChange={(hideFullscreen) => save({ ...prefs, hideFullscreen })}
+      />
+      {full && (
+        <Switch
+          label="Pause monitoring"
+          checked={prefs.paused}
+          onChange={(paused) => save({ ...prefs, paused })}
+        />
+      )}
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+export function SettingsSheet({
+  prefs,
+  onPrefs,
+  connectors,
+  onConnectors,
+  onBack,
+  onUsage,
+  scroll,
+  initialOpen,
+  initialConfirmClear = false,
+}: {
+  prefs: Preferences;
+  onPrefs: (next: Preferences) => Promise<void>;
+  connectors: Connector[];
+  onConnectors: (next: Connector[]) => void;
+  onBack?: () => void;
+  onUsage?: () => void;
+  scroll?: boolean;
+  initialOpen?: Provider | null;
+  initialConfirmClear?: boolean;
+}) {
+  const [confirmClear, setConfirmClear] = useState(initialConfirmClear);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  const [cleared, setCleared] = useState(false);
+  return (
+    <Sheet title="Settings" onBack={onBack} scroll={scroll}>
+      <section className="sec">
+        <h4>Agents</h4>
+        <Connectors list={connectors} onChange={onConnectors} initialOpen={initialOpen} />
+      </section>
+      <section className="sec">
+        <h4>Island</h4>
+        <IslandFields prefs={prefs} onPrefs={onPrefs} full />
+      </section>
+      <section className="sec">
+        <h4>Data</h4>
+        <p className="privacy">
+          <ShieldCheck size={14} />
+          Usage stays on this device for 30 days. No prompts or responses are saved.
+        </p>
+        <div className="field">
+          <span className="field-label">Usage history</span>
+          <div className="actions">
+            {onUsage && (
+              <button className="btn small" onClick={onUsage}>
+                View
+              </button>
+            )}
+            {confirmClear ? (
+              <>
+                <button className="btn small" onClick={() => setConfirmClear(false)}>
+                  Keep
+                </button>
+                <button
+                  className="btn small danger"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (pending.current) return;
+                    pending.current = true;
+                    setBusy(true);
+                    setError(null);
+                    try {
+                      await api.clearHistory();
+                      setCleared(true);
+                      setConfirmClear(false);
+                    } catch (e) {
+                      setError(String(e));
+                    } finally {
+                      pending.current = false;
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Clear history
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn small"
+                disabled={cleared}
+                onClick={() => setConfirmClear(true)}
+              >
+                {cleared ? 'Cleared' : 'Clear…'}
+              </button>
+            )}
+          </div>
+        </div>
+        {confirmClear && (
+          <p className="fine">Deletes Glim's saved counters. Agent files stay intact.</p>
+        )}
+      </section>
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+      {cleared && (
+        <p className="fine" role="status">
+          History cleared.
+        </p>
+      )}
+      <footer className="about">
+        <span>Glim 0.1.0</span>
+        <button
+          className="link"
+          onClick={() => api.openRelease().catch((e) => setError(String(e)))}
+        >
+          Releases <ArrowUpRight size={12} />
+        </button>
+      </footer>
+    </Sheet>
+  );
+}
+
+const dayLabel = (day: string) =>
+  new Date(`${day}T12:00:00`).toLocaleDateString('en', { month: 'short', day: 'numeric' });
+
+export function UsageSheet({ onBack, scroll }: { onBack?: () => void; scroll?: boolean }) {
+  const [history, setHistory] = useState<DailyUsage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    api
+      .history()
+      .then((value) => {
+        if (!disposed) setHistory(value);
+      })
+      .catch((e) => {
+        if (!disposed) setError(String(e));
+      })
+      .finally(() => {
+        if (!disposed) setLoading(false);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, []);
+  const [days, setDays] = useState(14);
+  const [agent, setAgent] = useState<'all' | Provider>('all');
+  const [hover, setHover] = useState<number | null>(null);
+  const series = Array.from({ length: days }, (_, i) => {
+    const day = new Date(Date.now() - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10);
+    const of = (p: Provider) =>
+      agent !== 'all' && agent !== p
+        ? 0
+        : history
+            .filter((h) => h.day === day && h.provider === p)
+            .reduce((n, h) => n + h.input + h.output + h.cacheWrite, 0);
+    return { day, claude: of('claude'), codex: of('codex') };
+  });
+  const rows = history.filter(
+    (h) => h.day >= series[0].day && (agent === 'all' || h.provider === agent),
+  );
+  const sum = (key: 'input' | 'output' | 'cacheWrite' | 'cached') =>
+    rows.reduce((n, h) => n + h[key], 0);
+  const total = sum('input') + sum('output') + sum('cacheWrite');
+  const max = Math.max(1, ...series.map((d) => d.claude + d.codex));
+  const projects = [...new Set(rows.map((h) => h.project))]
+    .map((project) => ({
+      project,
+      n: rows
+        .filter((h) => h.project === project)
+        .reduce((n, h) => n + h.input + h.output + h.cacheWrite, 0),
+    }))
+    .sort((a, b) => b.n - a.n);
+  const top = Math.max(1, ...projects.map((p) => p.n));
+  const focus = hover === null ? null : series[hover];
+  return (
+    <Sheet title="Usage" onBack={onBack} scroll={scroll}>
+      {loading ? (
+        <p className="fine" role="status">
+          Loading usage…
+        </p>
+      ) : error ? (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      ) : (
+        <>
+          <div className="usage-filters">
+            <Segmented
+              label="Period"
+              value={days}
+              options={[
+                [7, '7 days'],
+                [14, '14 days'],
+                [30, '30 days'],
+              ]}
+              onChange={setDays}
+            />
+            <Segmented
+              label="Agent"
+              value={agent}
+              options={[
+                ['all', 'All'],
+                ['claude', 'Claude'],
+                ['codex', 'Codex'],
+              ]}
+              onChange={setAgent}
+            />
+          </div>
+          <p className="usage-total">
+            <b className="num">{compactNumber(total)} tokens</b> in the last {days} days
+          </p>
+          <p className="usage-split num">
+            Input {compactNumber(sum('input'))} · Output {compactNumber(sum('output'))} · Cache
+            writes {compactNumber(sum('cacheWrite'))} · Read from cache{' '}
+            {compactNumber(sum('cached'))}
+          </p>
+          <div className="chart" onPointerLeave={() => setHover(null)}>
+            <p className="chart-readout num" aria-live="polite">
+              {focus ? (
+                <>
+                  <b>{dayLabel(focus.day)}</b>
+                  <span>{compactNumber(focus.claude + focus.codex)} tokens</span>
+                  {agent !== 'codex' && (
+                    <span className="legend claude">Claude {compactNumber(focus.claude)}</span>
+                  )}
+                  {agent !== 'claude' && (
+                    <span className="legend codex">Codex {compactNumber(focus.codex)}</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span>Per day</span>
+                  {agent !== 'codex' && <span className="legend claude">Claude</span>}
+                  {agent !== 'claude' && <span className="legend codex">Codex</span>}
+                </>
+              )}
+            </p>
+            <div
+              className="bars"
+              role="img"
+              aria-label={`Tokens per day for the last ${days} days. Busiest day ${compactNumber(max)}.`}
+            >
+              <span className="bars-max num">{compactNumber(max)}</span>
+              {series.map((d, i) => (
+                <div
+                  key={d.day}
+                  className={`col${i === series.length - 1 ? ' today' : ''}${hover === i ? ' on' : ''}`}
+                  onPointerEnter={() => setHover(i)}
+                >
+                  <div
+                    className="bar-stack"
+                    style={{ height: `${((d.claude + d.codex) / max) * 100}%` }}
+                  >
+                    {d.codex > 0 && <i className="bar-seg codex" style={{ flexGrow: d.codex }} />}
+                    {d.claude > 0 && (
+                      <i className="bar-seg claude" style={{ flexGrow: d.claude }} />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="chart-axis">
+              <span>{dayLabel(series[0].day)}</span>
+              <span>Today</span>
+            </div>
+          </div>
+          <section className="sec">
+            <h4>By project</h4>
+            <ul className="projects">
+              {projects.map((p) => (
+                <li key={p.project}>
+                  <span>{p.project}</span>
+                  <span className="num">{compactNumber(p.n)}</span>
+                  <span className="track" aria-hidden="true">
+                    <i style={{ transform: `scaleX(${p.n / top})` }} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {projects.length === 0 && <p className="fine">Nothing recorded in this period.</p>}
+          </section>
+          <p className="fine">
+            Totals count input, output and cache writes as each agent reports them. Not a billing
+            estimate.
+          </p>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+export function SetupSheet({
+  prefs,
+  onPrefs,
+  connectors,
+  onConnectors,
+  onDone,
+  initialStep = 0,
+  initialOpen = null,
+}: {
+  prefs: Preferences;
+  onPrefs: (next: Preferences) => Promise<void>;
+  connectors: Connector[];
+  onConnectors: (next: Connector[]) => void;
+  onDone?: () => void;
+  initialStep?: number;
+  initialOpen?: Provider | null;
+}) {
+  const [step, setStep] = useState(initialStep);
+  const [busy, setBusy] = useState(false);
+  const [fieldBusy, setFieldBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pending = useRef(false);
+  const finish = async () => {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      await onPrefs({ ...prefs, onboardingComplete: true });
+      onDone?.();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <Sheet
+      title="Set up Glim"
+      end={
+        <span className="steps" role="img" aria-label={`Step ${step + 1} of 3`}>
+          {[0, 1, 2].map((i) => (
+            <i key={i} className={i <= step ? 'on' : ''} />
+          ))}
+        </span>
+      }
+      foot={
+        step > 0 && (
+          <footer className="setup-foot">
+            <button className="link" disabled={busy || fieldBusy} onClick={() => setStep(step - 1)}>
+              <ArrowLeft size={13} /> Back
+            </button>
+            <button
+              className="btn primary"
+              disabled={busy || fieldBusy}
+              onClick={() => (step === 2 ? finish() : setStep(step + 1))}
+            >
+              {busy ? 'Saving…' : step === 2 ? 'Done' : 'Continue'} <ArrowRight size={14} />
+            </button>
+          </footer>
+        )
+      }
+    >
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+      {step === 0 && (
+        <div className="welcome">
+          <HelloCharacter size={128} />
+          <h1>Glim</h1>
+          <p>A glimpse at your agents.</p>
+          <button className="btn primary large" onClick={() => setStep(1)}>
+            Get started <ArrowRight size={15} />
+          </button>
+          <small>Local. No extra account.</small>
+        </div>
+      )}
+      {step === 1 && (
+        <>
+          <div className="setup-intro">
+            <h3>Connect your agents</h3>
+            <p>Glim shows every change before it makes it, and keeps a backup.</p>
+          </div>
+          <Connectors list={connectors} onChange={onConnectors} initialOpen={initialOpen} />
+        </>
+      )}
+      {step === 2 && (
+        <>
+          <div className="setup-intro">
+            <h3>The island</h3>
+            <p>All of this lives in Settings later.</p>
+          </div>
+          <IslandFields prefs={prefs} onPrefs={onPrefs} full={false} onBusyChange={setFieldBusy} />
+        </>
+      )}
+    </Sheet>
   );
 }

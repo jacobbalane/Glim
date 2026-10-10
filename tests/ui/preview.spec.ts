@@ -23,8 +23,8 @@ test('preview includes every view and logo, with isolated interactive scenes', a
   const agents = page.frameLocator('iframe[title="Connect agents"]');
   const welcome = page.frameLocator('iframe[title="Welcome"]');
   await expect(welcome.getByRole('button', { name: 'Get started' })).toBeVisible();
-  await agents.getByRole('button', { name: 'Connect', exact: true }).first().click();
-  await agents.getByRole('button', { name: 'Confirm', exact: true }).click();
+  await agents.getByRole('button', { name: /Claude Code.*Connect/ }).click();
+  await agents.getByRole('button', { name: 'Connect Claude', exact: true }).click();
   await expect(agents.getByRole('status')).toContainText('connected');
   await expect(welcome.getByRole('button', { name: 'Get started' })).toBeVisible();
   expect(errors).toEqual([]);
@@ -71,10 +71,10 @@ test('interactive notch keeps one surface and animates working activity', async 
   const frame = await page.locator('iframe[title="Interactive notch"]').contentFrame();
   const island = frame.getByTestId('island');
   await controls.getByRole('button', { name: 'Expand', exact: true }).click();
-  await expect(frame.getByRole('heading', { name: 'Claude Code', exact: true })).toBeVisible();
+  await expect(frame.getByRole('heading', { name: 'glim-desktop', exact: true })).toBeVisible();
   await island.evaluate((node) => node.setAttribute('data-persistence-check', 'same'));
   await controls.getByRole('button', { name: 'Collapse', exact: true }).click();
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(70, 0);
+  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(101, 0);
   const samples = frame.locator('html').evaluate(
     () =>
       new Promise<{ width: number; center: number }[]>((resolve) => {
@@ -102,20 +102,23 @@ test('interactive notch keeps one surface and animates working activity', async 
       return Math.abs(stage!.height - surface!.height - 28);
     })
     .toBeLessThan(2);
-  await frame.getByRole('button', { name: 'Close panel', exact: true }).click();
-  await expect(frame.getByRole('progressbar', { name: 'Context used' })).toBeVisible();
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeLessThan(270);
-  const canvas = frame.locator('.working-indicator canvas');
-  await expect(canvas).toBeVisible();
-  const before = await canvas.screenshot();
-  await frame.locator('html').evaluate(() => new Promise((resolve) => setTimeout(resolve, 500)));
-  const after = await canvas.screenshot();
-  expect(before.equals(after)).toBeFalsy();
+  await frame.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(frame.getByRole('progressbar', { name: 'Context' })).toBeVisible();
+  await frame.getByRole('button', { name: /glim-desktop, Claude Code/ }).click();
+  await expect.poll(async () => (await island.boundingBox())?.height).toBeLessThan(400);
+  const character = frame.locator('.glim-character[data-mood="scan"]').first();
+  await expect(character).toHaveAttribute('data-renderer', '3d');
+  await expect(character).toHaveAttribute('data-motion', 'true');
+  const firstFrame = await character.locator('canvas').evaluate((node) => node.toDataURL());
+  await expect
+    .poll(() => character.locator('canvas').evaluate((node) => node.toDataURL()))
+    .not.toBe(firstFrame);
   await page.mouse.click(24, 220);
-  await expect(frame.getByRole('button', { name: 'Expand Glim' })).toBeVisible();
+  await expect(frame.getByRole('button', { name: /^Glim:/ })).toBeVisible();
   await expect(island).toHaveAttribute('data-expanded', 'false');
   await controls.getByRole('button', { name: 'Expand', exact: true }).click();
+  await frame.getByRole('button', { name: /glim-desktop, Claude Code/ }).click();
   await controls.getByLabel('Agent activity').selectOption('finished');
-  await expect(frame.getByRole('heading', { name: 'Done', exact: true })).toBeVisible();
+  await expect(frame.locator('.hero .chip')).toHaveText('Done');
   await expect(island).toHaveAttribute('data-persistence-check', 'same');
 });

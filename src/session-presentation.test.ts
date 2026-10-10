@@ -1,45 +1,75 @@
-import { describe, it, expect } from 'vitest';
-import {
-  attentionKind,
-  attentionSummary,
-  rotationGroups,
-  statusLabel,
-} from './session-presentation';
+import { describe, expect, it } from 'vitest';
+import { attentionKind, groupSessions, isNotice, lookOf, notchView } from './session-presentation';
 import { previewSessions } from './preview';
+import type { Session } from './types';
 
-describe('session preview attention', () => {
-  it('distinguishes questions, approvals and a completed turn without ending a session', () => {
-    const now = Date.now();
-    const question = {
-      ...previewSessions[0],
-      activity: 'waiting' as const,
-      detail: 'Waiting for your answer',
-    };
-    const completed = {
-      ...previewSessions[0],
-      activity: 'idle' as const,
-      detail: 'Turn finished',
-      updatedAt: now,
-    };
-    expect(attentionKind(question, now)).toBe('answer');
-    expect(statusLabel(question)).toBe('Answer needed');
-    expect(statusLabel(completed)).toBe('Done');
-    expect(
-      attentionSummary([question, previewSessions[1], completed], now).map((item) => item.text),
-    ).toEqual(['1 needs approval', '1 needs an answer', '1 done']);
-    expect(attentionKind(completed, now + 11 * 60 * 1000)).toBeNull();
+const now = 1_000_000;
+const session = (patch: Partial<Session> = {}): Session => ({
+  ...structuredClone(previewSessions[0]),
+  updatedAt: now,
+  ...patch,
+});
+
+describe('session presentation', () => {
+  it('groups subagents under their parent and sorts top-level sessions by urgency', () => {
+    const groups = groupSessions(
+      [
+        session({ id: 'parent', project: 'Zebra' }),
+        session({ id: 'child', parentId: 'parent', activity: 'waiting' }),
+        session({ id: 'blocked', activity: 'waiting' }),
+        session({ id: 'orphan', parentId: 'missing', activity: 'error' }),
+      ],
+      now,
+    );
+    expect(groups.map((g) => g.session.id)).toEqual(['blocked', 'orphan', 'parent']);
+    expect(groups[2].children.map((s) => s.id)).toEqual(['child']);
   });
-  it('keeps working sessions separate from attention and does not rotate old completions', () => {
-    const now = Date.now();
-    const old = {
-      ...previewSessions[0],
-      id: 'old',
-      activity: 'finished' as const,
-      updatedAt: now - 60 * 60 * 1000,
-    };
-    const groups = rotationGroups([...previewSessions, old], now);
-    expect(groups.working.map((session) => session.id)).toEqual(['demo-claude']);
-    expect(groups.other.some((session) => session.id === 'demo-codex')).toBe(true);
-    expect(groups.other.some((session) => session.id === 'old')).toBe(false);
+  it('distinguishes questions, approval and a general attention request', () => {
+    const s = session({ activity: 'waiting', detail: 'Waiting for your answer' });
+    expect(attentionKind(s, now)).toBe('answer');
+    expect(lookOf(s, now).label).toBe('Needs an answer');
+    expect(lookOf({ ...s, detail: 'Waiting for approval' }, now).label).toBe('Needs approval');
+    expect(lookOf({ ...s, detail: 'Agent needs your attention' }, now).label).toBe('Needs you');
+  });
+  it('acknowledges handed-back turns only when the UI has seen them', () => {
+    const s = session({ activity: 'idle' });
+    expect(lookOf(s, now - 1).label).toBe('Your turn');
+    expect(lookOf(s, now).label).toBe('Ready');
+    expect(attentionKind(s, now, now)).toBeNull();
+    expect(lookOf(s, Infinity).label).toBe('Ready');
+  });
+  it('expires completion notices after ten minutes, but retains interruptions until seen', () => {
+    const [done] = groupSessions([session({ activity: 'finished' })], now - 1);
+    expect(isNotice(done, now - 1, now + 599_999)).toBe(true);
+    expect(isNotice(done, now - 1, now + 600_000)).toBe(false);
+    const [interrupted] = groupSessions([session({ activity: 'interrupted' })], now - 1);
+    expect(isNotice(interrupted, now - 1, now + 900_000)).toBe(true);
+    expect(isNotice(interrupted, now, now + 900_000)).toBe(false);
+  });
+  it('presents a notice once, then keeps it docked while working agents rotate by project', () => {
+    const groups = groupSessions(
+      [
+        session({ id: 'z', project: 'Zebra' }),
+        session({ id: 'a', project: 'Alpha' }),
+        session({ id: 'notice', activity: 'waiting' }),
+      ],
+      now,
+    );
+    expect(notchView(groups, now, now, 0, 'notice', new Set()).current?.session.id).toBe('notice');
+    const docked = new Set(['notice']);
+    for (let i = 0; i < 9; i++) {
+      const view = notchView(groups, now, now, i, null, docked);
+      expect(view.current?.session.id).toBe(i % 2 ? 'z' : 'a');
+      expect(view.inbox.map((g) => g.session.id)).toEqual(['notice']);
+    }
+  });
+  it('rests on the most urgent notice when nobody is working, without duplicating it', () => {
+    const groups = groupSessions(
+      [session({ id: 'error', activity: 'error' }), session({ id: 'wait', activity: 'waiting' })],
+      now,
+    );
+    const view = notchView(groups, now, now);
+    expect(view.current?.session.id).toBe('wait');
+    expect(view.inbox.map((g) => g.session.id)).toEqual(['error']);
   });
 });
