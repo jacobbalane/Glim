@@ -1,5 +1,11 @@
 [
-  { "id": "compact", "title": "Compact", "group": "Island", "width": 680, "height": 80 },
+  {
+    "id": "compact",
+    "title": "Compact",
+    "group": "Island",
+    "width": 680,
+    "height": 80
+  },
   {
     "id": "compact-short",
     "title": "Compact · short status",
@@ -153,15 +159,6 @@
     "unavailable": true,
     "width": 680,
     "height": 340
-  },
-  {
-    "id": "sessions",
-    "title": "Session switcher",
-    "group": "Island",
-    "expanded": true,
-    "sessionList": true,
-    "width": 680,
-    "height": 350
   },
   {
     "id": "welcome",

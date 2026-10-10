@@ -19,7 +19,6 @@ export interface PreviewScene {
   empty?: boolean;
   unavailable?: boolean;
   detailsOpen?: boolean;
-  sessionList?: boolean;
   panel?: 'setup' | 'settings' | 'history';
   step?: number;
   connector?: Provider;

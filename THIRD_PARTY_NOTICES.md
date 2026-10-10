@@ -2,17 +2,21 @@
 
 Glim's original application code is MIT licensed. Third-party components retain their own licenses.
 
-## React Bits
+## Three.js
 
-The Crystalized Ball and Star Border runtime components in `src/react-bits/` are adapted from [React Bits](https://reactbits.dev/), copyright © 2026 David Haz. They were imported from [upstream commit 3329f3b](https://github.com/DavidHDev/react-bits/tree/3329f3bde763a37a2a89b24598e9f50fa0d4de3d).
-
-Their [MIT + Commons Clause license](src/react-bits/LICENSE.react-bits) permits inclusion in an application and has separate restrictions on redistributing the components themselves. That license applies to these adapted files, and a copy ships in the Windows package under `licenses/react-bits.txt`.
-
-Glim's adaptations add a WebGL fallback, a frame-rate limit, hidden-view suspension, a smaller particle budget, monochrome styling, and provider colors. Reduced-motion preferences keep the working indicator still. The components run locally as part of the app.
+The local 3D Glim renderer uses Three.js, copyright 2010–2026 three.js authors, under the MIT license. Its license is included in `public/licenses/three.txt` and ships in the Windows package under `licenses/three.txt`. The character geometry and animations are Glim's original artwork.
 
 ## Manrope
 
 The interface uses the locally bundled [Manrope](https://github.com/sharanda/manrope) variable font by Mikhail Sharanda. The font is licensed under the SIL Open Font License 1.1. Its license is included in `public/fonts/Manrope-LICENSE.txt` and ships in the Windows package under `licenses/manrope.txt`.
+
+## Tauri installer template
+
+The Windows installer template `src-tauri/installer/installer.nsi` and its strings `src-tauri/installer/english.nsh` are adapted from the NSIS template and English strings in [tauri-bundler](https://github.com/tauri-apps/tauri/tree/tauri-cli-v2.12.1/crates/tauri-bundler/src/bundle/windows/nsis), copyright Tauri Apps Contributors, under the MIT license in `src-tauri/installer/LICENSE.tauri`. Glim's changes are marked `; Glim:` in the template.
+
+## Website
+
+The website in `site/` is not part of the Windows package. Its hero background (Faulty Terminal) and bottom blur (Gradual Blur) are adapted from [React Bits](https://reactbits.dev/), copyright © 2026 David Haz, under the MIT + Commons Clause license in `site/react-bits/LICENSE.react-bits`; it permits their use in the website and restricts redistributing the components themselves.
 
 ## Provider marks
 

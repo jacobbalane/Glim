@@ -55,7 +55,7 @@ try {
   # NSIS /D must be last; its entire remainder is the destination, including spaces.
   Run-Installer $glimInstaller "/S /D=$glimInstallDir"
   $glimInstalled = $true
-  foreach ($glimFile in @('glim.exe','glim-bridge.exe','uninstall.exe','licenses\glim.txt','licenses\manrope.txt','licenses\react-bits.txt','licenses\third-party-notices.md')) {
+  foreach ($glimFile in @('glim.exe','glim-bridge.exe','uninstall.exe','licenses\glim.txt','licenses\manrope.txt','licenses\three.txt','licenses\third-party-notices.md')) {
     if (-not (Test-Path -LiteralPath (Join-Path $glimInstallDir $glimFile))) { throw "Missing installed file: $glimFile" }
   }
   $glimRegistration = @(Get-GlimInstall)

@@ -77,4 +77,4 @@ There is no telemetry or cloud sync. The helper sends a small allow-listed event
 
 ## Contributing
 
-Glim's original code is MIT licensed. See [third-party notices](THIRD_PARTY_NOTICES.md) for the React Bits components and bundled Manrope font, and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute. Agent record formats evolve; sanitized adapter fixtures and compatibility reports are especially useful. Please never attach real prompts, credentials, or unredacted transcripts to issues.
+Glim's original code is MIT licensed. See [third-party notices](THIRD_PARTY_NOTICES.md) for Three.js, the bundled Manrope font and the provider marks, and [CONTRIBUTING.md](CONTRIBUTING.md) to contribute. Agent record formats evolve; sanitized adapter fixtures and compatibility reports are especially useful. Please never attach real prompts, credentials, or unredacted transcripts to issues.
