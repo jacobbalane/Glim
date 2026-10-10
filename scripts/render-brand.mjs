@@ -1,7 +1,7 @@
 // Render native icons from the same geometry used by the live app.
 // Run against npm run dev. Outputs are committed so installation needs no browser or GPU.
 import { chromium } from '@playwright/test';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 
 const baseURL = process.env.GLIM_PREVIEW_URL ?? 'http://127.0.0.1:1420';
 const browser = await chromium.launch({
@@ -13,7 +13,7 @@ try {
     reducedMotion: 'reduce',
   });
   await page.goto(baseURL);
-  const sizes = [16, 24, 30, 32, 44, 48, 64, 71, 89, 107, 128, 142, 150, 256, 284, 310, 512, 1024];
+  const sizes = [16, 24, 30, 32, 44, 48, 64, 71, 89, 107, 128, 142, 150, 256, 284, 310, 512];
   const encoded = await page.evaluate(async (sizes) => {
     // Centering the canvas also centers the website's overhead light.
     document.body.replaceChildren();
@@ -60,9 +60,6 @@ try {
     return results;
   }, sizes);
   const png = (size) => Buffer.from(encoded[size], 'base64');
-  await mkdir('public/brand', { recursive: true });
-  await writeFile('public/brand/glim-3d.png', png(1024));
-  await writeFile('public/glim.png', png(512));
   await writeFile('public/favicon.png', png(48));
   const windows = {
     '32x32': 32,
@@ -95,7 +92,7 @@ try {
     'src-tauri/icons/icon.ico',
     Buffer.concat([header, ...frames.map((frame) => frame.bytes)]),
   );
-  console.log('Rendered 3D brand mark, favicon, Windows PNG icons and seven-size ICO.');
+  console.log('Rendered the favicon, Windows PNG icons and seven-size ICO.');
 } finally {
   await browser.close();
 }

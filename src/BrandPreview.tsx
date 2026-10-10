@@ -1,12 +1,13 @@
 import { Eyes, HelloCharacter } from './Character';
 import { designMotion } from './api';
 import type { PreviewScene } from './design-preview';
+import appIcon from '../src-tauri/icons/icon.png';
 
 export default function BrandPreview({ variant }: { variant: PreviewScene['brand'] }) {
   return (
     <main className="brand-preview" data-variant={variant} data-preview-surface="brand">
       {variant === 'icon' ? (
-        <img src="/glim.png" width="128" height="128" alt="Glim application icon" />
+        <img src={appIcon} width="128" height="128" alt="Glim application icon" />
       ) : variant === 'mascot' ? (
         <HelloCharacter size={160} still={!designMotion} />
       ) : (
