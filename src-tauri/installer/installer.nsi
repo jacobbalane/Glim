@@ -32,9 +32,7 @@ ManifestDPIAwareness PerMonitorV2
 !include "Win\COM.nsh"
 !include "Win\Propkey.nsh"
 !include "Win\RestartManager.nsh"
-!include "StrFunc.nsh"
-${StrCase}
-${StrLoc}
+; Glim: StrFunc's StrCase and StrLoc served only the WiX migration, which Glim does not need.
 
 {{#if installer_hooks}}
 !include "{{installer_hooks}}"
@@ -78,11 +76,21 @@ ${StrLoc}
 Var PassiveMode
 Var UpdateMode
 Var NoShortcutMode
-Var WixMode
 Var OldMainBinaryName
+; Glim: what Setup will do (GlimDetect), and the words each page uses for it.
+Var OldVersion
+Var GlimKind
+Var GlimTitle
+Var GlimText
+Var GlimNote
+Var GlimButton
+Var GlimProgress
+Var GlimDoneTitle
+Var GlimDoneText
 
 Name "${PRODUCTNAME}"
-BrandingText "${COPYRIGHT}"
+; Glim: the version, quietly, at the bottom of every page.
+BrandingText "${PRODUCTNAME} ${VERSION}"
 OutFile "${OUTFILE}"
 
 ; We don't actually use this value as default install path,
@@ -159,10 +167,14 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
   !define MUI_HEADERIMAGE_RIGHT
 !endif
 
-; Glim: the finish page shows a happy Glim. finish.bmp sits beside the sidebar image.
-!if "${SIDEBARIMAGE}" != ""
-  !searchreplace FINISHIMAGE "${SIDEBARIMAGE}" "sidebar.bmp" "finish.bmp"
-!endif
+; Glim: the dark theme (theme.nsh): the website's colors, and the art that sits beside the
+; sidebar image (install.bmp) in src-tauri/installer.
+!searchreplace GLIMART "${SIDEBARIMAGE}" "install.bmp" ""
+!define MUI_BGCOLOR "0A0B12"
+!define MUI_TEXTCOLOR "FFFFFF"
+!define MUI_CUSTOMFUNCTION_GUIINIT GlimGUIInit
+!define MUI_CUSTOMFUNCTION_UNGUIINIT un.GlimGUIInit
+!define MUI_UNWELCOMEFINISHPAGE_BITMAP "${GLIMART}uninstall.bmp"
 
 ; Uninstaller header image
 !if "${UNINSTALLERHEADERIMAGE}" != ""
@@ -181,16 +193,13 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 
 ; Installer pages, must be ordered as they appear
 ; 1. Welcome Page
-; Glim: one click installs. The folder is shown, not asked for; /D= still sets it.
-!define MUI_WELCOMEPAGE_TITLE "Install ${PRODUCTNAME}"
-!define MUI_WELCOMEPAGE_TEXT "Glim sits at the top of your screen and shows what Claude Code and Codex are doing, so you can stay in your own work.$\r$\n$\r$\nIt installs for your Windows account only. No administrator rights, no account, no telemetry.$\r$\n$\r$\n$\r$\nInstalls to $INSTDIR"
+; Glim: one click installs, updates or reinstalls, and the page says which (GlimDetect). The
+; folder is shown, not asked for; /D= still sets it.
+!define MUI_WELCOMEPAGE_TITLE "$GlimTitle"
+!define MUI_WELCOMEPAGE_TEXT "$GlimText"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW WelcomeShow
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW GlimWelcomeShow
 !insertmacro MUI_PAGE_WELCOME
-Function WelcomeShow
-  GetDlgItem $0 $HWNDPARENT 1
-  SendMessage $0 ${WM_SETTEXT} 0 "STR:Install"
-FunctionEnd
 
 ; 2. License Page (if defined)
 !if "${LICENSE}" != ""
@@ -204,229 +213,82 @@ FunctionEnd
   !insertmacro MULTIUSER_PAGE_INSTALLMODE
 !endif
 
-; 4. Custom page to ask user if he wants to reinstall/uninstall
-;    only if a previous installation was detected
-Var ReinstallPageCheck
-; Glim: the version already installed, for the Update page.
-Var OldVersion
-Page custom PageReinstall PageLeaveReinstall
-Function PageReinstall
-  ; Uninstall previous WiX installation if exists.
-  ;
-  ; A WiX installer stores the installation info in registry
-  ; using a UUID and so we have to loop through all keys under
-  ; `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall`
-  ; and check if `DisplayName` and `Publisher` keys match ${PRODUCTNAME} and ${MANUFACTURER}
-  ;
-  ; This has a potential issue that there maybe another installation that matches
-  ; our ${PRODUCTNAME} and ${MANUFACTURER} but wasn't installed by our WiX installer,
-  ; however, this should be fine since the user will have to confirm the uninstallation
-  ; and they can chose to abort it if doesn't make sense.
-  StrCpy $0 0
-  wix_loop:
-    EnumRegKey $1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall" $0
-    StrCmp $1 "" wix_loop_done ; Exit loop if there is no more keys to loop on
-    IntOp $0 $0 + 1
-    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "DisplayName"
-    ReadRegStr $R1 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "Publisher"
-    StrCmp "$R0$R1" "${PRODUCTNAME}${MANUFACTURER}" 0 wix_loop
-    ReadRegStr $R0 HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1" "UninstallString"
-    ${StrCase} $R1 $R0 "L"
-    ${StrLoc} $R0 $R1 "msiexec" ">"
-    StrCmp $R0 0 0 wix_loop_done
-    StrCpy $WixMode 1
-    StrCpy $R6 "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$1"
-    Goto compare_version
-  wix_loop_done:
-
-  ; Check if there is an existing installation, if not, abort the reinstall page
-  ReadRegStr $R0 SHCTX "${UNINSTKEY}" ""
-  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-  ${IfThen} "$R0$R1" == "" ${|} Abort ${|}
-
-  ; Compare this installar version with the existing installation
-  ; and modify the messages presented to the user accordingly
-  compare_version:
-  StrCpy $R4 "$(older)"
-  ${If} $WixMode = 1
-    ReadRegStr $R0 HKLM "$R6" "DisplayVersion"
-  ${Else}
-    ReadRegStr $R0 SHCTX "${UNINSTKEY}" "DisplayVersion"
+; 4. Glim: no page for an existing installation. The welcome page already says what happens
+; (GlimDetect), and the progress page replaces the installed version (GlimReplacePrevious).
+Function GlimDetect
+  StrCpy $GlimKind "install"
+  StrCpy $GlimTitle "A glimpse at your agents."
+  StrCpy $GlimText "Glim sits at the top of your screen and shows what Claude Code and Codex are doing, so you can stay in your own work."
+  StrCpy $GlimNote "No administrator rights, no account, and nothing goes online.$\r$\nInstalls to $INSTDIR"
+  StrCpy $GlimButton "Install"
+  StrCpy $GlimProgress "Installing ${PRODUCTNAME}"
+  StrCpy $GlimDoneTitle "${PRODUCTNAME} is ready when you are."
+  StrCpy $GlimDoneText "It lives at the top of your screen. Open it to connect Claude Code, Codex or both."
+  ReadRegStr $0 SHCTX "${UNINSTKEY}" "UninstallString"
+  ReadRegStr $OldVersion SHCTX "${UNINSTKEY}" "DisplayVersion"
+  ${If} $0 == ""
+  ${OrIf} $OldVersion == ""
+    Return
   ${EndIf}
-  ${IfThen} $R0 == "" ${|} StrCpy $R4 "$(unknown)" ${|}
-  StrCpy $OldVersion $R0
-
-  nsis_tauri_utils::SemverCompare "${VERSION}" $R0
-  Pop $R0
-  ; Reinstalling the same version
-  ${If} $R0 = 0
-    StrCpy $R1 "$(alreadyInstalledLong)"
-    StrCpy $R2 "$(addOrReinstall)"
-    StrCpy $R3 "$(uninstallApp)"
-    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(chooseMaintenanceOption)"
-  ; Upgrading
-  ; Glim: no choice to make. Setup replaces the old version and keeps the user's setup.
-  ${ElseIf} $R0 = 1
-    StrCpy $R1 "Setup replaces it with this version. Your connections, settings and usage history stay as they are."
-    !insertmacro MUI_HEADER_TEXT "Update ${PRODUCTNAME}" "${PRODUCTNAME} $OldVersion is installed."
-  ; Downgrading
-  ${ElseIf} $R0 = -1
-    StrCpy $R1 "$(newerVersionInstalled)"
-    StrCpy $R2 "$(uninstallBeforeInstalling)"
-    !if "${ALLOWDOWNGRADES}" == "true"
-      StrCpy $R3 "$(dontUninstall)"
-    !else
-      StrCpy $R3 "$(dontUninstallDowngrade)"
-    !endif
-    !insertmacro MUI_HEADER_TEXT "$(alreadyInstalled)" "$(choowHowToInstall)"
+  StrCpy $GlimNote ""
+  nsis_tauri_utils::SemverCompare "${VERSION}" $OldVersion
+  Pop $0
+  ${If} $0 = 1
+    StrCpy $GlimKind "update"
+    StrCpy $GlimTitle "Update ${PRODUCTNAME}"
+    StrCpy $GlimText "${PRODUCTNAME} $OldVersion is installed. Setup replaces it with ${VERSION}.$\r$\nYour connections, settings and usage history stay as they are."
+    StrCpy $GlimButton "Update"
+    StrCpy $GlimProgress "Updating ${PRODUCTNAME}"
+    StrCpy $GlimDoneTitle "${PRODUCTNAME} is up to date."
+    StrCpy $GlimDoneText "Version ${VERSION} is installed, and everything you set up is still here."
+  ${ElseIf} $0 = 0
+    StrCpy $GlimKind "reinstall"
+    StrCpy $GlimTitle "Reinstall ${PRODUCTNAME}"
+    StrCpy $GlimText "${PRODUCTNAME} ${VERSION} is already installed. Setup installs it again to repair it.$\r$\nYour connections, settings and usage history stay as they are."
+    StrCpy $GlimButton "Reinstall"
+    StrCpy $GlimProgress "Reinstalling ${PRODUCTNAME}"
+    StrCpy $GlimDoneTitle "${PRODUCTNAME} is reinstalled."
+    StrCpy $GlimDoneText "Everything you set up is still here."
   ${Else}
+    StrCpy $GlimKind "downgrade"
+    StrCpy $GlimTitle "Install ${PRODUCTNAME} ${VERSION}"
+    StrCpy $GlimText "${PRODUCTNAME} $OldVersion, a newer version, is installed. Setup replaces it with ${VERSION}.$\r$\nYour connections, settings and usage history stay as they are."
+    StrCpy $GlimProgress "Installing ${PRODUCTNAME} ${VERSION}"
+    StrCpy $GlimDoneTitle "${PRODUCTNAME} ${VERSION} is installed."
+    StrCpy $GlimDoneText "Everything you set up is still here."
+  ${EndIf}
+FunctionEnd
+
+; Glim: replacing an older or a newer version runs its uninstaller as an update, so it keeps the
+; agents connected, the startup entry and the usage history. It runs silently, on the progress
+; page, after Setup has asked to close Glim if it was running.
+Function GlimReplacePrevious
+  ${If} $UpdateMode = 1
+    Return
+  ${EndIf}
+  ${If} $GlimKind != "update"
+  ${AndIf} $GlimKind != "downgrade"
+    Return
+  ${EndIf}
+  ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
+  ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
+  ${If} $PassiveMode = 1
+    StrCpy $R1 "$R1 /UPDATE /P _?=$4"
+  ${Else}
+    StrCpy $R1 "$R1 /UPDATE /S _?=$4"
+  ${EndIf}
+  DetailPrint "Replacing ${PRODUCTNAME} $OldVersion"
+  ; The command goes to the details only; the status line keeps saying what is happening.
+  SetDetailsPrint listonly
+  ClearErrors
+  ExecWait '$R1' $0
+  SetDetailsPrint both
+  ${If} ${Errors}
+  ${OrIf} $0 <> 0
+  ${OrIf} ${FileExists} "$4\${MAINBINARYNAME}.exe"
+    MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
     Abort
   ${EndIf}
-
-  ; Skip showing the page if passive
-  ;
-  ; Note that we don't call this earlier at the beginning
-  ; of this function because we need to populate some variables
-  ; related to current installed version if detected and whether
-  ; we are downgrading or not.
-  ${If} $PassiveMode = 1
-    Call PageLeaveReinstall
-  ${Else}
-    nsDialogs::Create 1018
-    Pop $R4
-    ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
-
-    ${NSD_CreateLabel} 0 0 100% 24u $R1
-    Pop $R1
-
-    ; Glim: an update is a single button.
-    ${If} $R0 = 1
-      GetDlgItem $R5 $HWNDPARENT 1
-      SendMessage $R5 ${WM_SETTEXT} 0 "STR:Update"
-      nsDialogs::Show
-      Return
-    ${EndIf}
-
-    ${NSD_CreateRadioButton} 30u 50u -30u 8u $R2
-    Pop $R2
-    ${NSD_OnClick} $R2 PageReinstallUpdateSelection
-
-    ${NSD_CreateRadioButton} 30u 70u -30u 8u $R3
-    Pop $R3
-    ; Disable this radio button if downgrading and downgrades are disabled
-    !if "${ALLOWDOWNGRADES}" == "false"
-      ${IfThen} $R0 = -1 ${|} EnableWindow $R3 0 ${|}
-    !endif
-    ${NSD_OnClick} $R3 PageReinstallUpdateSelection
-
-    ; Check the first radio button if this the first time
-    ; we enter this page or if the second button wasn't
-    ; selected the last time we were on this page
-    ${If} $ReinstallPageCheck <> 2
-      SendMessage $R2 ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${Else}
-      SendMessage $R3 ${BM_SETCHECK} ${BST_CHECKED} 0
-    ${EndIf}
-
-    ${NSD_SetFocus} $R2
-    nsDialogs::Show
-  ${EndIf}
-FunctionEnd
-Function PageReinstallUpdateSelection
-  ${NSD_GetState} $R2 $R1
-  ${If} $R1 == ${BST_CHECKED}
-    StrCpy $ReinstallPageCheck 1
-  ${Else}
-    StrCpy $ReinstallPageCheck 2
-  ${EndIf}
-FunctionEnd
-Function PageLeaveReinstall
-  ; Glim: updating always replaces the old version, as an update, so its uninstaller keeps the
-  ; agents connected, the startup entry and the usage history.
-  ${If} $R0 = 1
-  ${AndIf} $WixMode <> 1
-    Goto reinst_uninstall
-  ${EndIf}
-
-  ${NSD_GetState} $R2 $R1
-
-  ; If migrating from Wix, always uninstall
-  ${If} $WixMode = 1
-    Goto reinst_uninstall
-  ${EndIf}
-
-  ; In update mode, always proceeds without uninstalling
-  ${If} $UpdateMode = 1
-    Goto reinst_done
-  ${EndIf}
-
-  ; $R0 holds whether same(0)/upgrading(1)/downgrading(-1) version
-  ; $R1 holds the radio buttons state:
-  ;   1 => first choice was selected
-  ;   0 => second choice was selected
-  ${If} $R0 = 0 ; Same version, proceed
-    ${If} $R1 = 1              ; User chose to add/reinstall
-      Goto reinst_done
-    ${Else}                    ; User chose to uninstall
-      Goto reinst_uninstall
-    ${EndIf}
-  ${ElseIf} $R0 = 1 ; Upgrading
-    ${If} $R1 = 1              ; User chose to uninstall
-      Goto reinst_uninstall
-    ${Else}
-      Goto reinst_done         ; User chose NOT to uninstall
-    ${EndIf}
-  ${ElseIf} $R0 = -1 ; Downgrading
-    ${If} $R1 = 1              ; User chose to uninstall
-      Goto reinst_uninstall
-    ${Else}
-      Goto reinst_done         ; User chose NOT to uninstall
-    ${EndIf}
-  ${EndIf}
-
-  reinst_uninstall:
-    HideWindow
-    ClearErrors
-
-    ${If} $WixMode = 1
-      ReadRegStr $R1 HKLM "$R6" "UninstallString"
-      ExecWait '$R1' $0
-    ${Else}
-      ReadRegStr $4 SHCTX "${MANUPRODUCTKEY}" ""
-      ReadRegStr $R1 SHCTX "${UNINSTKEY}" "UninstallString"
-      ${IfThen} $UpdateMode = 1 ${|} StrCpy $R1 "$R1 /UPDATE" ${|} ; append /UPDATE
-      ; Glim: replacing an older version is always an update.
-      ${If} $UpdateMode <> 1
-      ${AndIf} $R0 = 1
-        StrCpy $R1 "$R1 /UPDATE"
-      ${EndIf}
-      ${IfThen} $PassiveMode = 1 ${|} StrCpy $R1 "$R1 /P" ${|} ; append /P
-      StrCpy $R1 "$R1 _?=$4" ; append uninstall directory
-      ExecWait '$R1' $0
-    ${EndIf}
-
-    BringToFront
-
-    ${IfThen} ${Errors} ${|} StrCpy $0 2 ${|} ; ExecWait failed, set fake exit code
-
-    ${If} $0 <> 0
-    ${OrIf} ${FileExists} "$INSTDIR\${MAINBINARYNAME}.exe"
-      ; User cancelled wix uninstaller? return to select un/reinstall page
-      ${If} $WixMode = 1
-      ${AndIf} $0 = 1602
-        Abort
-      ${EndIf}
-
-      ; User cancelled NSIS uninstaller? return to select un/reinstall page
-      ${If} $0 = 1
-        Abort
-      ${EndIf}
-
-      ; Other errors? show generic error message and return to select un/reinstall page
-      MessageBox MB_ICONEXCLAMATION "$(unableToUninstall)"
-      Abort
-    ${EndIf}
-  reinst_done:
 FunctionEnd
 
 ; 5. Choose install directory page
@@ -443,8 +305,10 @@ Var AppStartMenuFolder
 !insertmacro MUI_PAGE_STARTMENU Application $AppStartMenuFolder
 
 ; 7. Installation page
-!define MUI_PAGE_HEADER_TEXT "Installing ${PRODUCTNAME}"
+; Glim: dark, with an indigo bar. An update first replaces the installed version here.
+!define MUI_PAGE_HEADER_TEXT "$GlimProgress"
 !define MUI_PAGE_HEADER_SUBTEXT "This takes a few seconds."
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW GlimProgressShow
 !insertmacro MUI_PAGE_INSTFILES
 
 ; 8. Finish page
@@ -460,71 +324,44 @@ Var AppStartMenuFolder
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "Open ${PRODUCTNAME} now"
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-!define MUI_FINISHPAGE_TITLE "${PRODUCTNAME} is ready"
-!define MUI_FINISHPAGE_TEXT "It lives at the top of your screen. When it opens, connect Claude Code, Codex, or both. Glim shows every change before it makes it."
+!define MUI_FINISHPAGE_TITLE "$GlimDoneTitle"
+!define MUI_FINISHPAGE_TEXT "$GlimDoneText"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW FinishShow
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW GlimFinishShow
 !insertmacro MUI_PAGE_FINISH
-
-; Glim: the finish page shows the happy Glim instead of the sidebar art.
-Function FinishShow
-  !ifdef FINISHIMAGE
-    ${NSD_SetStretchedImage} $mui.FinishPage.Image "$PLUGINSDIR\finish.bmp" $0
-  !endif
-FunctionEnd
 
 Function RunMainBinary
   nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
 FunctionEnd
 
 ; Uninstaller Pages
-; 1. Confirm uninstall page
+; Glim: three screens, as for installing: what uninstalling does, with the choice to delete the
+; usage history; the progress; and the goodbye.
+; 1. Welcome page
 Var DeleteAppDataCheckbox
 Var DeleteAppDataCheckboxState
-!define /ifndef WS_EX_LAYOUTRTL         0x00400000
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ConfirmShow
-Function un.ConfirmShow ; Add add a `Delete app data` check box
-  ; $1 inner dialog HWND
-  ; $2 window DPI
-  ; $3 style
-  ; $4 x
-  ; $5 y
-  ; $6 width
-  ; $7 height
-  FindWindow $1 "#32770" "" $HWNDPARENT ; Find inner dialog
-  System::Call "user32::GetDpiForWindow(p r1) i .r2"
-  ${If} $(^RTL) = 1
-    StrCpy $3 "${__NSD_CheckBox_EXSTYLE} | ${WS_EX_LAYOUTRTL}"
-    IntOp $4 50 * $2
-  ${Else}
-    StrCpy $3 "${__NSD_CheckBox_EXSTYLE}"
-    IntOp $4 0 * $2
-  ${EndIf}
-  IntOp $5 100 * $2
-  IntOp $6 400 * $2
-  IntOp $7 25 * $2
-  IntOp $4 $4 / 96
-  IntOp $5 $5 / 96
-  IntOp $6 $6 / 96
-  IntOp $7 $7 / 96
-  System::Call 'user32::CreateWindowEx(i r3, w "${__NSD_CheckBox_CLASS}", w "$(deleteAppData)", i ${__NSD_CheckBox_STYLE}, i r4, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
-  Pop $DeleteAppDataCheckbox
-  SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $1
-  SendMessage $DeleteAppDataCheckbox ${WM_SETFONT} $1 1
-FunctionEnd
+!define MUI_WELCOMEPAGE_TITLE "Uninstall ${PRODUCTNAME}"
+!define MUI_WELCOMEPAGE_TEXT "Glim takes its hooks out of Claude Code and Codex and removes its startup entry. The rest of your agent settings stay as they are."
+!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.GlimWelcomeShow
 !define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.ConfirmLeave
+!insertmacro MUI_UNPAGE_WELCOME
 Function un.ConfirmLeave
   SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
 FunctionEnd
-!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
-; Glim: what uninstalling removes, and what it leaves.
-!define MUI_PAGE_HEADER_TEXT "Uninstall ${PRODUCTNAME}"
-!define MUI_PAGE_HEADER_SUBTEXT "Remove ${PRODUCTNAME} from this computer."
-!define MUI_UNCONFIRMPAGE_TEXT_TOP "Glim removes its hooks from Claude Code and Codex and its startup entry. Your other agent settings stay as they are."
-!insertmacro MUI_UNPAGE_CONFIRM
 
 ; 2. Uninstalling Page
+!define MUI_PAGE_HEADER_TEXT "Uninstalling ${PRODUCTNAME}"
+!define MUI_PAGE_HEADER_SUBTEXT "This takes a moment."
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.GlimProgressShow
 !insertmacro MUI_UNPAGE_INSTFILES
+
+; 3. Finish page
+!define MUI_FINISHPAGE_TITLE "${PRODUCTNAME} is uninstalled."
+!define MUI_FINISHPAGE_TEXT "Claude Code and Codex are back the way they were. Glim's backups of their settings stay in $INSTDIR\backups."
+!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.GlimFinishShow
+!insertmacro MUI_UNPAGE_FINISH
 
 ;Languages
 {{#each languages}}
@@ -535,12 +372,16 @@ FunctionEnd
   !include "{{this}}"
 {{/each}}
 
+; Glim: the dark theme, after the pages whose controls it styles.
+!searchreplace GLIMTHEME "{{installer_hooks}}" "hooks.nsh" "theme.nsh"
+!include "${GLIMTHEME}"
+
 Function .onInit
-  ; Glim: the finish page's art, ready before the page shows.
-  !ifdef FINISHIMAGE
-    InitPluginsDir
-    File "/oname=$PLUGINSDIR\finish.bmp" "${FINISHIMAGE}"
-  !endif
+  ; Glim: the art, ready before the pages show (theme.nsh).
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\glim-welcome.bmp" "${GLIMART}install.bmp"
+  File "/oname=$PLUGINSDIR\glim-finish.bmp" "${GLIMART}finish.bmp"
+  File "/oname=$PLUGINSDIR\glim-header.bmp" "${GLIMART}header.bmp"
 
   ${GetOptions} $CMDLINE "/P" $PassiveMode
   ${IfNot} ${Errors}
@@ -588,6 +429,9 @@ Function .onInit
   !if "${INSTALLMODE}" == "both"
     !insertmacro MULTIUSER_INIT
   !endif
+
+  ; Glim: install, update or reinstall, for the pages.
+  Call GlimDetect
 FunctionEnd
 
 
@@ -710,6 +554,9 @@ Section Install
   !endif
 
   !insertmacro CheckIfAppIsRunning "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+
+  ; Glim: an update replaces the installed version first, now that Glim is closed.
+  Call GlimReplacePrevious
 
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
@@ -838,6 +685,12 @@ Function un.onInit
   ${IfNot} ${Errors}
     StrCpy $UpdateMode 1
   ${EndIf}
+
+  ; Glim: the night sky and Glim asleep, ready before the pages show (theme.nsh).
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\glim-welcome.bmp" "${GLIMART}uninstall.bmp"
+  File "/oname=$PLUGINSDIR\glim-finish.bmp" "${GLIMART}goodbye.bmp"
+  File "/oname=$PLUGINSDIR\glim-header.bmp" "${GLIMART}header-uninstall.bmp"
 FunctionEnd
 
 Section Uninstall
@@ -976,6 +829,8 @@ Function SkipIfPassive
 FunctionEnd
 Function un.SkipIfPassive
   ${IfThen} $PassiveMode = 1  ${|} Abort ${|}
+  ; Glim: an update removes the old version without its pages.
+  ${IfThen} $UpdateMode = 1  ${|} Abort ${|}
 FunctionEnd
 
 Function CreateOrUpdateStartMenuShortcut
@@ -1002,12 +857,10 @@ Function CreateOrUpdateStartMenuShortcut
   ${EndIf}
 
   ; Skip creating shortcut if in update mode or no shortcut mode
-  ; but always create if migrating from wix
-  ${If} $WixMode = 0
-    ${If} $UpdateMode = 1
-    ${OrIf} $NoShortcutMode = 1
-      Return
-    ${EndIf}
+  ; Glim: there is no WiX migration, so no exception for it.
+  ${If} $UpdateMode = 1
+  ${OrIf} $NoShortcutMode = 1
+    Return
   ${EndIf}
 
   !if "${STARTMENUFOLDER}" != ""
@@ -1031,12 +884,10 @@ Function CreateOrUpdateDesktopShortcut
   ${EndIf}
 
   ; Skip creating shortcut if in update mode or no shortcut mode
-  ; but always create if migrating from wix
-  ${If} $WixMode = 0
-    ${If} $UpdateMode = 1
-    ${OrIf} $NoShortcutMode = 1
-      Return
-    ${EndIf}
+  ; Glim: there is no WiX migration, so no exception for it.
+  ${If} $UpdateMode = 1
+  ${OrIf} $NoShortcutMode = 1
+    Return
   ${EndIf}
 
   CreateShortcut "$DESKTOP\${PRODUCTNAME}.lnk" "$INSTDIR\${MAINBINARYNAME}.exe"

@@ -51,9 +51,9 @@
         "installerHooks": "installer/hooks.nsh",
         "installerIcon": "icons/icon.ico",
         "uninstallerIcon": "icons/icon.ico",
-        "sidebarImage": "installer/sidebar.bmp",
+        "sidebarImage": "installer/install.bmp",
         "headerImage": "installer/header.bmp",
-        "uninstallerHeaderImage": "installer/header.bmp",
+        "uninstallerHeaderImage": "installer/header-uninstall.bmp",
         "customLanguageFiles": { "English": "installer/english.nsh" },
         "template": "installer/installer.nsi"
       }
