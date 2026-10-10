@@ -337,7 +337,13 @@ export function Glance({
   return (
     <div className={`glance${paused ? ' is-paused' : ''}`}>
       <header className="bar">
-        <button className="bar-toggle" aria-label="Collapse Glim" onClick={onCollapse} />
+        {/* The whole bar collapses for the pointer; the chevron is the keyboard stop. */}
+        <button
+          className="bar-toggle"
+          aria-label="Collapse Glim"
+          tabIndex={-1}
+          onClick={onCollapse}
+        />
         <p className="bar-title">
           <span>{groups.length ? plural(groups.length, 'agent') : 'Glim'}</span>
           {waiting > 0 && (
