@@ -6,9 +6,9 @@ on:
       - 'site/**'
       - 'preview-claude/**'
       - 'public/**'
-      - 'src/preview.ts'
-      - 'src/types.ts'
-      - 'src/format.ts'
+      # The site renders the app's own island, character and styles from src/.
+      - 'src/**'
+      - 'tsconfig.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/site.yml'
