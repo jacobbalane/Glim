@@ -61,6 +61,24 @@ jobs:
         with:
           name: Glim-windows-x64
           path: artifacts
+      # Signs the installer for the in-app updater. The key is used only here, never in the job
+      # that installs and runs the build's dependencies; without it the release stops.
+      - name: Sign the update
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          for exe in artifacts/*.exe; do npx --yes @tauri-apps/cli@2.12.1 signer sign "$exe"; done
+      # What the updater reads from the latest release: the version, its installer and signature.
+      - name: Update manifest
+        run: |
+          exe=$(cd artifacts && ls *.exe)
+          jq -n --arg version "${GITHUB_REF_NAME#v}" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg signature "$(cat "artifacts/$exe.sig")" \
+            --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$exe" \
+            '{version: $version, pub_date: $date, platforms: {"windows-x86_64": {signature: $signature, url: $url}}}' \
+            > artifacts/latest.json
       - uses: actions/attest-build-provenance@v4
         with:
           subject-path: artifacts/*.exe
