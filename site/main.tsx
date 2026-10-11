@@ -1080,6 +1080,31 @@ function Site() {
     setView('compact');
     load(state.build, !!state.paused);
   }, []);
+  // On a phone the state cards swipe sideways. The one that settles in front goes on the island,
+  // as a tap would.
+  const stateGrid = useRef<HTMLUListElement>(null);
+  const shownNow = useRef(shown);
+  shownNow.current = shown;
+  useEffect(() => {
+    const grid = stateGrid.current;
+    if (!phone || !grid) return;
+    let timer = 0;
+    const settle = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        const card = grid.firstElementChild as HTMLElement | null;
+        if (!card) return;
+        const stride = card.offsetWidth + parseFloat(getComputedStyle(grid).columnGap);
+        const state = STATES[Math.round(grid.scrollLeft / stride)];
+        if (state && state.title !== shownNow.current) show(state);
+      }, 150);
+    };
+    grid.addEventListener('scroll', settle, { passive: true });
+    return () => {
+      grid.removeEventListener('scroll', settle);
+      clearTimeout(timer);
+    };
+  }, [phone, show]);
   const step = scene === 'details-details' ? 1 : scene === 'details-usage' ? 2 : 0;
   const pickFact = (i: number) => {
     manual.current = false;
@@ -1259,7 +1284,7 @@ function Site() {
                 island.
               </span>
             </p>
-            <ul className="site-state-grid" data-keep-open data-show>
+            <ul className="site-state-grid" ref={stateGrid} data-keep-open data-show>
               {STATES.map((state, i) => (
                 <StateCard
                   key={state.title}
