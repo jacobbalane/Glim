@@ -72,7 +72,8 @@ test('interactive notch keeps one surface and animates working activity', async 
   const frame = await page.locator('iframe[title="Interactive notch"]').contentFrame();
   const island = frame.getByTestId('island');
   await controls.getByRole('button', { name: 'Expand', exact: true }).click();
-  await expect(frame.getByRole('heading', { name: 'glim-desktop', exact: true })).toBeVisible();
+  // Working agents take turns in the notch, so it opens on whichever one is showing.
+  await expect(island.getByRole('heading', { level: 3 })).toBeVisible();
   await island.evaluate((node) => node.setAttribute('data-persistence-check', 'same'));
   await controls.getByRole('button', { name: 'Collapse', exact: true }).click();
   await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(101, 0);
