@@ -1,11 +1,14 @@
-# Monthly, grouped version updates. Security fixes arrive as soon as GitHub has an advisory,
-# independent of this schedule.
+# Monthly, grouped minor and patch updates. Major versions break things and are upgraded by hand.
+# Security alerts still show for every version; a security fix arrives as its own pull request.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       actions:
         patterns: ['*']
@@ -13,15 +16,19 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       npm:
         patterns: ['*']
-        update-types: [minor, patch]
   - package-ecosystem: cargo
     directory: /src-tauri
     schedule:
       interval: monthly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
       cargo:
         patterns: ['*']
-        update-types: [minor, patch]
