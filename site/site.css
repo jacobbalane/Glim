@@ -949,6 +949,8 @@ body {
   color: #fff;
 }
 .site-section.site-details {
+  /* The same room above the panel as the scrolling version has. */
+  margin-top: clamp(60px, 8vw, 110px);
   padding-bottom: clamp(72px, 9vw, 120px);
 }
 
@@ -2424,8 +2426,40 @@ body {
     justify-content: center;
     width: min(100%, 300px);
   }
+  /* The state cards in one row to swipe through, the next one peeking in, edge to edge. */
   .site-state-grid {
-    grid-template-columns: minmax(0, 1fr);
+    --gutter: clamp(16px, 4vw, 40px);
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 84%;
+    width: calc(100% + 2 * var(--gutter));
+    margin: 44px calc(-1 * var(--gutter)) 0;
+    /* Room for a lifted card and its glow, which the scroll box would otherwise cut. */
+    padding: 8px var(--gutter) 36px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--gutter);
+    scrollbar-width: none;
+  }
+  .site-state-grid > li {
+    scroll-snap-align: start;
+  }
+  /* A tighter glow, well inside the room below the row. */
+  .site-card::before {
+    box-shadow:
+      inset 0 0 0 1.5px var(--dot),
+      0 12px 26px -18px var(--dot);
+  }
+  /* Facts rise in place: sliding in from the left, they would start outside the panel. */
+  .can-reveal .site-facts[data-in] > li {
+    animation-name: site-caption-in;
+  }
+  /* The four sample events, two even columns. */
+  .site-try .pseg {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, 340px);
   }
   /* The details section keeps its words; the island picture is left out. */
   .site-details .site-split > .site-item {

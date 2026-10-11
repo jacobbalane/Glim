@@ -6,6 +6,9 @@ import type { Handle, Mood, Tone } from './mascot3d';
 
 export type { Mood, Tone };
 
+// Phones draw at 30 frames a second, as the app does: half the work for the same idle motion.
+const fps = window.matchMedia('(max-width: 720px)').matches ? 30 : 60;
+
 export function Glim3D({
   tone,
   mood,
@@ -36,7 +39,7 @@ export function Glim3D({
     let alive = true;
     import('./mascot3d').then(({ mount }) => {
       if (!alive || !canvas.current) return;
-      handle.current = mount(canvas.current, size, latest.current, ratio);
+      handle.current = mount(canvas.current, size, { ...latest.current, fps }, ratio);
       setReady(!!handle.current);
     });
     return () => {

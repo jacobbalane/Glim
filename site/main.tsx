@@ -904,6 +904,8 @@ function Site() {
   const [width, setWidth] = useState(() => window.innerWidth);
   const [scrolled, setScrolled] = useState(false);
   const big = useMedia('(min-width: 900px)');
+  // Phones skip the hero's shader: it redraws the whole width every frame.
+  const phone = useMedia('(max-width: 720px)');
   const span = Math.min(1920, Math.round(width / 40) * 40);
   // The room beside the call-to-action panel sets how big the Glims peeking from it are; with too
   // little room, they stay away.
@@ -1147,20 +1149,22 @@ function Site() {
           aria-labelledby="site-title"
           style={{ '--span': `${span}px` } as CSSProperties}
         >
-          <FaultyTerminal
-            className="site-terminal"
-            aria-hidden="true"
-            scale={1.5}
-            digitSize={1.2}
-            timeScale={0.5}
-            scanlineIntensity={0.5}
-            curvature={0.1}
-            tint="#a5b4fc"
-            mouseStrength={0.25}
-            brightness={0.6}
-            // Half resolution: a quarter of the pixels to shade, and the dots stay soft.
-            dpr={0.5}
-          />
+          {!phone && (
+            <FaultyTerminal
+              className="site-terminal"
+              aria-hidden="true"
+              scale={1.5}
+              digitSize={1.2}
+              timeScale={0.5}
+              scanlineIntensity={0.5}
+              curvature={0.1}
+              tint="#a5b4fc"
+              mouseStrength={0.25}
+              brightness={0.6}
+              // Half resolution: a quarter of the pixels to shade, and the dots stay soft.
+              dpr={0.5}
+            />
+          )}
           <div className="site-hero-copy" ref={words}>
             <h1 id="site-title" style={at(0)}>
               A glimpse at your agents. <span>Then back to your flow.</span>
