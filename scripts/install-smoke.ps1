@@ -1,5 +1,10 @@
-param([string]$Installer = 'src-tauri/target/release/bundle/nsis/Glim_0.1.0_x64-setup.exe')
+param([string]$Installer)
 $ErrorActionPreference = 'Stop'
+# The installer for the version in tauri.conf.json, unless one is named.
+if (-not $Installer) {
+  $glimVersion = (Get-Content -Raw -LiteralPath 'src-tauri/tauri.conf.json' | ConvertFrom-Json).version
+  $Installer = "src-tauri/target/release/bundle/nsis/Glim_$($glimVersion)_x64-setup.exe"
+}
 $glimWorkspace = (Get-Location).Path
 $glimInstaller = (Resolve-Path -LiteralPath $Installer).Path
 $glimUninstallRoots = @(

@@ -532,7 +532,7 @@ export function SettingsSheet({
         </p>
       )}
       <footer className="about">
-        <span>Glim 0.1.0</span>
+        <span>Glim 0.1.1</span>
         <button
           className="link"
           onClick={() => api.openRelease().catch((e) => setError(String(e)))}
