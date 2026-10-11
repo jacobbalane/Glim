@@ -4,9 +4,9 @@
 
 A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, context, token usage, and reported task progress stay above your workspace. Your data stays on your device.
 
-[![The Glim website: the island at the top of the screen, the headline, and a row of 3D Glims](docs/images/website.jpg)](https://jacobbalane.github.io/Glim/)
+[![The Glim website: the island at the top of the screen, the headline, and a row of 3D Glims](docs/images/website.jpg)](https://glim.jacobbalane.com/)
 
-**[Try it on the website →](https://jacobbalane.github.io/Glim/)** The page runs the real island on sample sessions. Ask for approval, finish a turn or hit an error, and watch it react. Nothing to install.
+**[Try it on the website →](https://glim.jacobbalane.com/)** The page runs the real island on sample sessions. Ask for approval, finish a turn or hit an error, and watch it react. Nothing to install.
 
 [Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
 
@@ -26,7 +26,7 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 
 ## Getting started
 
-1. Download the Windows setup executable from the [website](https://jacobbalane.github.io/Glim/) or [Releases](https://github.com/jacobbalane/Glim/releases/latest), and run it.
+1. Download the Windows setup executable from the [website](https://glim.jacobbalane.com/) or [Releases](https://github.com/jacobbalane/Glim/releases/latest), and run it.
 2. Open Glim. Connect Claude Code, Codex, or both in onboarding. Glim previews the configuration entries it will add and saves backups.
 3. For Codex, open `/hooks` and review and trust the Glim hooks. Glim never bypasses provider trust checks.
 4. Start a new agent session as usual. No separate Glim account or API key is required.
@@ -36,7 +36,7 @@ Glim needs to stay running to monitor activity. Closing settings returns to the 
 
 ## Try the interface
 
-To look around without building anything, open the [website](https://jacobbalane.github.io/Glim/): it runs the same island on sample sessions. To run it locally:
+To look around without building anything, open the [website](https://glim.jacobbalane.com/): it runs the same island on sample sessions. To run it locally:
 
 ```sh
 npm ci
