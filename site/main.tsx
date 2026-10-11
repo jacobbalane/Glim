@@ -298,58 +298,34 @@ const STATES: State[] = [
   },
 ];
 const TOUR_MS = 4000;
-// The hero's agents keep an uneven pace, like real work.
-const jitter = (ms: number) => ms * (0.8 + Math.random() * 0.45);
 const pick = <T,>(list: T[]) => list[Math.floor(Math.random() * list.length)];
 
-/* ---------------- The hero's agents, left to themselves ---------------- */
+/* ---------------- The hero's agent, left to itself ---------------- */
 
-// What a working agent can stop for, and how often.
-const STOPS: [number, Partial<Session>][] = [
-  [5, { activity: 'waiting', detail: 'Waiting for approval' }],
-  [2, { activity: 'waiting', detail: 'Agent needs your attention' }],
-  [5, { activity: 'idle', detail: 'Turn finished' }],
-  [3, { activity: 'error', detail: 'Agent reported an error' }],
-  [2, { activity: 'interrupted', detail: 'Turn interrupted' }],
-  [2, { activity: 'finished', detail: 'Session ended' }],
-];
-function stop(): Partial<Session> {
-  let roll = Math.random() * STOPS.reduce((sum, [weight]) => sum + weight, 0);
-  for (const [weight, event] of STOPS) if ((roll -= weight) < 0) return event;
-  return STOPS[0][1];
-}
 // A finished plan starts over when its agent goes back to work.
 function restart(tasks: Task[]): Task[] {
   if (!tasks.length || tasks.some((t) => t.status !== 'completed')) return tasks;
   return tasks.map((t, i) => ({ ...t, status: i ? 'pending' : 'in_progress' }));
 }
-// The next step of the plan. Finishing the last step hands the turn back.
-function advance(s: Session, work: string[]): Partial<Session> {
-  const i = s.tasks.findIndex((t) => t.status === 'in_progress');
-  if (i < 0) return { detail: pick(work.filter((d) => d !== s.detail)) };
-  const tasks = s.tasks.map((t, j): Task =>
-    j === i ? { ...t, status: 'completed' } : j === i + 1 ? { ...t, status: 'in_progress' } : t,
-  );
-  return i === s.tasks.length - 1
-    ? { activity: 'idle', detail: 'Turn finished', tasks }
-    : { detail: pick(work), tasks };
-}
-// One random step. Stopped agents go back to work, so the banner never fills up; busy agents
-// move along their plans, and now and then one stops for you.
-function simulate(list: Session[], now: number, work: string[]): Session[] {
-  const top = list.filter((s) => !s.parentId);
-  const busy = top.filter((s) => s.activity === 'working');
-  const stopped = top.filter((s) => s.activity !== 'working');
-  const change = (target: Session, patch: Partial<Session>) =>
-    list.map((s) => (s.id === target.id ? { ...s, ...patch, updatedAt: now } : s));
-  if (stopped.length > 1 || (stopped.length && Math.random() < 0.35)) {
-    const s = pick(stopped);
-    return change(s, { activity: 'working', detail: pick(work), tasks: restart(s.tasks) });
-  }
-  const s = pick(busy);
-  if (!s) return list;
-  return change(s, busy.length > 1 && Math.random() < 0.7 ? stop() : advance(s, work));
-}
+// A whole turn, from ready to done, then over again: how long each step holds, and what the
+// agent reports. `work` is a task from the part of the page being read.
+const FLOW: [number, Partial<Session> | 'work'][] = [
+  [2600, { activity: 'idle', detail: 'Ready for your next idea' }],
+  [2600, { activity: 'working', detail: 'Thinking' }],
+  [3600, 'work'],
+  [4400, { activity: 'waiting', detail: 'Waiting for approval' }],
+  [3600, 'work'],
+  [4400, { activity: 'idle', detail: 'Turn finished' }],
+  [3600, 'work'],
+  [4000, { activity: 'error', detail: 'Agent reported an error' }],
+  [3600, 'work'],
+  [3600, { activity: 'interrupted', detail: 'Turn interrupted' }],
+  [3600, 'work'],
+  [4800, { activity: 'finished', detail: 'Session ended' }],
+];
+const ready: Build = (t) => [
+  sample('demo-claude', t, { activity: 'idle', detail: 'Ready for your next idea' }),
+];
 
 /* ---------------- Scenes: what the island shows in each part of the page ---------------- */
 
@@ -371,7 +347,7 @@ interface Scene {
   paused?: boolean;
 }
 const SCENES: Record<SceneId, Scene> = {
-  hero: { group: 'hero', build: (t) => SCENARIOS.several.build(t) },
+  hero: { group: 'hero', build: ready },
   states: { group: 'states', build: STATES[0].build },
   details: { group: 'details', build: detailed },
   'details-glance': { group: 'details', build: detailed, view: 'glance' },
@@ -379,8 +355,8 @@ const SCENES: Record<SceneId, Scene> = {
   'details-usage': { group: 'details', build: detailed, view: 'usage' },
   privacy: { group: 'privacy', build: working },
   install: { group: 'install', build: () => [] },
-  // Agents at work, as in the hero, so the notch keeps changing and the hello Glim with it.
-  close: { group: 'close', build: (t) => SCENARIOS.several.build(t) },
+  // A turn on a loop, as in the hero, so the notch keeps changing and the hello Glim with it.
+  close: { group: 'close', build: ready },
 };
 
 const FACTS: { scene: SceneId; title: string; text: string }[] = [
@@ -989,19 +965,26 @@ function Site() {
     return () => clearInterval(timer);
   }, [scene, pinned]);
 
-  // Left alone, the agents in the hero and the call to action keep working: random stops, plans
-  // moving, agents coming back.
+  // Left alone, the agent in the hero and the call to action plays a whole turn on a loop. A Try it
+  // click holds it for a while; then it carries on from where it was.
   useEffect(() => {
     if ((scene !== 'hero' && scene !== 'close') || view !== 'compact' || !motionOk()) return;
     let timer = 0;
-    const tick = () => {
-      timer = window.setTimeout(() => {
-        if (Date.now() >= quietUntil.current)
-          setSessions((list) => simulate(list, Date.now(), workOf(group.current)));
-        tick();
-      }, jitter(3800));
+    let i = 1;
+    const next = () => {
+      if (Date.now() >= quietUntil.current) {
+        const step = FLOW[i % FLOW.length][1];
+        const work = workOf(group.current);
+        const patch: Partial<Session> =
+          step === 'work' ? { activity: 'working', detail: work[i % work.length] } : step;
+        setSessions((list) =>
+          list.map((s) => (s.parentId ? s : { ...s, ...patch, updatedAt: Date.now() })),
+        );
+        i++;
+      }
+      timer = window.setTimeout(next, FLOW[(i - 1) % FLOW.length][0]);
     };
-    tick();
+    timer = window.setTimeout(next, FLOW[0][0]);
     return () => clearTimeout(timer);
   }, [scene, view]);
 
