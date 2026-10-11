@@ -210,6 +210,25 @@ const detailed: Build = (t) =>
           : { ...s, updatedAt: t - 4000 },
     );
 
+// Several agents in different states: two take turns working, and what needs you waits below:
+// an approval, a handed-back turn and an error.
+const mixed: Build = (t) => [
+  ...SCENARIOS.several
+    .build(t)
+    .map((s) =>
+      s.id === 'demo-claude-2'
+        ? { ...s, activity: 'idle' as const, detail: 'Turn finished', updatedAt: t - 40_000 }
+        : s,
+    ),
+  sample('demo-codex', t, {
+    id: 'demo-release',
+    project: 'release-notes',
+    activity: 'error',
+    detail: 'Agent reported an error',
+    updatedAt: t - 70_000,
+  }),
+];
+
 interface State {
   title: string;
   // How the 3D Glim shows it.
@@ -218,6 +237,8 @@ interface State {
   note: string;
   build: Build;
   paused?: boolean;
+  // The card wears every state's color at once instead of its tone.
+  spectrum?: boolean;
 }
 const STATES: State[] = [
   {
@@ -293,8 +314,9 @@ const STATES: State[] = [
     title: 'Several agents',
     tone: 'brand',
     mood: 'scan',
+    spectrum: true,
     note: 'Working agents take turns, one dot each. What needs you waits below.',
-    build: (t) => SCENARIOS.several.build(t),
+    build: mixed,
   },
 ];
 const TOUR_MS = 4000;
@@ -521,7 +543,7 @@ const StateCard = memo(function StateCard({
     <li
       className={`site-card site-item${shown ? ' is-shown' : ''}`}
       style={at(index)}
-      data-tone={state.tone}
+      data-tone={state.spectrum ? 'spectrum' : state.tone}
     >
       <div className="desk desk-compact" inert>
         <Fit width={400}>

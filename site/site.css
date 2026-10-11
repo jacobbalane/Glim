@@ -762,6 +762,42 @@ body {
   --dot: #818cf8;
 }
 
+/* Several agents: every state's color at once. The ring, glow, desk light and dot take the
+   spectrum; the rest of the card is styled like the others. */
+.site-card[data-tone='spectrum'] {
+  --dot: #818cf8;
+  background:
+    linear-gradient(110deg, #5cc8ff0f, #36d4c40f 25%, #ffc53d0f 55%, #ff6a5f0f 80%, #818cf80f),
+    rgba(255, 255, 255, 0.02);
+  box-shadow:
+    inset 0 0 0 1px var(--site-line),
+    -22px 24px 48px -26px color-mix(in srgb, #5cc8ff calc(var(--ring) * 100%), transparent),
+    0 24px 48px -26px color-mix(in srgb, #ffc53d calc(var(--ring) * 100%), transparent),
+    22px 24px 48px -26px color-mix(in srgb, #ff6a5f calc(var(--ring) * 100%), transparent);
+  transition:
+    translate 420ms var(--ease-out),
+    box-shadow 420ms var(--ease-out);
+}
+.site-card[data-tone='spectrum']::before {
+  padding: 1.5px;
+  background: linear-gradient(110deg, #5cc8ff, #36d4c4, #3ddc84, #ffc53d, #ff6a5f, #818cf8);
+  box-shadow: none;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+.site .site-card[data-tone='spectrum'] .desk {
+  background:
+    radial-gradient(45% 120% at 22% 0%, #5cc8ff4d, transparent 72%),
+    radial-gradient(45% 120% at 50% 0%, #ffc53d4d, transparent 72%),
+    radial-gradient(45% 120% at 78% 0%, #ff6a5f4d, transparent 72%), #0c0c11;
+}
+.site-card[data-tone='spectrum'] p b i {
+  background: conic-gradient(#5cc8ff, #3ddc84, #ffc53d, #ff6a5f, #818cf8, #5cc8ff);
+  box-shadow: 0 0 10px #818cf8;
+}
+
 /* ---------- Details ---------- */
 
 .site-split {
@@ -2450,6 +2486,13 @@ body {
     box-shadow:
       inset 0 0 0 1.5px var(--dot),
       0 12px 26px -18px var(--dot);
+  }
+  .site-card[data-tone='spectrum'] {
+    box-shadow:
+      inset 0 0 0 1px var(--site-line),
+      -12px 12px 26px -18px color-mix(in srgb, #5cc8ff calc(var(--ring) * 100%), transparent),
+      0 12px 26px -18px color-mix(in srgb, #ffc53d calc(var(--ring) * 100%), transparent),
+      12px 12px 26px -18px color-mix(in srgb, #ff6a5f calc(var(--ring) * 100%), transparent);
   }
   /* Facts rise in place: sliding in from the left, they would start outside the panel. */
   .can-reveal .site-facts[data-in] > li {
