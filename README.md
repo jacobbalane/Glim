@@ -22,6 +22,7 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 - Local daily usage charts and 30-day retention.
 - One-click, reversible connectors that preserve existing agent configuration.
 - System tray, optional Windows startup, fullscreen hiding, reduced motion, and keyboard navigation.
+- In-app updates: **Check** in Settings finds a newer release, verifies its signature, and installs it in place.
 
 ## Getting started
 
@@ -79,7 +80,7 @@ Glim collects locally. It stores counters, provider/model/project names, task la
 
 Configuration backups and connector manifests are in `%LOCALAPPDATA%\Glim`. Backups preserve the original agent configuration and may contain values you already saved in that configuration; treat them as private. Clearing usage history keeps ingestion cursors and deduplication baselines so old records cannot refill the chart.
 
-There is no telemetry or cloud sync. The helper sends a small allow-listed event to a local named pipe accessible only by the current Windows user. Uninstall removes Glim-owned agent hooks and the Windows startup entry; local history is retained unless cleared in settings or you tick **Also delete my usage history** when uninstalling.
+There is no telemetry or cloud sync. Glim goes online only when you click **Check** under Updates in Settings, to read the latest release from GitHub. The helper sends a small allow-listed event to a local named pipe accessible only by the current Windows user. Uninstall removes Glim-owned agent hooks and the Windows startup entry; local history is retained unless cleared in settings or you tick **Also delete my usage history** when uninstalling.
 
 ## Contributing
 

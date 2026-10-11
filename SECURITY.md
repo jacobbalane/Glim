@@ -14,6 +14,8 @@ Only the latest release receives security fixes.
 
 ## Verifying a download
 
+Updates installed from Settings are signed in the release workflow, and Glim refuses an update whose signature does not match the public key built into it.
+
 Each release lists the installer's SHA-256 checksum. Installers released after v0.1.0 also carry a build attestation, which proves GitHub Actions built them from this repository:
 
 ```sh
