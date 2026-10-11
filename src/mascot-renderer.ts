@@ -224,6 +224,8 @@ interface Instance extends Options {
   dirty: boolean;
   painted: boolean;
   lastDraw: number;
+  rect: DOMRect | null;
+  rectSlot: number;
 }
 
 let stage: Stage | null | undefined;
@@ -352,7 +354,15 @@ function draw(s: Stage, item: Instance, t: number, dt: number) {
     const edge = Math.max(size, gl.width);
     s.renderer.setSize(edge, edge, false);
   }
-  const rect = item.canvas.getBoundingClientRect();
+  // Reading the layout forces it. Every Glim reads its position once a quarter second, in the
+  // same quarter: close enough for the light and the gaze, and a scroll no longer forces a layout
+  // on every frame.
+  const slot = Math.floor(t * 4);
+  if (!item.rect || item.rectSlot !== slot) {
+    item.rect = item.canvas.getBoundingClientRect();
+    item.rectSlot = slot;
+  }
+  const rect = item.rect;
   pose(s, item, rect, t, dt);
   // The light comes from the island, at the top middle of the window: down onto each Glim from
   // wherever the island sits relative to it, a little from the front, and around its back.
@@ -419,7 +429,10 @@ motionPreference.addEventListener('change', () => {
   loop();
 });
 window.addEventListener('resize', () => {
-  for (const item of instances) item.dirty = true;
+  for (const item of instances) {
+    item.dirty = true;
+    item.rect = null;
+  }
   loop();
 });
 
@@ -454,6 +467,8 @@ export function mount(
     dirty: true,
     painted: false,
     lastDraw: 0,
+    rect: null,
+    rectSlot: 0,
   };
   instances.add(item);
   visibility.observe(canvas);
