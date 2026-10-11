@@ -204,6 +204,7 @@ const Inbox = forwardRef<
 
 function Hero({ group, now, onDetails }: { group: Group; now: number; onDetails?: () => void }) {
   const { session: s, look, children } = group;
+  const finished = children.filter((child) => child.activity === 'finished').length;
   const current = s.tasks.find((task) => task.status === 'in_progress');
   const done = s.tasks.filter((task) => task.status === 'completed').length;
   const step = current ? s.tasks.indexOf(current) + 1 : done;
@@ -267,16 +268,25 @@ function Hero({ group, now, onDetails }: { group: Group; now: number; onDetails?
           <div className="subs">
             <span className="subs-title">{plural(children.length, 'subagent')}</span>
             <ul>
-              {children.map((child) => {
-                const childLook = lookOf(child, Infinity);
-                return (
-                  <li key={child.id} className={`tone-${childLook.tone}`}>
-                    <i className="dot" />
-                    <span>{child.detail}</span>
-                    <span className="num">{timeOf(child, now)}</span>
-                  </li>
-                );
-              })}
+              {/* Finished subagents pile up over a long session; they fold into one line. */}
+              {children
+                .filter((child) => child.activity !== 'finished')
+                .map((child) => {
+                  const childLook = lookOf(child, Infinity);
+                  return (
+                    <li key={child.id} className={`tone-${childLook.tone}`}>
+                      <i className="dot" />
+                      <span>{child.detail}</span>
+                      <span className="num">{timeOf(child, now)}</span>
+                    </li>
+                  );
+                })}
+              {finished > 0 && (
+                <li className="tone-done">
+                  <i className="dot" />
+                  <span>{finished} finished</span>
+                </li>
+              )}
             </ul>
           </div>
         )}
