@@ -604,12 +604,14 @@ Function ${UN}GlimProgressShow
   SendMessage $1 0x1024 0 0xB2A4A4
 FunctionEnd
 
-; The last page: only its button.
+; The last page: only its button. The progress page hid it, and NSIS does not show it again.
 Function ${UN}GlimFinishButtons
   GetDlgItem $0 $HWNDPARENT 3
   ShowWindow $0 ${SW_HIDE}
   GetDlgItem $0 $HWNDPARENT 2
   ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $0 $HWNDPARENT 1
+  ShowWindow $0 ${SW_SHOW}
 FunctionEnd
 !macroend
 
