@@ -36,17 +36,16 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
         None
     };
     // Subagents identify their parent differently across providers. Codex hook session_id is the root.
-    let child = str_field(&value, "agent_id");
-    let (id, parent) = if event.starts_with("Subagent") {
-        (
-            child.unwrap_or(session_id),
-            child.map(|_| session_id.to_string()),
-        )
-    } else {
-        (
+    // Claude Code adds agent_id to every hook fired inside a subagent: its tool calls belong to the
+    // subagent, not to the main session, which may be waiting on the person meanwhile.
+    let child = str_field(&value, "agent_id").filter(|c| !c.is_empty() && c.len() <= 200);
+    let (id, parent) = match child {
+        Some(child) => (child, Some(session_id.to_string())),
+        None if event.starts_with("Subagent") => (session_id, None),
+        None => (
             session_id,
             str_field(&value, "parent_session_id").map(str::to_owned),
-        )
+        ),
     };
     let status_data = statusline.then(|| {
         let mut limits = serde_json::Map::new();
@@ -466,5 +465,24 @@ mod tests {
         .unwrap();
         assert_eq!(e.session_id, "child");
         assert_eq!(e.parent_id.as_deref(), Some("parent"));
+    }
+    #[test]
+    fn a_subagent_tool_call_is_the_subagents_not_the_waiting_parents() {
+        let e = hook_event(
+            Provider::Claude,
+            json!({"session_id":"parent","agent_id":"child","hook_event_name":"PreToolUse","tool_name":"Bash"}),
+            false,
+        )
+        .unwrap();
+        assert_eq!(e.session_id, "child");
+        assert_eq!(e.parent_id.as_deref(), Some("parent"));
+        let own = hook_event(
+            Provider::Claude,
+            json!({"session_id":"parent","hook_event_name":"PreToolUse","tool_name":"Bash"}),
+            false,
+        )
+        .unwrap();
+        assert_eq!(own.session_id, "parent");
+        assert_eq!(own.parent_id, None);
     }
 }
