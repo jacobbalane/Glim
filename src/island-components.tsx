@@ -5,7 +5,8 @@ export function Logo({ provider, size = 18 }: { provider: Provider; size?: numbe
   return provider === 'claude' ? (
     <img
       className="logo"
-      src="/providers/claude.svg"
+      // From the base, so the website finds it under its project path.
+      src={`${import.meta.env.BASE_URL}providers/claude.svg`}
       width={size}
       height={size}
       alt=""
