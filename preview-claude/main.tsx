@@ -28,13 +28,6 @@ import {
   type View,
 } from './island';
 import { AppIcon, LogoStage, Mark, MascotStage, MoodStrip, type Mood } from './brand';
-import {
-  FinishScreen,
-  InstallingScreen,
-  UninstallScreen,
-  UpdateScreen,
-  WelcomeScreen,
-} from './installer';
 
 const SEEN = T0 - 60_000;
 const groupsOf = (sessions: Session[]) => groupSessions(sessions, SEEN);
@@ -523,48 +516,6 @@ function ViewTile({ card, compare }: { card: ViewCard; compare: boolean }) {
 
 /* ---------------- Installation ---------------- */
 
-function FirstLaunch() {
-  return (
-    <div className="desk desk-launch">
-      <StaticIsland width={440}>
-        <SetupDemo step={0} />
-      </StaticIsland>
-    </div>
-  );
-}
-const INSTALL: [string, string, ReactNode][] = [
-  [
-    '1 · Welcome',
-    'Install is the first button. The folder page is gone; the default per-user folder is stated instead. The sidebar shows the character centered on a slice of desktop.',
-    <WelcomeScreen />,
-  ],
-  [
-    '2 · Installing',
-    'Moves on by itself when done. The log stays one click away.',
-    <InstallingScreen />,
-  ],
-  [
-    '3 · Finish',
-    'Happy eyes. Open Glim is ticked; the desktop shortcut is not, since Glim lives at the top of the screen.',
-    <FinishScreen />,
-  ],
-  [
-    '4 · First launch',
-    'Glim appears at the top of the screen and opens setup on its own, as it already does today.',
-    <FirstLaunch />,
-  ],
-  [
-    'Update',
-    'Replaces the maintenance radio buttons when an older version is installed. Only true once the uninstall hook stops disconnecting agents during updates.',
-    <UpdateScreen />,
-  ],
-  [
-    'Uninstall',
-    'Says what it removes. Its checkbox deletes usage history, which is what people expect; today’s “Delete the application data” leaves the history behind.',
-    <UninstallScreen />,
-  ],
-];
-
 /* ---------------- Page ---------------- */
 
 const IDEAS: [string, string][] = [
@@ -781,30 +732,6 @@ function Page() {
             </div>
           </article>
         </div>
-      </section>
-
-      <section className="section" aria-labelledby="install">
-        <div className="section-head">
-          <div>
-            <h2 id="install">Installation</h2>
-            <p>
-              Today’s setup is the stock Tauri wizard: welcome, choose a folder, an install log that
-              waits for Next, then a finish page with a desktop shortcut ticked. Proposed: one click
-              to install, then Glim opens and takes over.
-            </p>
-          </div>
-        </div>
-        <ol className="install">
-          {INSTALL.map(([title, note, screen]) => (
-            <li key={title}>
-              <Fit width={520}>
-                <div className="install-frame">{screen}</div>
-              </Fit>
-              <b>{title}</b>
-              <span>{note}</span>
-            </li>
-          ))}
-        </ol>
       </section>
 
       <section className="section" aria-labelledby="code">

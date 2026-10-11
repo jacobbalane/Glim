@@ -4,13 +4,12 @@ Status: approved by the owner as the target design. Parts of the notch behavior 
 
 The working reference is the dev-only page at `http://127.0.0.1:1420/preview-claude` (run `npm run dev`). Vite serves `preview-claude.html` there without a router change, and the desktop build does not include it.
 
-| File                           | Contains                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------ |
-| `preview-claude/island.tsx`    | Every island component, the state rules, and the sample scenarios              |
-| `preview-claude/brand.tsx`     | The character (`Eyes`), `podPath()`, the logo, the app icon, installer art     |
-| `preview-claude/installer.tsx` | First mocks of the NSIS screens, superseded by the dark installer              |
-| `preview-claude/style.css`     | The review page theme first, then the island tokens and styles, then installer |
-| `preview-claude/main.tsx`      | The review page itself                                                         |
+| File                        | Contains                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `preview-claude/island.tsx` | Every island component, the state rules, and the sample scenarios              |
+| `preview-claude/brand.tsx`  | The character (`Eyes`), `podPath()`, the logo, the app icon, installer art     |
+| `preview-claude/style.css`  | The review page theme first, then the island tokens and styles, then installer |
+| `preview-claude/main.tsx`   | The review page itself                                                         |
 
 When this document and the preview disagree, the preview wins. Copy its components and values; do not reinterpret them.
 
@@ -539,7 +538,7 @@ This is the only part of the brand that changes behavior, so it waits for approv
 
 ## Installer
 
-**Owner update, 2026-10-10:** The installer and uninstaller wear the website: its dark background, its copy and its 3D Glims, which move, with different art for installing and uninstalling. This supersedes the light sidebar design and the mocks in `preview-claude/installer.tsx`.
+**Owner update, 2026-10-10:** The installer and uninstaller wear the website: its dark background, its copy and its 3D Glims, which move, with different art for installing and uninstalling. This supersedes the light sidebar design and its mocks, since removed from `preview-claude/`.
 
 Glim ships Tauri 2's NSIS wizard (`installMode: currentUser`) with a custom template. Every flow is three screens and one click, then Glim opens and its own setup takes over.
 
