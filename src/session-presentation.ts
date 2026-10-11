@@ -1,4 +1,4 @@
-import type { Session } from './types';
+import { PROVIDERS, type Session } from './types';
 import type { Tone, Mood } from './Character';
 import { elapsed } from './format';
 
@@ -48,13 +48,41 @@ export function lookOf(s: Session, seenAt: number): Look {
   }
 }
 
+// Agents working in the same folder would read alike: each gains its agent's name, and a number
+// when that agent runs there more than once, counted in the order they started.
+function sessionNames(sessions: Session[]) {
+  const folders = new Map<string, Session[]>();
+  for (const s of sessions) {
+    const key = s.project.toLowerCase();
+    folders.set(key, [...(folders.get(key) ?? []), s]);
+  }
+  const names = new Map<string, string>();
+  for (const twins of folders.values()) {
+    const seen = new Map<string, number>();
+    for (const s of [...twins].sort(
+      (a, b) => a.startedAt - b.startedAt || (a.id < b.id ? -1 : 1),
+    )) {
+      const n = (seen.get(s.provider) ?? 0) + 1;
+      seen.set(s.provider, n);
+      names.set(
+        s.id,
+        twins.length > 1
+          ? `${s.project} · ${PROVIDERS[s.provider].short}${n > 1 ? ` ${n}` : ''}`
+          : s.project,
+      );
+    }
+  }
+  return names;
+}
+
 // Subagents fold into their parent; the most urgent agent always leads.
 export function groupSessions(sessions: Session[], seenAt: number): Group[] {
   const ids = new Set(sessions.map((s) => s.id));
-  return sessions
-    .filter((s) => !s.parentId || !ids.has(s.parentId))
+  const top = sessions.filter((s) => !s.parentId || !ids.has(s.parentId));
+  const names = sessionNames(top);
+  return top
     .map((session) => ({
-      session,
+      session: { ...session, project: names.get(session.id) ?? session.project },
       look: lookOf(session, seenAt),
       children: sessions.filter((child) => child.parentId === session.id),
     }))

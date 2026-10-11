@@ -24,6 +24,23 @@ describe('session presentation', () => {
     expect(groups.map((g) => g.session.id)).toEqual(['blocked', 'orphan', 'parent']);
     expect(groups[2].children.map((s) => s.id)).toEqual(['child']);
   });
+  it('tells agents in the same folder apart by agent and start order', () => {
+    const names = groupSessions(
+      [
+        session({ id: 'a', project: 'Glim', provider: 'claude', startedAt: 1 }),
+        session({ id: 'b', project: 'Glim', provider: 'codex', startedAt: 2 }),
+        session({ id: 'c', project: 'glim', provider: 'claude', startedAt: 3 }),
+        session({ id: 'd', project: 'api-service', provider: 'claude', startedAt: 4 }),
+      ],
+      now,
+    ).map((g) => [g.session.id, g.session.project]);
+    expect(Object.fromEntries(names)).toEqual({
+      a: 'Glim · Claude',
+      b: 'Glim · Codex',
+      c: 'glim · Claude 2',
+      d: 'api-service',
+    });
+  });
   it('shows a just-started session as Ready, and only a finished turn as Your turn', () => {
     const fresh = session({ activity: 'idle', detail: 'Ready for your next idea' });
     expect(lookOf(fresh, now - 1).label).toBe('Ready');
