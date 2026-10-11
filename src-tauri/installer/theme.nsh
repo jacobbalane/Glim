@@ -604,14 +604,30 @@ Function ${UN}GlimProgressShow
   SendMessage $1 0x1024 0 0xB2A4A4
 FunctionEnd
 
-; The last page: only its button. The progress page hid it, and NSIS does not show it again.
+; The last page: only its button, at the far right where Cancel was. The progress page hid it,
+; and NSIS does not show it again.
 Function ${UN}GlimFinishButtons
+  Push $1
+  Push $2
+  Push $3
+  Push $4
   GetDlgItem $0 $HWNDPARENT 3
   ShowWindow $0 ${SW_HIDE}
-  GetDlgItem $0 $HWNDPARENT 2
-  ShowWindow $0 ${SW_HIDE}
+  GetDlgItem $1 $HWNDPARENT 2
+  ShowWindow $1 ${SW_HIDE}
+  System::Call '*(i,i,i,i)p.r2'
+  System::Call 'user32::GetWindowRect(p r1, p r2)'
+  System::Call 'user32::MapWindowPoints(p 0, p $HWNDPARENT, p r2, i 2)'
+  System::Call '*$2(i.r3,i.r4,i,i)'
+  System::Free $2
   GetDlgItem $0 $HWNDPARENT 1
+  ; SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE: same size, Cancel's corner.
+  System::Call 'user32::SetWindowPos(p r0, p 0, i r3, i r4, i 0, i 0, i 0x15)'
   ShowWindow $0 ${SW_SHOW}
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
 FunctionEnd
 !macroend
 
