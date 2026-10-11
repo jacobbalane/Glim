@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ShieldCheck } from 'lucide-react';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { api } from './api';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
@@ -454,6 +455,10 @@ export function SettingsSheet({
   const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
   const [cleared, setCleared] = useState(false);
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    api.version().then(setVersion, () => {});
+  }, []);
   return (
     <Sheet title="Settings" onBack={onBack} scroll={scroll}>
       <section className="sec">
@@ -521,6 +526,10 @@ export function SettingsSheet({
           <p className="fine">Deletes Glim's saved counters. Agent files stay intact.</p>
         )}
       </section>
+      <section className="sec">
+        <h4>Updates</h4>
+        <Updates />
+      </section>
       {error && (
         <p className="inline-error" role="alert">
           {error}
@@ -532,7 +541,7 @@ export function SettingsSheet({
         </p>
       )}
       <footer className="about">
-        <span>Glim 0.1.1</span>
+        <span>Glim {version}</span>
         <button
           className="link"
           onClick={() => api.openRelease().catch((e) => setError(String(e)))}
@@ -541,6 +550,93 @@ export function SettingsSheet({
         </button>
       </footer>
     </Sheet>
+  );
+}
+
+type UpdateState =
+  | { kind: 'idle' | 'checking' | 'current' }
+  | { kind: 'available' | 'installing'; update: Update; percent: number | null }
+  | { kind: 'failed'; message: string };
+
+// A newer Glim from GitHub, only when asked. Installing hands over to Setup, which closes Glim and
+// opens it again on the new version.
+function Updates() {
+  const [state, setState] = useState<UpdateState>({ kind: 'idle' });
+  const checkNow = async () => {
+    setState({ kind: 'checking' });
+    try {
+      const update = await api.checkUpdate();
+      setState(update ? { kind: 'available', update, percent: null } : { kind: 'current' });
+    } catch {
+      setState({
+        kind: 'failed',
+        message: 'Could not reach GitHub. Check your connection and try again.',
+      });
+    }
+  };
+  const install = async (update: Update) => {
+    let total = 0;
+    let received = 0;
+    setState({ kind: 'installing', update, percent: null });
+    try {
+      await update.downloadAndInstall((event) => {
+        if (event.event === 'Started') total = event.data.contentLength ?? 0;
+        if (event.event === 'Progress' && total) {
+          received += event.data.chunkLength;
+          setState({
+            kind: 'installing',
+            update,
+            percent: Math.min(100, Math.round((received / total) * 100)),
+          });
+        }
+      });
+    } catch {
+      setState({
+        kind: 'failed',
+        message: 'The update could not be installed. Try again, or download it from Releases.',
+      });
+    }
+  };
+  const label =
+    state.kind === 'checking'
+      ? 'Checking…'
+      : state.kind === 'current'
+        ? 'Glim is up to date'
+        : state.kind === 'available'
+          ? `Glim ${state.update.version} is available`
+          : state.kind === 'installing'
+            ? `Downloading${state.percent === null ? '…' : ` ${state.percent}%`}`
+            : 'Check for a newer Glim';
+  return (
+    <>
+      <div className="field">
+        <span className="field-label" aria-live="polite">
+          {label}
+        </span>
+        <div className="actions">
+          {state.kind === 'available' ? (
+            <button className="btn small primary" onClick={() => install(state.update)}>
+              Update
+            </button>
+          ) : (
+            <button
+              className="btn small"
+              disabled={state.kind === 'checking' || state.kind === 'installing'}
+              onClick={checkNow}
+            >
+              Check
+            </button>
+          )}
+        </div>
+      </div>
+      {state.kind === 'failed' ? (
+        <p className="inline-error" role="alert">
+          {state.message}
+        </p>
+      ) : (
+        <p className="fine">Glim goes online only when you check.</p>
+      )}
+    </>
   );
 }
 

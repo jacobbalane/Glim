@@ -1,5 +1,8 @@
 import { invoke, isTauri } from '@tauri-apps/api/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { listen } from '@tauri-apps/api/event';
+import { check, type Update } from '@tauri-apps/plugin-updater';
+import { version as packageVersion } from '../package.json';
 import {
   DEFAULT_PREFERENCES,
   type Activity,
@@ -71,6 +74,9 @@ export const api = {
   shape: async (expanded: boolean, width: number, height: number) => {
     if (native) await invoke('island_shape', { expanded, width, height });
   },
+  version: () => (native ? getVersion() : Promise.resolve(packageVersion)),
+  // Glim goes online only here, when the person asks: GitHub's latest release, signature checked.
+  checkUpdate: (): Promise<Update | null> => (native ? check() : Promise.resolve(null)),
   openRelease: async () => {
     if (native) await invoke('open_releases');
     else

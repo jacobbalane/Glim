@@ -138,6 +138,8 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             queue_panel("settings".into(), app.clone());
         }))
+        // Checks GitHub for a signed newer release, only when asked from Settings.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             snapshot,
             history,

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Glim",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "identifier": "dev.glim.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -45,7 +45,10 @@
     "shortDescription": "A glimpse at your local coding agents",
     "longDescription": "Live activity, token usage, and progress for Claude Code and Codex, in a minimal desktop island. Local by design.",
     "windows": {
-      "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true },
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
       "nsis": {
         "installMode": "currentUser",
         "installerHooks": "installer/hooks.nsh",
@@ -54,8 +57,19 @@
         "sidebarImage": "installer/crowd.bmp",
         "headerImage": "installer/header.bmp",
         "uninstallerHeaderImage": "installer/header-uninstall.bmp",
-        "customLanguageFiles": { "English": "installer/english.nsh" },
+        "customLanguageFiles": {
+          "English": "installer/english.nsh"
+        },
         "template": "installer/installer.nsi"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEyRTQ4MUUwOUUwRjM1QTcKUldTbk5RK2U0SUhrRWc1VFExNUpvemhiSUNaMVJ5d2V1dnpSckdTNVk4NUR6OUVKYjhxa0wvT08K",
+      "endpoints": ["https://github.com/jacobbalane/Glim/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }
