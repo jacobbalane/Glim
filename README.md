@@ -4,7 +4,11 @@
 
 A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, context, token usage, and reported task progress stay above your workspace. Your data stays on your device.
 
-[Website](https://jacobbalane.github.io/Glim/) · [Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
+[![The Glim website: the island at the top of the screen, the headline, and a row of 3D Glims](docs/images/website.jpg)](https://jacobbalane.github.io/Glim/)
+
+**[Try it on the website →](https://jacobbalane.github.io/Glim/)** The page runs the real island on sample sessions. Ask for approval, finish a turn or hit an error, and watch it react. Nothing to install.
+
+[Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
 
 > The installer is not code-signed yet, so Windows SmartScreen may warn on first run: choose **More info**, then **Run anyway**.
 
@@ -30,6 +34,8 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 Glim needs to stay running to monitor activity. Closing settings returns to the agent in the same notch; **Quit Glim** stops collection. Choose whether to keep a small idle pill or hide it until activity.
 
 ## Try the interface
+
+To look around without building anything, open the [website](https://jacobbalane.github.io/Glim/): it runs the same island on sample sessions. To run it locally:
 
 ```sh
 npm ci
