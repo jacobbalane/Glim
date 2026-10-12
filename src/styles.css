@@ -50,6 +50,12 @@ button {
 html {
   scrollbar-color: rgba(24, 24, 27, 0.28) transparent;
 }
+/* In the app's window, a touchpad scroll past the end would stretch the page and pull the island
+   down from the top edge; a mouse wheel never does. The page itself never scrolls there. */
+html:has(.native-stage) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 .num {
   font-variant-numeric: tabular-nums;
 }
@@ -885,6 +891,27 @@ html {
   flex-shrink: 0;
   color: var(--fg-3);
 }
+/* The agent's own words: what it finished with, asks or wants to run. */
+.hero-said {
+  display: -webkit-box;
+  margin-top: 10px;
+  padding: 8px 10px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  border-radius: 8px;
+  /* A faint wash of the agent's state color, no stripe. */
+  background: color-mix(in srgb, var(--tone, #8f8f99) 9%, rgba(255, 255, 255, 0.03));
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg-1);
+  overflow-wrap: anywhere;
+}
+.hero-actions {
+  display: inline-flex;
+  gap: 14px;
+  flex-shrink: 0;
+}
 .hero-hint {
   margin-top: 10px;
   font-size: 12.5px;
@@ -930,7 +957,8 @@ html {
 }
 .meters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  /* Context, the 5-hour and the weekly limit share one row. */
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 12px 22px;
   margin-top: 14px;
 }
@@ -1028,7 +1056,7 @@ html {
   font-size: 12px;
   color: var(--fg-3);
 }
-.hero-foot > span {
+.hero-foot > .num {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1874,4 +1902,24 @@ html {
     --fg-2: #cfcfd5;
     --fg-3: #b4b4bc;
   }
+}
+
+/* A project with several agents: its name, then each agent's row under it. */
+.others .project {
+  padding-top: 4px;
+}
+.project-name {
+  display: block;
+  overflow: hidden;
+  padding: 4px 10px 2px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fg-2);
+}
+.project ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 12px;
 }

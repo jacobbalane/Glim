@@ -34,6 +34,10 @@ export interface Session {
   limits: Limit[];
   source: string;
   measurementNote: string | null;
+  // The agent's process (id, start time) while Glim knows it.
+  process?: [number, number];
+  // What the agent last said or asks; never stored.
+  message?: string;
 }
 export interface Preferences {
   idleBehavior: 'pill' | 'hidden';

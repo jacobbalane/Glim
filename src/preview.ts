@@ -26,7 +26,10 @@ export const previewSessions: Session[] = [
       { id: '3', label: 'Polish the island', status: 'in_progress' },
       { id: '4', label: 'Verify the installer', status: 'pending' },
     ],
-    limits: [{ label: '5 hour', usedPercent: 24, resetsAt: now + 7200000 }],
+    limits: [
+      { label: '5 hour', usedPercent: 24, resetsAt: now + 7200000 },
+      { label: '7 day', usedPercent: 41, resetsAt: now + 3 * 86400000 + 5 * 3600000 },
+    ],
     source: 'Preview data',
     measurementNote: null,
   },
@@ -46,6 +49,7 @@ export const previewSessions: Session[] = [
     limits: [],
     source: 'Preview data',
     measurementNote: null,
+    message: 'Bash: npm run migrate -- --env staging',
   },
   {
     id: 'demo-claude-2',
@@ -63,6 +67,8 @@ export const previewSessions: Session[] = [
     limits: [],
     source: 'Preview data',
     measurementNote: null,
+    message:
+      'I tightened the spacing scale and moved the button tokens onto it. Want me to update the cards to match?',
   },
 ];
 export const previewConnectors: Connector[] = (['claude', 'codex'] as const).map((provider) => ({

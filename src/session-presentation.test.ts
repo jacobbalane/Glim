@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { attentionKind, groupSessions, isNotice, lookOf, notchView } from './session-presentation';
+import {
+  attentionKind,
+  byProject,
+  groupSessions,
+  isNotice,
+  lookOf,
+  nameOf,
+  notchView,
+} from './session-presentation';
 import { previewSessions } from './preview';
 import type { Session } from './types';
 
@@ -24,22 +32,35 @@ describe('session presentation', () => {
     expect(groups.map((g) => g.session.id)).toEqual(['blocked', 'orphan', 'parent']);
     expect(groups[2].children.map((s) => s.id)).toEqual(['child']);
   });
-  it('tells agents in the same folder apart by agent and start order', () => {
-    const names = groupSessions(
+  it('names each agent by project and agent, and gathers each project', () => {
+    const groups = groupSessions(
       [
         session({ id: 'a', project: 'Glim', provider: 'claude', startedAt: 1 }),
         session({ id: 'b', project: 'Glim', provider: 'codex', startedAt: 2 }),
         session({ id: 'c', project: 'glim', provider: 'claude', startedAt: 3 }),
         session({ id: 'd', project: 'api-service', provider: 'claude', startedAt: 4 }),
+        // Ended, and still shown for a moment: the open one is not "Claude 2" because of it.
+        session({
+          id: 'e',
+          project: 'api-service',
+          provider: 'claude',
+          startedAt: 0,
+          activity: 'finished',
+        }),
       ],
       now,
-    ).map((g) => [g.session.id, g.session.project]);
-    expect(Object.fromEntries(names)).toEqual({
+    );
+    expect(Object.fromEntries(groups.map((g) => [g.session.id, nameOf(g)]))).toEqual({
       a: 'Glim · Claude',
       b: 'Glim · Codex',
       c: 'glim · Claude 2',
-      d: 'api-service',
+      d: 'api-service · Claude',
+      e: 'api-service · Claude',
     });
+    expect(byProject(groups).map((p) => p.map((g) => g.session.id).sort())).toEqual([
+      ['a', 'b', 'c'],
+      ['d', 'e'],
+    ]);
   });
   it('shows a just-started session as Ready, and only a finished turn as Your turn', () => {
     const fresh = session({ activity: 'idle', detail: 'Ready for your next idea' });

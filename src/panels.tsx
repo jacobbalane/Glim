@@ -4,7 +4,7 @@ import type { Update } from '@tauri-apps/plugin-updater';
 import { api } from './api';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
-import { ago, limitName, type Group } from './session-presentation';
+import { ago, limitName, nameOf, type Group } from './session-presentation';
 import { compactNumber, freshInput, totalTokens } from './format';
 import {
   PROVIDERS,
@@ -84,7 +84,7 @@ export function Details({
   return (
     <Sheet
       bodyLabel="Session usage details"
-      title={s.project}
+      title={nameOf(group)}
       sub={`${PROVIDERS[s.provider].name} · ${s.model} · started ${ago(now - s.startedAt)} ago`}
       onBack={onBack}
       scroll={scroll}

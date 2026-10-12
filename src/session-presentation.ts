@@ -12,7 +12,11 @@ export interface Group {
   session: Session;
   look: Look;
   children: Session[];
+  // The agent's name in its project: Claude, Codex, or Claude 2 for a second Claude there.
+  agent: string;
 }
+// What the island calls an agent: its project, then which agent it is there.
+export const nameOf = (g: Group) => `${g.session.project} · ${g.agent}`;
 
 // A session that has only just started has handed nothing back yet: it is Ready, not Your turn.
 const FRESH = 'Ready for your next idea';
@@ -48,11 +52,12 @@ export function lookOf(s: Session, seenAt: number): Look {
   }
 }
 
-// Agents working in the same folder would read alike: each gains its agent's name, and a number
-// when that agent runs there more than once, counted in the order they started.
-function sessionNames(sessions: Session[]) {
+// Each agent is named after its provider, with a number when that provider runs in the same
+// folder more than once, counted in the order they started. Only open agents count: an ended one,
+// still shown for a moment, never turns the next one into "Claude 2".
+function agentNames(sessions: Session[]) {
   const folders = new Map<string, Session[]>();
-  for (const s of sessions) {
+  for (const s of sessions.filter((s) => s.activity !== 'finished')) {
     const key = s.project.toLowerCase();
     folders.set(key, [...(folders.get(key) ?? []), s]);
   }
@@ -64,29 +69,38 @@ function sessionNames(sessions: Session[]) {
     )) {
       const n = (seen.get(s.provider) ?? 0) + 1;
       seen.set(s.provider, n);
-      names.set(
-        s.id,
-        twins.length > 1
-          ? `${s.project} · ${PROVIDERS[s.provider].short}${n > 1 ? ` ${n}` : ''}`
-          : s.project,
-      );
+      names.set(s.id, `${PROVIDERS[s.provider].short}${n > 1 ? ` ${n}` : ''}`);
     }
   }
   return names;
 }
 
+// A subagent still at work. Finished ones, and ones gone quiet (often cancelled), are history.
+export const isLive = (s: Session) => s.activity !== 'finished' && s.activity !== 'stale';
+
 // Subagents fold into their parent; the most urgent agent always leads.
 export function groupSessions(sessions: Session[], seenAt: number): Group[] {
   const ids = new Set(sessions.map((s) => s.id));
   const top = sessions.filter((s) => !s.parentId || !ids.has(s.parentId));
-  const names = sessionNames(top);
+  const names = agentNames(top);
   return top
     .map((session) => ({
-      session: { ...session, project: names.get(session.id) ?? session.project },
+      session,
       look: lookOf(session, seenAt),
       children: sessions.filter((child) => child.parentId === session.id),
+      agent: names.get(session.id) ?? PROVIDERS[session.provider].short,
     }))
     .sort((a, b) => a.look.rank - b.look.rank || b.session.updatedAt - a.session.updatedAt);
+}
+
+// The agents of each project folder together, the project with the most urgent agent first.
+export function byProject(groups: Group[]) {
+  const projects = new Map<string, Group[]>();
+  for (const g of groups) {
+    const key = g.session.project.toLowerCase();
+    projects.set(key, [...(projects.get(key) ?? []), g]);
+  }
+  return [...projects.values()];
 }
 
 export function ago(ms: number) {
@@ -94,7 +108,8 @@ export function ago(ms: number) {
   if (s < 5) return 'now';
   if (s < 60) return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m`;
-  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
 }
 export function timeOf(s: Session, now: number) {
   if (s.activity === 'working') return elapsed(s.startedAt, now);
@@ -160,6 +175,7 @@ export function notchView(
 }
 
 export function limitName(label: string) {
+  if (label === '7 day') return 'Weekly limit';
   return /limit/i.test(label) ? label : `${label.replace(/^(\d+) (hour|day)$/, '$1-$2')} limit`;
 }
 export function plural(n: number, word: string) {

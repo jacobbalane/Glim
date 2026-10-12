@@ -106,7 +106,7 @@ test('interactive notch keeps one surface and animates working activity', async 
     .toBeLessThan(2);
   await frame.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(frame.getByRole('progressbar', { name: 'Context' })).toBeVisible();
-  await frame.getByRole('button', { name: /glim-desktop, Claude Code/ }).click();
+  await frame.getByRole('button', { name: /^glim-desktop · Claude:/ }).click();
   await expect.poll(async () => (await island.boundingBox())?.height).toBeLessThan(400);
   const character = frame.locator('.glim-character[data-mood="scan"]').first();
   const gpu = await hasGpu(page);
@@ -122,7 +122,7 @@ test('interactive notch keeps one surface and animates working activity', async 
   await expect(frame.getByRole('button', { name: /^Glim:/ })).toBeVisible();
   await expect(island).toHaveAttribute('data-expanded', 'false');
   await controls.getByRole('button', { name: 'Expand', exact: true }).click();
-  await frame.getByRole('button', { name: /glim-desktop, Claude Code/ }).click();
+  await frame.getByRole('button', { name: /^glim-desktop · Claude:/ }).click();
   await controls.getByLabel('Agent activity').selectOption('finished');
   await expect(frame.locator('.hero .chip')).toHaveText('Done');
   await expect(island).toHaveAttribute('data-persistence-check', 'same');

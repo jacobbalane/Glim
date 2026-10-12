@@ -77,6 +77,9 @@ export const api = {
   version: () => (native ? getVersion() : Promise.resolve(packageVersion)),
   // Glim goes online only here, when the person asks: GitHub's latest release, signature checked.
   checkUpdate: (): Promise<Update | null> => (native ? check() : Promise.resolve(null)),
+  // Brings the window the agent runs in to the front; false when Glim can't find it.
+  showAgent: (id: string): Promise<boolean> =>
+    native ? invoke<boolean>('show_agent', { id }) : Promise.resolve(false),
   openRelease: async () => {
     if (native) await invoke('open_releases');
     else

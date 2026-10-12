@@ -18,7 +18,7 @@ test('compact fits its text, loops only the status, and respects reduced motion'
   await page.goto('/?scene=compact-short&motion=1');
   const island = page.getByTestId('island');
   const trigger = island.getByRole('button', { name: /^Glim:/ });
-  await expect.poll(async () => (await island.boundingBox())?.width).toBeLessThan(220);
+  await expect.poll(async () => (await island.boundingBox())?.width).toBeLessThan(260);
   await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
   const long = 'Checking the desktop installation and verifying the agent connections';
   await simulate(page, 'working', 'demo-claude', long);
@@ -36,7 +36,7 @@ test('compact fits its text, loops only the status, and respects reduced motion'
   await trigger.hover();
   await expect(ticker).toHaveCSS('animation-play-state', 'paused');
   await simulate(page, 'working', 'demo-claude', 'Thinking');
-  await expect.poll(async () => (await island.boundingBox())?.width).toBeLessThan(240);
+  await expect.poll(async () => (await island.boundingBox())?.width).toBeLessThan(280);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await simulate(page, 'working', 'demo-claude', long);
   await expect(ticker).toHaveCSS('animation-name', 'none');
@@ -46,7 +46,7 @@ test('compact fits its text, loops only the status, and respects reduced motion'
     (await hasGpu(page)) ? '3d' : 'fallback',
   );
   await expect(character).toHaveAttribute('data-motion', 'false');
-  await expect(trigger).toHaveAttribute('title', `glim-desktop · ${long}`);
+  await expect(trigger).toHaveAttribute('title', `glim-desktop · Claude · ${long}`);
 });
 
 test('working agents rotate by project, notices present once then dock, and hover holds', async ({
@@ -73,7 +73,9 @@ test('working agents rotate by project, notices present once then dock, and hove
   await expect(trigger).toHaveAttribute('data-session-id', 'demo-codex');
   await page.mouse.move(20, 300);
   await page.clock.fastForward(7500);
-  const approval = island.getByRole('button', { name: 'api-service: Needs an answer. Open.' });
+  const approval = island.getByRole('button', {
+    name: 'api-service · Codex: Needs an answer. Open.',
+  });
   await expect(approval).toBeVisible();
   for (let i = 0; i < 4; i++) {
     await page.clock.fastForward(6500);
@@ -84,19 +86,25 @@ test('working agents rotate by project, notices present once then dock, and hove
   await expect(trigger).toHaveAttribute('data-session-id', 'demo-claude-2');
   await expect(trigger).toContainText('Your turn');
   await page.clock.fastForward(5500);
-  const done = island.getByRole('button', { name: 'design-system: Your turn. Open.' });
+  const done = island.getByRole('button', { name: 'design-system · Claude: Your turn. Open.' });
   await expect(done).toBeVisible();
   await expect(island.locator('.inbox-row')).toHaveCount(2);
   await done.click();
-  await expect(page.getByRole('heading', { name: 'design-system', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'design-system · Claude', exact: true }),
+  ).toBeVisible();
   await page.clock.fastForward(20000);
-  await expect(page.getByRole('heading', { name: 'design-system', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'design-system · Claude', exact: true }),
+  ).toBeVisible();
   await page.keyboard.press('Escape');
   await page.clock.runFor(500);
   await expect(island.locator('.inbox-row')).toHaveCount(1);
   await expect(approval).toBeVisible();
   await approval.click();
-  await expect(page.getByRole('heading', { name: 'api-service', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'api-service · Codex', exact: true }),
+  ).toBeVisible();
 });
 
 test('the same header position toggles the island and status stays close to its character', async ({
@@ -149,7 +157,7 @@ test('notices can stay tucked away without losing sessions or blocking updates',
 
   // Opening the island still exposes every session; closing keeps the user's choice.
   await trigger.click();
-  await expect(island.locator('.bar-title')).toContainText('8 agents');
+  await expect(island.locator('.bar-title')).toContainText('8 projects');
   await expect(island.getByText('Needs approval', { exact: true })).toHaveCount(3);
   await expect(island.getByText('Error', { exact: true })).toHaveCount(2);
   await expect(island.getByText('Done', { exact: true })).toHaveCount(2);
@@ -163,7 +171,7 @@ test('notices can stay tucked away without losing sessions or blocking updates',
   await show.click();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
   await expect(
-    island.getByRole('button', { name: 'api-service: Needs approval. Open.' }),
+    island.getByRole('button', { name: 'api-service · Codex: Needs approval. Open.' }),
   ).toBeVisible();
   // Both directions keep keyboard focus usable, including with reduced motion.
   await page.setViewportSize({ width: 430, height: 800 });

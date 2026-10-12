@@ -265,6 +265,12 @@ export default function App() {
           setFocusId(id);
           setView('details');
         }}
+        onShow={(id) =>
+          api
+            .showAgent(id)
+            .then((shown) => shown && collapse())
+            .catch((e) => setError(String(e)))
+        }
         onUsage={() => openPanel('history')}
         onSettings={() => openPanel('settings')}
         onCollapse={collapse}

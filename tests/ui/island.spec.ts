@@ -5,7 +5,9 @@ test('island expands, selects a session, and interrupts cleanly', async ({ page 
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
   await page.getByRole('button', { name: /^Glim:/ }).click();
-  await expect(page.getByRole('heading', { name: 'glim-desktop', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'glim-desktop · Claude', exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole('progressbar', { name: 'Context' })).toHaveAttribute(
     'aria-valuenow',
     '38',
@@ -21,7 +23,9 @@ test('island expands, selects a session, and interrupts cleanly', async ({ page 
   await expect(page.getByRole('region', { name: 'Session usage details' })).toContainText('24%');
   await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByRole('button', { name: /api-service/ }).click();
-  await expect(page.getByRole('heading', { name: 'api-service', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'api-service · Codex', exact: true }),
+  ).toBeVisible();
   await expect(page.locator('.hero .chip')).toHaveText('Needs approval');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: /^Glim:/ })).toBeVisible();
@@ -73,7 +77,9 @@ test('small preview remains readable without horizontal overflow', async ({ page
   await page.setViewportSize({ width: 430, height: 800 });
   await page.goto('/');
   await page.getByRole('button', { name: /^Glim:/ }).click();
-  await expect(page.getByRole('heading', { name: 'glim-desktop', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'glim-desktop · Claude', exact: true }),
+  ).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBeTruthy();
