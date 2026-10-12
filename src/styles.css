@@ -1131,9 +1131,13 @@ html:has(.native-stage) {
 .link:hover {
   color: var(--fg-1);
 }
-/* The view under the bar crossfades in place; the one leaving lies over it until it is gone. */
+/* The view under the bar crossfades in place; the one leaving lies over it until it is gone,
+   clipped to the new one, so a taller view leaving never makes the island scroll for a moment and
+   shift everything aside for the scrollbar. The margin keeps focus rings whole. */
 .glance-body {
   position: relative;
+  overflow: clip;
+  overflow-clip-margin: 4px;
 }
 .others {
   list-style: none;
