@@ -51,7 +51,7 @@ The test does not cover downloading WebView2 on a fresh machine, SmartScreen/sig
 
 ## Release
 
-The CI workflow checks the frontend and Rust tests and builds a Windows installer. A `v*` tag creates a **draft** GitHub release containing the installer and SHA-256 checksums. Review and publish the draft to make the README download link work. No releases are published by local development commands.
+Before tagging, move the **Unreleased** entries in `CHANGELOG.md` under the new version and date; the website's changelog page reads that file. The CI workflow checks the frontend and Rust tests and builds a Windows installer. A `v*` tag creates a **draft** GitHub release containing the installer and SHA-256 checksums. Review and publish the draft to make the README download link work. No releases are published by local development commands.
 
 For signing, use an organization-owned Windows Authenticode certificate or a signing service in CI. The initial workflow deliberately produces unsigned artifacts when no signing setup exists. Stable release acceptance requires signing and clean-machine install/upgrade/uninstall checks, native DPI/fullscreen/focus tests, and live provider validation.
 

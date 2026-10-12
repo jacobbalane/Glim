@@ -8,7 +8,7 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 
 **[Try it on the website →](https://glim.jacobbalane.com/)** The page runs the real island on sample sessions. Ask for approval, finish a turn or hit an error, and watch it react. Nothing to install.
 
-[Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
+[Download for Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Docs](https://glim.jacobbalane.com/docs/) · [Changelog](CHANGELOG.md) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
 
 > The installer is not code-signed yet, so Windows SmartScreen may warn on first run: choose **More info**, then **Run anyway**.
 
@@ -76,7 +76,7 @@ See [architecture](docs/architecture.md) for the collection pipeline, native win
 
 ## Privacy
 
-Glim collects locally. It stores counters, provider/model/project names, task labels, and session state in `%LOCALAPPDATA%\Glim\usage.sqlite3`. It does not store prompts, assistant messages, tool arguments, tool outputs, or provider authentication tokens. Agent transcripts are read in memory to extract usage and structured tasks.
+Glim collects locally. It stores counters, provider/model/project names, task labels, and session state in `%LOCALAPPDATA%\Glim\usage.sqlite3`. It does not store prompts, assistant messages, tool arguments, tool outputs, or provider authentication tokens. Agent transcripts are read in memory to extract usage and structured tasks. While a session is open, the island previews the agent's latest words: its last message, its question, or the command it asks to run. That preview lives in memory only and is never written to disk.
 
 Configuration backups and connector manifests are in `%LOCALAPPDATA%\Glim`. Backups preserve the original agent configuration and may contain values you already saved in that configuration; treat them as private. Clearing usage history keeps ingestion cursors and deduplication baselines so old records cannot refill the chart.
 
