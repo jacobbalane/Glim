@@ -54,7 +54,12 @@ impl Store {
             .collect()
     }
     pub fn save_session(&self, s: &Session) -> Result<(), String> {
-        self.conn.execute("INSERT INTO sessions VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,updated=excluded.updated", params![s.key(), serde_json::to_string(s).map_err(|e| e.to_string())?, s.updated_at]).map_err(|e| e.to_string())?;
+        // What an agent said is shown while Glim runs and never written down.
+        let data = Session {
+            message: None,
+            ..s.clone()
+        };
+        self.conn.execute("INSERT INTO sessions VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET data=excluded.data,updated=excluded.updated", params![s.key(), serde_json::to_string(&data).map_err(|e| e.to_string())?, s.updated_at]).map_err(|e| e.to_string())?;
         Ok(())
     }
     pub fn preferences(&self) -> Preferences {

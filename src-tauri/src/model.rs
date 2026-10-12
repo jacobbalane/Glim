@@ -85,6 +85,12 @@ pub struct Session {
     pub limits: Vec<Limit>,
     pub source: String,
     pub measurement_note: Option<String>,
+    /// The agent's process, while known: its id and start time. See process.rs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub process: Option<(u32, u64)>,
+    /// What the agent last said or asked, for the open island. Never stored: see storage.rs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 impl Session {
     pub fn new(provider: Provider, id: String) -> Self {
@@ -105,6 +111,8 @@ impl Session {
             limits: vec![],
             source: "Local hooks".into(),
             measurement_note: None,
+            process: None,
+            message: None,
         }
     }
     pub fn key(&self) -> String {
@@ -165,7 +173,8 @@ pub struct DailyUsage {
     pub sessions: u64,
 }
 
-/// Only this allow-listed envelope crosses the pipe. Raw prompts and tool inputs never do.
+/// Only this allow-listed envelope crosses the pipe. Prompts never do; of what the agent says
+/// or wants to run, only a short preview for the island.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentEvent {
@@ -181,6 +190,12 @@ pub struct AgentEvent {
     pub timestamp: i64,
     pub status_data: Option<Value>,
     pub task: Option<Task>,
+    /// Filled in by the helper, which can see the agent's process. Older helpers leave it out.
+    #[serde(default)]
+    pub process: Option<(u32, u64)>,
+    /// A short preview of what the agent said or asks, on the events that hand over to the person.
+    #[serde(default)]
+    pub message: Option<String>,
 }
 pub fn basename(path: &str) -> String {
     path.trim_end_matches(['/', '\\'])

@@ -47,6 +47,23 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
             str_field(&value, "parent_session_id").map(str::to_owned),
         ),
     };
+    // What the person is told or asked when the agent hands over: its last words at the end of a
+    // turn, its question, what it wants to run, or the notice it sends.
+    let tool = str_field(&value, "tool_name").unwrap_or("");
+    let message = match event {
+        "Stop" => str_field(&value, "last_assistant_message").map(str::to_owned),
+        "Notification" => str_field(&value, "message").map(str::to_owned),
+        "PreToolUse" if tool.eq_ignore_ascii_case("AskUserQuestion") => value
+            .pointer("/tool_input/questions/0/question")
+            .and_then(Value::as_str)
+            .map(str::to_owned),
+        "PermissionRequest" => ["command", "file_path", "url", "pattern", "description"]
+            .iter()
+            .find_map(|key| value.get("tool_input")?.get(*key)?.as_str())
+            .map(|what| format!("{tool}: {what}")),
+        _ => None,
+    }
+    .map(|text| preview(&text));
     let status_data = statusline.then(|| {
         let mut limits = serde_json::Map::new();
         for key in ["five_hour", "seven_day", "spend_limit"] { if let Some(v) = value.get("rate_limits").and_then(|v| v.get(key)) { limits.insert(key.into(), json!({ "used_percentage": v.get("used_percentage"), "resets_at": v.get("resets_at") })); } }
@@ -58,12 +75,14 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
         session_id: id.into(),
         parent_id: parent,
         event: bounded(event, 40),
-        cwd: str_field(&value, "cwd")
+        // The project's folder, not wherever the agent last changed directory to.
+        cwd: str_field(&value, "project_dir")
             .or_else(|| {
                 value
                     .pointer("/workspace/project_dir")
                     .and_then(Value::as_str)
             })
+            .or_else(|| str_field(&value, "cwd"))
             .map(|s| bounded(s, 2000)),
         model: str_field(&value, "model")
             .or_else(|| value.pointer("/model/display_name").and_then(Value::as_str))
@@ -75,7 +94,18 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
         timestamp: now_ms(),
         status_data,
         task,
+        process: None,
+        message,
     })
+}
+/// One paragraph of at most 280 characters, for two or three lines in the island.
+fn preview(text: &str) -> String {
+    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut short: String = flat.chars().take(280).collect();
+    if flat.chars().count() > 280 {
+        short.push('…');
+    }
+    short
 }
 
 pub fn apply_hook(s: &mut Session, e: &AgentEvent) {
@@ -91,6 +121,16 @@ pub fn apply_hook(s: &mut Session, e: &AgentEvent) {
     }
     if e.parent_id.is_some() {
         s.parent_id = e.parent_id.clone();
+    }
+    if e.process.is_some() {
+        s.process = e.process;
+    }
+    // A new turn starts clean; a Notification never replaces what the agent itself said.
+    match e.event.as_str() {
+        "UserPromptSubmit" | "Stop" | "PermissionRequest" => s.message = e.message.clone(),
+        "PreToolUse" if e.message.is_some() => s.message = e.message.clone(),
+        "Notification" if s.message.is_none() => s.message = e.message.clone(),
+        _ => {}
     }
     match e.event.as_str() {
         "SessionStart" => {
@@ -465,6 +505,57 @@ mod tests {
         .unwrap();
         assert_eq!(e.session_id, "child");
         assert_eq!(e.parent_id.as_deref(), Some("parent"));
+    }
+    #[test]
+    fn the_island_previews_what_the_agent_says_or_asks() {
+        let hook = |v| hook_event(Provider::Claude, v, false).unwrap();
+        let stop = hook(
+            json!({"session_id":"s","hook_event_name":"Stop","last_assistant_message":"Done.
+
+Want me to   push?"}),
+        );
+        assert_eq!(stop.message.as_deref(), Some("Done. Want me to push?"));
+        let approval = hook(
+            json!({"session_id":"s","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"npm run deploy"}}),
+        );
+        assert_eq!(approval.message.as_deref(), Some("Bash: npm run deploy"));
+        let long = hook(
+            json!({"session_id":"s","hook_event_name":"Stop","last_assistant_message":"x".repeat(400)}),
+        );
+        assert_eq!(long.message.unwrap().chars().count(), 281);
+        // A notice never replaces what the agent said; the next turn starts clean.
+        let mut s = Session::new(Provider::Claude, "s".into());
+        s.updated_at = 0; // Older than the events above, which would otherwise read as replays.
+        apply_hook(&mut s, &stop);
+        apply_hook(
+            &mut s,
+            &hook(
+                json!({"session_id":"s","hook_event_name":"Notification","message":"Claude is waiting for your input"}),
+            ),
+        );
+        assert_eq!(s.message.as_deref(), Some("Done. Want me to push?"));
+        apply_hook(
+            &mut s,
+            &hook(json!({"session_id":"s","hook_event_name":"UserPromptSubmit"})),
+        );
+        assert_eq!(s.message, None);
+    }
+    #[test]
+    fn a_session_keeps_its_project_folder_when_the_agent_changes_directory() {
+        let hook = hook_event(
+            Provider::Claude,
+            json!({"session_id":"s","hook_event_name":"Stop","cwd":"C:/work/glim/site","project_dir":"C:/work/glim"}),
+            false,
+        )
+        .unwrap();
+        assert_eq!(hook.cwd.as_deref(), Some("C:/work/glim"));
+        let status = hook_event(
+            Provider::Claude,
+            json!({"session_id":"s","cwd":"C:/work/glim/site","workspace":{"project_dir":"C:/work/glim"}}),
+            true,
+        )
+        .unwrap();
+        assert_eq!(status.cwd.as_deref(), Some("C:/work/glim"));
     }
     #[test]
     fn a_subagent_tool_call_is_the_subagents_not_the_waiting_parents() {

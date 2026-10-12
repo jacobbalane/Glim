@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use glim_lib::{connectors, ipc, model::Provider, normalize::hook_event};
+use glim_lib::{connectors, ipc, model::Provider, normalize::hook_event, process};
 use std::io::{Read, Write};
 
 fn main() {
@@ -23,8 +23,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut bytes = Vec::new();
     std::io::stdin().take(1024 * 1024).read_to_end(&mut bytes)?;
-    if let Ok(input) = serde_json::from_slice(&bytes) {
-        if let Some(event) = hook_event(provider, input, statusline) {
+    if let Ok(mut input) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+        // Claude Code names the project's folder for its hooks; their cwd follows the agent around.
+        if let (Some(fields), Some(dir)) = (
+            input.as_object_mut(),
+            std::env::var("CLAUDE_PROJECT_DIR").ok(),
+        ) {
+            fields.insert("project_dir".into(), dir.into());
+        }
+        if let Some(mut event) = hook_event(provider, input, statusline) {
+            event.process = process::agent();
             let payload = serde_json::to_vec(&event)?;
             if payload.len() <= 65536 {
                 for attempt in 0..3 {

@@ -2,10 +2,11 @@ use crate::{
     connectors::provider_dir,
     model::*,
     normalize::{apply_hook, parse_record},
+    process,
     storage::Store,
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::{self, File},
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
@@ -31,7 +32,9 @@ impl Collector {
             .sessions()
             .into_iter()
             .map(|mut s| {
-                if s.activity != "finished" {
+                // Without its agent's process, a busy session may have moved on while Glim was
+                // closed. One whose agent is known picks up where it was, or ends below.
+                if s.process.is_none() && matches!(s.activity.as_str(), "working" | "waiting") {
                     s.activity = "stale".into();
                     s.detail = "Waiting for fresh activity".into();
                 }
@@ -39,23 +42,67 @@ impl Collector {
             })
             .collect();
         sessions.retain(|_, s| s.updated_at > now_ms() - 86400000);
-        Self {
+        let mut collector = Self {
             store,
             sessions,
             preferences,
             connectors,
             files: HashMap::new(),
             island_expanded: false,
+        };
+        collector.end_closed(0);
+        collector
+    }
+    /// Ends the sessions whose agent has closed, and whatever is still open under them.
+    fn end_closed(&mut self, at: i64) -> bool {
+        let closed: Vec<_> = self
+            .sessions
+            .values()
+            .filter(|s| {
+                s.parent_id.is_none()
+                    && s.activity != "finished"
+                    && s.process.is_some_and(|p| !process::is_open(p))
+            })
+            .map(|s| (s.provider, s.id.clone()))
+            .collect();
+        for (provider, id) in &closed {
+            end(
+                &mut self.sessions,
+                &self.store,
+                *provider,
+                id,
+                "Session closed",
+                at,
+            );
         }
+        !closed.is_empty()
     }
     pub fn snapshot(&self) -> Snapshot {
+        // An ended session stays long enough to see it end, then leaves with its subagents.
+        let now = now_ms();
+        let gone: HashSet<_> = self
+            .sessions
+            .values()
+            .filter(|s| {
+                s.parent_id.is_none()
+                    && s.activity == "finished"
+                    && now - s.updated_at > ENDED_SHOWN
+            })
+            .map(|s| (s.provider, s.id.as_str()))
+            .collect();
         let mut sessions: Vec<_> = self
             .sessions
             .values()
             .filter(|s| {
-                self.connectors
-                    .iter()
-                    .any(|c| c.provider == s.provider && c.enabled)
+                !gone.contains(&(s.provider, s.id.as_str()))
+                    && !s
+                        .parent_id
+                        .as_deref()
+                        .is_some_and(|p| gone.contains(&(s.provider, p)))
+                    && self
+                        .connectors
+                        .iter()
+                        .any(|c| c.provider == s.provider && c.enabled)
             })
             .cloned()
             .collect();
@@ -87,6 +134,17 @@ impl Collector {
         });
         apply_hook(s, &event);
         let _ = self.store.save_session(s);
+        if event.event == "SessionEnd" && event.parent_id.is_none() {
+            let id = event.session_id.clone();
+            end(
+                &mut self.sessions,
+                &self.store,
+                event.provider,
+                &id,
+                "Session ended",
+                0,
+            );
+        }
         if let Some(path) = event.transcript_path {
             let path = PathBuf::from(path);
             // Only local JSONL under this provider's data root. Never follow arbitrary hook paths.
@@ -187,6 +245,7 @@ impl Collector {
             }
         }
         let now = now_ms();
+        changed |= self.end_closed(now);
         for s in self.sessions.values_mut() {
             s.limits.retain(|l| l.resets_at > now);
             // Quiet working sessions are explicitly uncertain, never inferred finished.
@@ -198,6 +257,29 @@ impl Collector {
             }
         }
         changed
+    }
+}
+const ENDED_SHOWN: i64 = 5 * 60 * 1000;
+
+/// Ends a session and whatever is still open under it. A subagent cannot outlive its session,
+/// and cancelled ones never send SubagentStop. `at` is when, if later than the last event.
+fn end(
+    sessions: &mut HashMap<String, Session>,
+    store: &Store,
+    provider: Provider,
+    id: &str,
+    detail: &str,
+    at: i64,
+) {
+    for s in sessions.values_mut().filter(|s| {
+        s.provider == provider
+            && s.activity != "finished"
+            && (s.id == id || s.parent_id.as_deref() == Some(id))
+    }) {
+        s.activity = "finished".into();
+        s.detail = detail.into();
+        s.updated_at = s.updated_at.max(at);
+        let _ = store.save_session(s);
     }
 }
 /// Who a transcript belongs to, from its first lines: the session, its project folder, and whether
@@ -414,6 +496,81 @@ mod tests {
         assert_eq!(session.activity, "working");
         assert_eq!(session.project, "project");
         assert_eq!(session.started_at, stamp);
+    }
+    #[test]
+    fn a_session_ending_ends_the_subagents_that_never_reported_their_end() {
+        let db = Store::open(Path::new(":memory:")).unwrap();
+        let connector = Connector {
+            provider: Provider::Claude,
+            detected: true,
+            enabled: true,
+            version: None,
+            config_path: String::new(),
+            changes: vec![],
+            note: String::new(),
+            error: None,
+        };
+        let mut collector = Collector::new(db, vec![connector]);
+        let hook = |value| crate::normalize::hook_event(Provider::Claude, value, false).unwrap();
+        assert!(collector.ingest(hook(serde_json::json!({ "session_id": "p", "agent_id": "cancelled", "hook_event_name": "PreToolUse", "tool_name": "Bash" }))));
+        assert_eq!(collector.sessions["claude:cancelled"].activity, "working");
+        assert!(collector.ingest(hook(
+            serde_json::json!({ "session_id": "p", "hook_event_name": "SessionEnd" })
+        )));
+        assert_eq!(collector.sessions["claude:cancelled"].activity, "finished");
+    }
+    #[test]
+    fn what_an_agent_said_is_shown_but_never_stored() {
+        let db = Store::open(Path::new(":memory:")).unwrap();
+        let mut s = Session::new(Provider::Claude, "s".into());
+        s.message = Some("Want me to push?".into());
+        db.save_session(&s).unwrap();
+        assert_eq!(db.sessions()[0].message, None);
+    }
+    #[test]
+    fn a_closed_agent_ends_its_session_which_then_leaves_the_island() {
+        let db = Store::open(Path::new(":memory:")).unwrap();
+        let connector = Connector {
+            provider: Provider::Claude,
+            detected: true,
+            enabled: true,
+            version: None,
+            config_path: String::new(),
+            changes: vec![],
+            note: String::new(),
+            error: None,
+        };
+        let mut collector = Collector::new(db, vec![connector]);
+        // Process ids are multiples of four, so this agent is never running.
+        let closed = Some((u32::MAX - 2, 1));
+        for value in [
+            serde_json::json!({ "session_id": "gone", "hook_event_name": "Stop" }),
+            serde_json::json!({ "session_id": "gone", "agent_id": "sub", "hook_event_name": "PreToolUse", "tool_name": "Bash" }),
+            serde_json::json!({ "session_id": "kept", "hook_event_name": "Stop" }),
+        ] {
+            let mut event = crate::normalize::hook_event(Provider::Claude, value, false).unwrap();
+            event.process = closed.filter(|_| event.session_id != "kept");
+            assert!(collector.ingest(event));
+        }
+        assert!(collector.poll());
+        for key in ["claude:gone", "claude:sub"] {
+            assert_eq!(collector.sessions[key].activity, "finished");
+            assert_eq!(collector.sessions[key].detail, "Session closed");
+        }
+        // Without a known process there is nothing to check: the session stays.
+        assert_eq!(collector.sessions["claude:kept"].activity, "idle");
+        let shown = |c: &Collector| -> Vec<String> {
+            let mut ids: Vec<_> = c.snapshot().sessions.into_iter().map(|s| s.id).collect();
+            ids.sort();
+            ids
+        };
+        assert_eq!(shown(&collector), ["gone", "kept", "sub"]);
+        collector
+            .sessions
+            .get_mut("claude:gone")
+            .unwrap()
+            .updated_at -= ENDED_SHOWN + 1;
+        assert_eq!(shown(&collector), ["kept"]);
     }
     #[test]
     fn partial_lines_are_not_consumed_and_restart_replays_are_safe() {

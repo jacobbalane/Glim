@@ -4,6 +4,7 @@ pub mod ipc;
 pub mod model;
 pub mod normalize;
 mod platform;
+pub mod process;
 mod storage;
 
 use collector::Collector;
@@ -117,6 +118,18 @@ fn queue_panel(view: String, app: tauri::AppHandle) {
         let _ = open_panel(view, app).await;
     });
 }
+/// Brings the window an agent runs in to the front. False when it can't be found.
+#[tauri::command]
+fn show_agent(id: String, state: tauri::State<Shared>) -> Result<bool, String> {
+    let target = lock(&state)?
+        .sessions
+        .values()
+        .find(|s| s.id == id)
+        .and_then(|s| Some((s.process?, s.project.clone())));
+    Ok(target.is_some_and(|(agent, project)| {
+        process::is_open(agent) && process::show(agent.0, &project)
+    }))
+}
 #[tauri::command]
 fn open_releases() -> Result<(), String> {
     let mut command = std::process::Command::new("rundll32.exe");
@@ -149,6 +162,7 @@ pub fn run() {
             monitors,
             island_shape,
             open_panel,
+            show_agent,
             open_releases
         ])
         .setup(|app| {
