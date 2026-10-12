@@ -922,10 +922,12 @@ html:has(.native-stage) {
    meets the island's and follows it as the island resizes; a longer message scrolls inside it.
    The native window cuts the same rounded box into its region. */
 .island-side {
+  /* The same gap to the screen's top edge as to the island. */
+  --gap: 14px;
   position: absolute;
-  top: 10px;
+  top: var(--gap);
   bottom: 0;
-  left: calc(100% + 14px);
+  left: calc(100% + var(--gap));
 }
 .side-said {
   display: flex;
