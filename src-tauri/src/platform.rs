@@ -106,7 +106,17 @@ mod region {
             side,
         } = g;
         unsafe {
-            let body = Region::owned(CreateRoundRectRgn(x, -r, x + w + 1, h + 1, r * 2, r * 2))?;
+            // The region's corners are a little tighter than the painted ones, so the curve's soft
+            // edge is drawn whole instead of cut into steps; it costs a sliver of corner pixels.
+            let soft = (r - 4).max(1);
+            let body = Region::owned(CreateRoundRectRgn(
+                x,
+                -soft,
+                x + w + 1,
+                h + 1,
+                soft * 2,
+                soft * 2,
+            ))?;
             // GDI's rounded primitive needs the extra endpoint pixel. Clip to the exact
             // painted extent so neither the first transparent bottom row nor the area
             // above the screen becomes part of the window's hit region.
@@ -123,8 +133,14 @@ mod region {
             right.combine(&right_cut, RGN_DIFF)?;
             body.combine(&right, RGN_OR)?;
             if let Some([x, y, w, h, r]) = side {
-                let panel =
-                    Region::owned(CreateRoundRectRgn(x, y, x + w + 1, y + h + 1, r * 2, r * 2))?;
+                let panel = Region::owned(CreateRoundRectRgn(
+                    x,
+                    y,
+                    x + w + 1,
+                    y + h + 1,
+                    r * 2 - 8,
+                    r * 2 - 8,
+                ))?;
                 body.combine(&panel, RGN_OR)?;
             }
             Ok(body)

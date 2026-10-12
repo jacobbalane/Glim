@@ -1145,6 +1145,12 @@ html:has(.native-stage) {
   cursor: pointer;
   transition: background-color 150ms var(--ease-out);
 }
+/* The last row's corners follow the island's own, 8px further in. */
+.others > li:last-child > .row,
+.others > li:last-child li:last-child > .row {
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
 .row:hover {
   background: var(--hover);
 }

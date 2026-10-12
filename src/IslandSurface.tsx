@@ -70,9 +70,18 @@ function ViewFrame({
       inert={!present}
       aria-hidden={!present || undefined}
       initial={{ opacity: 0, filter: reduced ? 'none' : 'blur(3px)' }}
-      animate={{ opacity: 1, filter: reduced ? 'none' : 'blur(0px)' }}
-      exit={{ opacity: 0, filter: reduced ? 'none' : 'blur(3px)' }}
-      transition={{ duration: reduced ? 0.06 : 0.2, ease: [0.23, 1, 0.32, 1] }}
+      // The new view arrives about as fast as the surface makes room for it; the old one leaves
+      // quickly.
+      animate={{
+        opacity: 1,
+        filter: reduced ? 'none' : 'blur(0px)',
+        transition: { duration: reduced ? 0.06 : 0.32, ease: [0.23, 1, 0.32, 1] },
+      }}
+      exit={{
+        opacity: 0,
+        filter: reduced ? 'none' : 'blur(3px)',
+        transition: { duration: reduced ? 0.06 : 0.18, ease: [0.23, 1, 0.32, 1] },
+      }}
     >
       <motion.div style={{ opacity: ink ? (compact ? ink.compact : ink.expanded) : 1 }}>
         {children}

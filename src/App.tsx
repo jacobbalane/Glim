@@ -303,7 +303,15 @@ export default function App() {
       >
         <IslandSurface
           expanded={expanded}
-          viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
+          // Folding into the list or picking an agent crossfades like any other view change,
+          // so new content never shows before the island has room for it.
+          viewKey={
+            view === 'details'
+              ? `details-${focus?.session.id}`
+              : view === 'glance'
+                ? `glance-${listed ? 'list' : (focusId ?? 'top')}`
+                : view
+          }
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
           reduced={reduced}
           onError={setError}

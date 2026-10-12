@@ -124,6 +124,6 @@ test('interactive notch keeps one surface and animates working activity', async 
   await controls.getByRole('button', { name: 'Expand', exact: true }).click();
   await frame.getByRole('button', { name: /^glim-desktop · Claude:/ }).click();
   await controls.getByLabel('Agent activity').selectOption('finished');
-  await expect(frame.locator('.hero .chip')).toHaveText('Done');
+  await expect(frame.locator('.frame:not([aria-hidden]) .hero .chip')).toHaveText('Done');
   await expect(island).toHaveAttribute('data-persistence-check', 'same');
 });
