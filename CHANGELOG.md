@@ -2,7 +2,7 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
-## Unreleased
+## 0.1.3 (2026-10-12)
 
 Glim now shows only the agents you have open, one project per row.
 
@@ -25,6 +25,7 @@ Glim now shows only the agents you have open, one project per row.
 - Subagents that were cancelled, or ran out of usage, no longer fill a session's list. Only working subagents get a row; the rest fold into "finished" and "quiet" lines.
 - When a session ends, any subagent still open under it ends too.
 - The **+N** next to a session counts only its working subagents.
+- The island's rounded corners keep their soft edge instead of a pixel staircase, and its icons no longer jitter while it resizes.
 
 ## 0.1.2 (2026-10-11)
 
