@@ -206,6 +206,11 @@ const Inbox = forwardRef<
 /* Glance: one agent in depth, every other agent one row each          */
 /* ------------------------------------------------------------------ */
 
+// The message panel clipped to its top edge, and fully shown. Clipping, not scaling, uncovers the
+// text in place instead of stretching it.
+const rolledUp = 'inset(0 0 100% 0 round 14px)';
+const unrolled = 'inset(0 0 0% 0 round 14px)';
+
 function Hero({
   group,
   now,
@@ -236,6 +241,7 @@ function Hero({
         ? 'asks'
         : 'said';
   const [reading, setReading] = useState(false);
+  const reduced = useReducedMotion();
   // A new message, or another agent, starts with the panel closed.
   useEffect(() => setReading(false), [s.id, s.message]);
   const total = totalTokens(s.tokens);
@@ -274,24 +280,31 @@ function Hero({
             <span>{s.message}</span>
           </button>
         )}
-        {said &&
-          reading &&
-          slot &&
+        {slot &&
           createPortal(
-            <aside
-              className={`side-said tone-${look.tone}`}
-              aria-label={`What ${agent} ${saidVerb}`}
-            >
-              <header>
-                <span>
-                  {agent} {saidVerb}
-                </span>
-                <IconButton label="Close" onClick={() => setReading(false)}>
-                  <X size={14} />
-                </IconButton>
-              </header>
-              <p>{s.message}</p>
-            </aside>,
+            <AnimatePresence>
+              {said && reading && (
+                // Unrolls downward from its top edge, and rolls back up when it closes.
+                <motion.aside
+                  className={`side-said tone-${look.tone}`}
+                  aria-label={`What ${agent} ${saidVerb}`}
+                  initial={{ clipPath: rolledUp }}
+                  animate={{ clipPath: unrolled }}
+                  exit={{ clipPath: rolledUp }}
+                  transition={{ duration: reduced ? 0 : 0.34, ease: [0.23, 1, 0.32, 1] }}
+                >
+                  <header>
+                    <span>
+                      {agent} {saidVerb}
+                    </span>
+                    <IconButton label="Close" onClick={() => setReading(false)}>
+                      <X size={14} />
+                    </IconButton>
+                  </header>
+                  <p>{s.message}</p>
+                </motion.aside>
+              )}
+            </AnimatePresence>,
             slot,
           )}
         {s.tasks.length > 0 && (
