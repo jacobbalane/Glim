@@ -416,6 +416,35 @@ function Empty() {
   );
 }
 
+// What is under the bar, arriving over the time the island takes to resize; the view leaving goes
+// quickly and can no longer be reached.
+const Crossfade = forwardRef<HTMLDivElement, { reduced: boolean; children: ReactNode }>(
+  function Crossfade({ reduced, children }, ref) {
+    const present = useIsPresent();
+    const ease = [0.23, 1, 0.32, 1] as const;
+    return (
+      <motion.div
+        ref={ref}
+        inert={!present}
+        aria-hidden={!present || undefined}
+        initial={{ opacity: 0, filter: reduced ? 'none' : 'blur(3px)' }}
+        animate={{
+          opacity: 1,
+          filter: reduced ? 'none' : 'blur(0px)',
+          transition: { duration: reduced ? 0.06 : 0.32, ease },
+        }}
+        exit={{
+          opacity: 0,
+          filter: reduced ? 'none' : 'blur(3px)',
+          transition: { duration: reduced ? 0.06 : 0.18, ease },
+        }}
+      >
+        {children}
+      </motion.div>
+    );
+  },
+);
+
 export function Glance({
   groups,
   focusId = null,
@@ -447,6 +476,7 @@ export function Glance({
   onResume?: () => void;
 }) {
   const focus = listed ? undefined : (groups.find((g) => g.session.id === focusId) ?? groups[0]);
+  const reduced = useReducedMotion();
   const others = groups.filter((g) => g !== focus);
   const projects = byProject(groups);
   const alone = (g: Group) => projects.some((p) => p.length === 1 && p[0] === g);
@@ -513,32 +543,38 @@ export function Glance({
         </div>
       )}
       <div className="glance-body">
-        {focus ? (
-          <Hero
-            group={focus}
-            now={now}
-            onDetails={onDetails && (() => onDetails(focus.session.id))}
-            onShow={onShow && (() => onShow(focus.session.id))}
-            onFold={onList && (() => onList(true))}
-          />
-        ) : (
-          groups.length === 0 && <Empty />
-        )}
-        {others.length > 0 && (
-          <ul className="others">
-            {/* One row per project; a project with several agents lists them under its name. */}
-            {byProject(others).map((agents) =>
-              agents.length === 1 && alone(agents[0]) ? (
-                row(agents[0], agents[0].session.project)
-              ) : (
-                <li key={agents[0].session.project} className="project">
-                  <span className="project-name">{agents[0].session.project}</span>
-                  <ul>{agents.map((g) => row(g, g.agent))}</ul>
-                </li>
-              ),
+        {/* Folding into the list or picking an agent changes only what is under the bar: it
+            crossfades, arriving over the time the island takes to resize, while the bar stays. */}
+        <AnimatePresence initial={false} mode="popLayout">
+          <Crossfade key={focus ? focus.session.id : 'list'} reduced={reduced}>
+            {focus ? (
+              <Hero
+                group={focus}
+                now={now}
+                onDetails={onDetails && (() => onDetails(focus.session.id))}
+                onShow={onShow && (() => onShow(focus.session.id))}
+                onFold={onList && (() => onList(true))}
+              />
+            ) : (
+              groups.length === 0 && <Empty />
             )}
-          </ul>
-        )}
+            {others.length > 0 && (
+              <ul className="others">
+                {/* One row per project; a project with several agents lists them under its name. */}
+                {byProject(others).map((agents) =>
+                  agents.length === 1 && alone(agents[0]) ? (
+                    row(agents[0], agents[0].session.project)
+                  ) : (
+                    <li key={agents[0].session.project} className="project">
+                      <span className="project-name">{agents[0].session.project}</span>
+                      <ul>{agents.map((g) => row(g, g.agent))}</ul>
+                    </li>
+                  ),
+                )}
+              </ul>
+            )}
+          </Crossfade>
+        </AnimatePresence>
       </div>
     </div>
   );

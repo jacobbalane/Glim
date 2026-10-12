@@ -26,7 +26,9 @@ test('island expands, selects a session, and interrupts cleanly', async ({ page 
   await expect(
     page.getByRole('heading', { name: 'api-service · Codex', exact: true }),
   ).toBeVisible();
-  await expect(page.locator('.frame:not([aria-hidden]) .hero .chip')).toHaveText('Needs approval');
+  await expect(
+    page.locator('.frame:not([aria-hidden]) .glance-body > :not([aria-hidden]) .hero .chip'),
+  ).toHaveText('Needs approval');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: /^Glim:/ })).toBeVisible();
   // Reversal while the previous transition is still settling must preserve control.

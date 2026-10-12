@@ -116,17 +116,20 @@ test('the same header position toggles the island and status stays close to its 
   const point = { x: box!.x + box!.width / 2, y: 17 };
   await page.mouse.click(point.x, point.y);
   await expect(island).toHaveAttribute('data-expanded', 'true');
-  await expect(page.locator('.frame:not([aria-hidden]) .hero .chip')).toHaveText('Ready');
+  await expect(
+    page.locator('.frame:not([aria-hidden]) .glance-body > :not([aria-hidden]) .hero .chip'),
+  ).toHaveText('Ready');
   await page.mouse.click(point.x, point.y);
   await expect(island).toHaveAttribute('data-expanded', 'false');
   await island.getByRole('button', { name: /^Glim:/ }).click();
   await expect(page.locator('.bar')).toHaveCSS('height', '42px');
   await simulate(page, 'waiting', 'demo-claude', 'Waiting for approval');
-  await expect(page.locator('.frame:not([aria-hidden]) .hero .chip')).toHaveCSS(
-    'color',
-    'rgb(255, 197, 61)',
-  );
-  await expect(page.locator('.frame:not([aria-hidden]) .hero .chip')).toHaveCSS('gap', '7px');
+  await expect(
+    page.locator('.frame:not([aria-hidden]) .glance-body > :not([aria-hidden]) .hero .chip'),
+  ).toHaveCSS('color', 'rgb(255, 197, 61)');
+  await expect(
+    page.locator('.frame:not([aria-hidden]) .glance-body > :not([aria-hidden]) .hero .chip'),
+  ).toHaveCSS('gap', '7px');
   await island.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
 });

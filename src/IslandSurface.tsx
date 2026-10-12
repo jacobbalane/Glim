@@ -113,6 +113,9 @@ export default function IslandSurface({
   const width = useSpring(targetWidth, SURFACE_SPRING);
   const height = useSpring(34, SURFACE_SPRING);
   const target = useMotionValue(targetWidth);
+  // Drawn in whole, even pixels: the surface stays centred on the same pixel as it resizes, so the
+  // views inside never shift by a fraction, which made their icons jitter between two pixels.
+  const even = useTransform(width, (v) => Math.round(v / 2) * 2);
   const radius = useTransform(width, [cap, wide], [17, 24]);
   const compactInk = useTransform(width, [cap, cap + 26], [1, 0]);
   const expandedInk = useTransform(width, [wide - 30, wide], [0, 1]);
@@ -149,7 +152,7 @@ export default function IslandSurface({
     if (scheduled.current !== null) return;
     scheduled.current = requestAnimationFrame(() => {
       scheduled.current = null;
-      const w = Math.round(width.get()),
+      const w = even.get(),
         h = Math.round(height.get());
       if (designScene)
         window.parent.postMessage({ type: 'glim:preview:size', height: h }, location.origin);
@@ -195,7 +198,7 @@ export default function IslandSurface({
       data-compact={!expanded}
       data-testid="island"
       data-expanded={expanded}
-      style={{ width, height }}
+      style={{ width: even, height }}
     >
       <span className="shoulder l" aria-hidden="true" />
       <span className="shoulder r" aria-hidden="true" />

@@ -1131,6 +1131,10 @@ html:has(.native-stage) {
 .link:hover {
   color: var(--fg-1);
 }
+/* The view under the bar crossfades in place; the one leaving lies over it until it is gone. */
+.glance-body {
+  position: relative;
+}
 .others {
   list-style: none;
   margin: 2px 0 0;
