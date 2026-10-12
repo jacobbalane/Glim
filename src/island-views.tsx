@@ -1,7 +1,15 @@
 import { forwardRef, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useIsPresent } from 'motion/react';
-import { ArrowUpRight, ChartColumn, ChevronRight, ChevronUp, Settings2, X } from 'lucide-react';
+import {
+  ArrowUpRight,
+  ChartColumn,
+  ChevronRight,
+  ChevronUp,
+  ListCollapse,
+  Settings2,
+  X,
+} from 'lucide-react';
 import { Eyes, HelloCharacter, type Tone, type Mood } from './Character';
 import { SurfaceInk as Ink, SideSlot } from './IslandSurface';
 import Ticker from './LiveText';
@@ -35,7 +43,7 @@ export function Compact({
   count: number;
   paused: boolean;
   now: number;
-  onOpen?: (id?: string) => void;
+  onOpen?: (id?: string, picked?: boolean) => void;
   onRun?: (px: number) => void;
   inboxHidden: boolean;
   onInboxHiddenChange: (hidden: boolean) => void;
@@ -140,7 +148,7 @@ const Inbox = forwardRef<
     groups: Group[];
     now: number;
     reduced: boolean;
-    onOpen?: (id?: string) => void;
+    onOpen?: (id?: string, picked?: boolean) => void;
     onHide: (keyboard: boolean) => void;
   }
 >(function Inbox({ groups, now, reduced, onOpen, onHide }, ref) {
@@ -173,7 +181,7 @@ const Inbox = forwardRef<
           >
             <button
               className={`inbox-row tone-${g.look.tone}`}
-              onClick={() => onOpen?.(g.session.id)}
+              onClick={() => onOpen?.(g.session.id, true)}
               aria-label={`${nameOf(g)}: ${g.look.label}. Open.`}
             >
               <i className="dot" aria-hidden="true" />
@@ -186,7 +194,7 @@ const Inbox = forwardRef<
       </AnimatePresence>
       <li className="inbox-actions">
         {groups.length > 3 && (
-          <button className="inbox-more" onClick={() => onOpen?.(groups[3].session.id)}>
+          <button className="inbox-more" onClick={() => onOpen?.(groups[3].session.id, true)}>
             {groups.length - 3} more
           </button>
         )}
@@ -216,11 +224,13 @@ function Hero({
   now,
   onDetails,
   onShow,
+  onFold,
 }: {
   group: Group;
   now: number;
   onDetails?: () => void;
   onShow?: () => void;
+  onFold?: () => void;
 }) {
   const { session: s, look, children } = group;
   const finished = children.filter((child) => child.activity === 'finished').length;
@@ -261,6 +271,11 @@ function Hero({
           <Eyes mood={look.mood} tone={look.tone} size={24} />
           {look.label}
         </span>
+        {onFold && (
+          <IconButton label="Show as a list" onClick={onFold}>
+            <ListCollapse size={15} />
+          </IconButton>
+        )}
       </div>
       <div className="hero-body">
         <p className="hero-now">
@@ -404,8 +419,10 @@ function Empty() {
 export function Glance({
   groups,
   focusId = null,
+  listed = false,
   now,
   paused,
+  onList,
   onFocus,
   onDetails,
   onShow,
@@ -416,8 +433,11 @@ export function Glance({
 }: {
   groups: Group[];
   focusId?: string | null;
+  // Every agent as a row, none shown in full.
+  listed?: boolean;
   now: number;
   paused: boolean;
+  onList?: (listed: boolean) => void;
   onFocus?: (id: string) => void;
   onDetails?: (id: string) => void;
   onShow?: (id: string) => void;
@@ -426,7 +446,7 @@ export function Glance({
   onCollapse?: () => void;
   onResume?: () => void;
 }) {
-  const focus = groups.find((g) => g.session.id === focusId) ?? groups[0];
+  const focus = listed ? undefined : (groups.find((g) => g.session.id === focusId) ?? groups[0]);
   const others = groups.filter((g) => g !== focus);
   const projects = byProject(groups);
   const alone = (g: Group) => projects.some((p) => p.length === 1 && p[0] === g);
@@ -499,9 +519,10 @@ export function Glance({
             now={now}
             onDetails={onDetails && (() => onDetails(focus.session.id))}
             onShow={onShow && (() => onShow(focus.session.id))}
+            onFold={onList && (() => onList(true))}
           />
         ) : (
-          <Empty />
+          groups.length === 0 && <Empty />
         )}
         {others.length > 0 && (
           <ul className="others">

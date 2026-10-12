@@ -9,6 +9,7 @@ Glim now shows only the agents you have open, one project per row.
 ### New
 
 - **One row per project.** A project with several agents lists them under its name, and the island counts projects.
+- **Just the list.** Fold the open agent into the list to see every agent as a row; the island stays that way until you pick an agent or open a notice.
 - **Every agent is named by project and agent**, in the island and its notices: "Glim · Claude", "Glim · Codex".
 - **The weekly limit** shows beside context and the 5-hour limit, with when it resets.
 - **What the agent said.** When it hands over, the open island previews its last message, its question or the command it asks to run. Click it to read all of it in a panel to the right of the island, which never grows taller for it; a long message scrolls inside the panel. It lives in memory only and is never written to disk.

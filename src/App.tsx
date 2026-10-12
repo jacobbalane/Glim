@@ -30,6 +30,8 @@ export default function App() {
   const [focusId, setFocusId] = useState<string | null>(
     designScene ? (designScene.selectedId ?? 'demo-claude') : null,
   );
+  // The open island as a list of every agent, kept until an agent is picked.
+  const [listed, setListed] = useState(false);
   const [seenAt, setSeenAt] = useState(Date.now);
   const [inboxHidden, setInboxHidden] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot>({
@@ -232,8 +234,9 @@ export default function App() {
         paused={paused}
         now={now}
         onRun={setRun}
-        onOpen={(id) => {
+        onOpen={(id, picked) => {
           setFocusId(id ?? null);
+          if (picked) setListed(false);
           back();
         }}
       />
@@ -258,9 +261,14 @@ export default function App() {
       <Glance
         groups={groups}
         focusId={focus?.session.id}
+        listed={listed}
         now={now}
         paused={paused}
-        onFocus={setFocusId}
+        onList={setListed}
+        onFocus={(id) => {
+          setFocusId(id);
+          setListed(false);
+        }}
         onDetails={(id) => {
           setFocusId(id);
           setView('details');

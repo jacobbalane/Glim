@@ -115,3 +115,24 @@ test('the full message opens right of the island without making it taller', asyn
   await panel.getByRole('button', { name: 'Close' }).click();
   await expect(panel).toHaveCount(0);
 });
+
+test('the open agent folds into the list, which stays until an agent is picked', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Glim:/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'glim-desktop · Claude', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Show as a list' }).click();
+  await expect(page.locator('.hero')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^glim-desktop · Claude:/ })).toBeVisible();
+  // Closing and opening the island keeps the list.
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: /^Glim:/ }).click();
+  await expect(page.locator('.hero')).toHaveCount(0);
+  await page.getByRole('button', { name: /^api-service · Codex:/ }).click();
+  await expect(
+    page.getByRole('heading', { name: 'api-service · Codex', exact: true }),
+  ).toBeVisible();
+});
