@@ -110,6 +110,8 @@ test('the full message opens right of the island without making it taller', asyn
   await expect(panel).toContainText('Want me to update the cards to match?');
   const box = (await panel.boundingBox())!;
   expect(box.x).toBeGreaterThan(before.x + before.width);
+  // Its bottom meets the island's.
+  expect(box.y + box.height).toBeCloseTo(before.y + before.height, 0);
   await page.waitForTimeout(400);
   expect((await island.boundingBox())!.height).toBeCloseTo(before.height, 0);
   await panel.getByRole('button', { name: 'Close' }).click();
