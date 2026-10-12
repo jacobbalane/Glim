@@ -323,7 +323,7 @@ try {
   );
   await page.getByRole('button', { name: /^Glim:/ }).click();
   await page.getByRole('button', { name: 'Collapse Glim' }).waitFor();
-  await page.getByRole('button', { name: /glim-smoke, Claude Code:/ }).click();
+  await page.getByRole('button', { name: /^glim-smoke · Claude:/ }).click();
   await page.locator('.hero .glim-character[data-renderer="3d"]').waitFor();
   await checkRegion('live-agent');
   assert.equal(await page.locator('.hero-head .logo').getAttribute('src'), '/providers/claude.svg');
