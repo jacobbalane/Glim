@@ -1,8 +1,9 @@
-import { forwardRef, useContext, useRef, type ReactNode } from 'react';
+import { forwardRef, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useIsPresent } from 'motion/react';
-import { ArrowUpRight, ChartColumn, ChevronRight, ChevronUp, Settings2 } from 'lucide-react';
+import { ArrowUpRight, ChartColumn, ChevronRight, ChevronUp, Settings2, X } from 'lucide-react';
 import { Eyes, HelloCharacter, type Tone, type Mood } from './Character';
-import { SurfaceInk as Ink } from './IslandSurface';
+import { SurfaceInk as Ink, SideSlot } from './IslandSurface';
 import Ticker from './LiveText';
 import useReducedMotion from './useReducedMotion';
 import { Logo, IconButton, Meter } from './island-components';
@@ -226,6 +227,17 @@ function Hero({
   const nextLabel =
     current?.label ?? s.tasks.find((task) => task.status === 'pending')?.label ?? 'All steps done';
   const limits = s.limits.filter((item) => item.resetsAt > now);
+  const slot = useContext(SideSlot);
+  const said = s.activity !== 'working' && s.message;
+  const saidVerb =
+    look.label === 'Needs approval'
+      ? 'wants to run'
+      : look.label === 'Needs an answer'
+        ? 'asks'
+        : 'said';
+  const [reading, setReading] = useState(false);
+  // A new message, or another agent, starts with the panel closed.
+  useEffect(() => setReading(false), [s.id, s.message]);
   const total = totalTokens(s.tokens);
   const agent = PROVIDERS[s.provider].short;
   const hint =
@@ -250,12 +262,38 @@ function Hero({
           <span className="num">{timeOf(s, now)}</span>
         </p>
         {hint && <p className="hero-hint">{hint}</p>}
-        {/* What it said or asks, once it hands over; while it works, its step says more. */}
-        {s.message && s.activity !== 'working' && (
-          <p className="hero-said" title={s.message}>
-            {s.message}
-          </p>
+        {/* What it said or asks, once it hands over; while it works, its step says more. All of
+            it opens beside the island, so the island never grows taller for it. */}
+        {said && (
+          <button
+            className="hero-said"
+            aria-expanded={reading}
+            aria-label={`Read what ${agent} ${saidVerb}`}
+            onClick={() => setReading((open) => !open)}
+          >
+            <span>{s.message}</span>
+          </button>
         )}
+        {said &&
+          reading &&
+          slot &&
+          createPortal(
+            <aside
+              className={`side-said tone-${look.tone}`}
+              aria-label={`What ${agent} ${saidVerb}`}
+            >
+              <header>
+                <span>
+                  {agent} {saidVerb}
+                </span>
+                <IconButton label="Close" onClick={() => setReading(false)}>
+                  <X size={14} />
+                </IconButton>
+              </header>
+              <p>{s.message}</p>
+            </aside>,
+            slot,
+          )}
         {s.tasks.length > 0 && (
           <div className="task">
             <span className="task-label" title={nextLabel}>

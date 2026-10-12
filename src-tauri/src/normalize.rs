@@ -98,11 +98,21 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
         message,
     })
 }
-/// One paragraph of at most 280 characters, for two or three lines in the island.
+/// The text as written, paragraphs kept, at most 4,000 characters: the island shows its first
+/// lines, and all of it in a panel beside the island.
 fn preview(text: &str) -> String {
-    let flat = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let mut short: String = flat.chars().take(280).collect();
-    if flat.chars().count() > 280 {
+    let mut clean = String::new();
+    let mut blank = 0;
+    for line in text.trim().lines().map(str::trim_end) {
+        blank = if line.is_empty() { blank + 1 } else { 0 };
+        if blank < 2 {
+            clean.push_str(line);
+            clean.push('\n');
+        }
+    }
+    let clean = clean.trim_end();
+    let mut short: String = clean.chars().take(4000).collect();
+    if clean.chars().count() > 4000 {
         short.push('…');
     }
     short
@@ -510,19 +520,18 @@ mod tests {
     fn the_island_previews_what_the_agent_says_or_asks() {
         let hook = |v| hook_event(Provider::Claude, v, false).unwrap();
         let stop = hook(
-            json!({"session_id":"s","hook_event_name":"Stop","last_assistant_message":"Done.
-
-Want me to   push?"}),
+            json!({"session_id":"s","hook_event_name":"Stop","last_assistant_message":"Done.\n\n\n\nWant me to push?  \n"}),
         );
-        assert_eq!(stop.message.as_deref(), Some("Done. Want me to push?"));
+        // Paragraphs stay; runs of blank lines and trailing spaces do not.
+        assert_eq!(stop.message.as_deref(), Some("Done.\n\nWant me to push?"));
         let approval = hook(
             json!({"session_id":"s","hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"npm run deploy"}}),
         );
         assert_eq!(approval.message.as_deref(), Some("Bash: npm run deploy"));
         let long = hook(
-            json!({"session_id":"s","hook_event_name":"Stop","last_assistant_message":"x".repeat(400)}),
+            json!({"session_id":"s","hook_event_name":"Stop","last_assistant_message":"x".repeat(5000)}),
         );
-        assert_eq!(long.message.unwrap().chars().count(), 281);
+        assert_eq!(long.message.unwrap().chars().count(), 4001);
         // A notice never replaces what the agent said; the next turn starts clean.
         let mut s = Session::new(Provider::Claude, "s".into());
         s.updated_at = 0; // Older than the events above, which would otherwise read as replays.
@@ -533,7 +542,7 @@ Want me to   push?"}),
                 json!({"session_id":"s","hook_event_name":"Notification","message":"Claude is waiting for your input"}),
             ),
         );
-        assert_eq!(s.message.as_deref(), Some("Done. Want me to push?"));
+        assert_eq!(s.message.as_deref(), Some("Done.\n\nWant me to push?"));
         apply_hook(
             &mut s,
             &hook(json!({"session_id":"s","hook_event_name":"UserPromptSubmit"})),

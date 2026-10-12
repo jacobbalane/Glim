@@ -27,6 +27,8 @@ export const SurfaceInk = createContext<{
   expanded: MotionValue<number>;
   settle: MotionValue<number>;
 } | null>(null);
+// Where a view puts a panel beside the open island, such as an agent's full message.
+export const SideSlot = createContext<HTMLElement | null>(null);
 
 // An exiting view keeps its own layout; only the incoming view measures the surface.
 function ViewFrame({
@@ -116,6 +118,9 @@ export default function IslandSurface({
   expandedRef.current = expanded;
   const scheduled = useRef<number | null>(null);
   const lastShape = useRef('');
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
+  const slotRef = useRef(slot);
+  slotRef.current = slot;
   useEffect(() => {
     const resize = () => setViewportWidth(window.innerWidth);
     window.addEventListener('resize', resize);
@@ -140,10 +145,19 @@ export default function IslandSurface({
       if (designScene)
         window.parent.postMessage({ type: 'glim:preview:size', height: h }, location.origin);
       if (!native) return;
-      const key = `${expandedRef.current}:${w}:${h}`;
+      const panel = slotRef.current?.firstElementChild?.getBoundingClientRect();
+      const side = panel
+        ? {
+            x: Math.floor(panel.left),
+            y: Math.floor(panel.top),
+            width: Math.ceil(panel.width),
+            height: Math.ceil(panel.height),
+          }
+        : null;
+      const key = `${expandedRef.current}:${w}:${h}:${side ? Object.values(side) : ''}`;
       if (key === lastShape.current) return;
       lastShape.current = key;
-      api.shape(expandedRef.current, w, h).catch((e) => onError(String(e)));
+      api.shape(expandedRef.current, w, h, side).catch((e) => onError(String(e)));
     });
   };
   useMotionValueEvent(width, 'change', synchronize);
@@ -151,6 +165,13 @@ export default function IslandSurface({
   useEffect(() => {
     synchronize();
   }, [expanded]);
+  // A side panel opening, closing or growing reshapes the window too.
+  useEffect(() => {
+    if (!slot) return;
+    const observer = new ResizeObserver(synchronize);
+    observer.observe(slot);
+    return () => observer.disconnect();
+  }, [slot]);
   useEffect(
     () => () => {
       if (scheduled.current !== null) cancelAnimationFrame(scheduled.current);
@@ -169,22 +190,25 @@ export default function IslandSurface({
     >
       <span className="shoulder l" aria-hidden="true" />
       <span className="shoulder r" aria-hidden="true" />
+      <div ref={setSlot} className="island-side" />
       <motion.div
         className="surface island"
         style={{ borderBottomLeftRadius: radius, borderBottomRightRadius: radius }}
       >
         <SurfaceInk.Provider value={ink}>
-          <AnimatePresence initial={false}>
-            <ViewFrame
-              key={viewKey}
-              width={expanded ? wide : cap}
-              compact={!expanded}
-              reduced={reduced}
-              onSize={onSize}
-            >
-              {children}
-            </ViewFrame>
-          </AnimatePresence>
+          <SideSlot.Provider value={slot}>
+            <AnimatePresence initial={false}>
+              <ViewFrame
+                key={viewKey}
+                width={expanded ? wide : cap}
+                compact={!expanded}
+                reduced={reduced}
+                onSize={onSize}
+              >
+                {children}
+              </ViewFrame>
+            </AnimatePresence>
+          </SideSlot.Provider>
         </SurfaceInk.Provider>
       </motion.div>
     </motion.div>

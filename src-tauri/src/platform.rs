@@ -7,6 +7,7 @@ pub struct IslandShape(std::sync::Mutex<ShapeState>);
 struct ShapeState {
     width: u32,
     height: u32,
+    side: Option<Side>,
     applied: Option<RegionGeometry>,
 }
 impl Default for ShapeState {
@@ -14,9 +15,20 @@ impl Default for ShapeState {
         Self {
             width: 300,
             height: 34,
+            side: None,
             applied: None,
         }
     }
+}
+
+/// A panel beside the open island, such as an agent's full message, in logical pixels from the
+/// window's top left.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub struct Side {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
 }
 
 // Logical dimensions match IslandSurface.tsx and the 8px shoulders in styles.css.
@@ -27,9 +39,12 @@ struct RegionGeometry {
     height: i32,
     radius: i32,
     shoulder: i32,
+    /// The side panel's left, top, width, height and corner radius.
+    side: Option<[i32; 5]>,
 }
 impl RegionGeometry {
-    fn new(width: u32, height: u32, scale: f64, host_width: u32) -> Self {
+    fn new(width: u32, height: u32, scale: f64, host_width: u32, side: Option<Side>) -> Self {
+        let px = |v: f64| (v * scale).round() as i32;
         let wide = (host_width as f64 / scale - 40.).clamp(204., 440.);
         let cap = 360_f64.min(wide - 60.);
         let logical_width = (width as f64).clamp(144., wide);
@@ -41,6 +56,7 @@ impl RegionGeometry {
             height: (height.clamp(34, 616) as f64 * scale).round() as i32,
             radius: (radius * scale).round() as i32,
             shoulder: (8. * scale).round() as i32,
+            side: side.map(|s| [px(s.x), px(s.y), px(s.width), px(s.height), px(14.)]),
         }
     }
 }
@@ -87,6 +103,7 @@ mod region {
             height: h,
             radius: r,
             shoulder: s,
+            side,
         } = g;
         unsafe {
             let body = Region::owned(CreateRoundRectRgn(x, -r, x + w + 1, h + 1, r * 2, r * 2))?;
@@ -105,6 +122,11 @@ mod region {
             let right_cut = Region::owned(CreateEllipticRgn(x + w, 0, x + w + 2 * s, 2 * s))?;
             right.combine(&right_cut, RGN_DIFF)?;
             body.combine(&right, RGN_OR)?;
+            if let Some([x, y, w, h, r]) = side {
+                let panel =
+                    Region::owned(CreateRoundRectRgn(x, y, x + w + 1, y + h + 1, r * 2, r * 2))?;
+                body.combine(&panel, RGN_OR)?;
+            }
             Ok(body)
         }
     }
@@ -154,18 +176,17 @@ pub fn position_island(app: &AppHandle, prefs: &Preferences) -> Result<(), Strin
         .ok_or("No display detected")?;
     let (left, top, width, height) = monitor_work_area(&monitor);
     let available_height = (height as f64 / monitor.scale_factor()).clamp(120., 640.);
-    let current_size = window.inner_size().map_err(|e| e.to_string())?;
-    if current_size.width != (680. * monitor.scale_factor()).round() as u32
-        || current_size.height != (available_height * monitor.scale_factor()).round() as u32
-    {
-        window
-            .set_size(tauri::PhysicalSize::new(
-                (680. * monitor.scale_factor()).round() as u32,
-                (available_height * monitor.scale_factor()).round() as u32,
-            ))
-            .map_err(|e| e.to_string())?;
+    // Room beside the open island for a side panel. The window's region keeps the rest of it
+    // transparent to the pointer.
+    let available_width = (width as f64 / monitor.scale_factor()).clamp(320., 1200.);
+    let size = tauri::PhysicalSize::new(
+        (available_width * monitor.scale_factor()).round() as u32,
+        (available_height * monitor.scale_factor()).round() as u32,
+    );
+    if window.inner_size().map_err(|e| e.to_string())? != size {
+        window.set_size(size).map_err(|e| e.to_string())?;
     }
-    let window_width = (680. * monitor.scale_factor()).round() as i32;
+    let window_width = size.width as i32;
     let x = left + (width - window_width) / 2;
     let current = window.outer_position().map_err(|e| e.to_string())?;
     if current.x != x || current.y != top {
@@ -210,7 +231,13 @@ fn monitor_work_area(m: &tauri::Monitor) -> (i32, i32, i32, i32) {
     )
 }
 
-pub fn shape(app: &AppHandle, width: u32, height: u32, focus: Option<bool>) -> Result<(), String> {
+pub fn shape(
+    app: &AppHandle,
+    width: u32,
+    height: u32,
+    side: Option<Side>,
+    focus: Option<bool>,
+) -> Result<(), String> {
     let window = app
         .get_webview_window("island")
         .ok_or("Island window not found")?;
@@ -220,12 +247,13 @@ pub fn shape(app: &AppHandle, width: u32, height: u32, focus: Option<bool>) -> R
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0;
         let scale = window.scale_factor().map_err(|e| e.to_string())?;
         let host_width = window.inner_size().map_err(|e| e.to_string())?.width;
-        let geometry = RegionGeometry::new(width, height, scale, host_width);
+        let geometry = RegionGeometry::new(width, height, scale, host_width, side);
         let state = app.state::<IslandShape>();
         let changed = {
             let mut state = state.0.lock().map_err(|e| e.to_string())?;
             state.width = width;
             state.height = height;
+            state.side = side;
             let changed = state.applied != Some(geometry);
             // SetWindowRgn sends window-position events. Cache before applying so
             // a resulting resize callback cannot recursively apply the same region.
@@ -256,12 +284,12 @@ pub fn shape(app: &AppHandle, width: u32, height: u32, focus: Option<bool>) -> R
     Ok(())
 }
 pub fn refresh_shape(app: &AppHandle) -> Result<(), String> {
-    let (width, height) = {
+    let (width, height, side) = {
         let state = app.state::<IslandShape>();
         let state = state.0.lock().map_err(|e| e.to_string())?;
-        (state.width, state.height)
+        (state.width, state.height, state.side)
     };
-    shape(app, width, height, None)
+    shape(app, width, height, side, None)
 }
 pub fn fullscreen_over_island(app: &AppHandle) -> bool {
     #[cfg(windows)]
@@ -380,7 +408,7 @@ mod tests {
         for scale in [1., 1.25, 1.5, 2.] {
             for width in [144, 211, 300, 360, 400, 440] {
                 for height in [34, 101, 348, 616] {
-                    let g = RegionGeometry::new(width, height, scale, (680. * scale) as u32);
+                    let g = RegionGeometry::new(width, height, scale, (680. * scale) as u32, None);
                     let region = region::create(g).unwrap();
                     let mut bounds: RECT = unsafe { std::mem::zeroed() };
                     assert_ne!(unsafe { GetRgnBox(region.0, &mut bounds) }, 0);
@@ -415,7 +443,7 @@ mod tests {
     #[test]
     fn native_shoulders_are_small_circles_with_click_through_cutouts() {
         for scale in [1., 1.5] {
-            let g = RegionGeometry::new(300, 34, scale, (680. * scale) as u32);
+            let g = RegionGeometry::new(300, 34, scale, (680. * scale) as u32, None);
             let region = region::create(g).unwrap();
             let point = |x: f64, y: f64| unsafe {
                 PtInRegion(
@@ -435,15 +463,40 @@ mod tests {
     }
 
     #[test]
+    fn a_side_panel_joins_the_region_and_the_gap_beside_it_stays_click_through() {
+        for scale in [1., 1.5] {
+            let side = Side {
+                x: 60.,
+                y: 10.,
+                width: 300.,
+                height: 200.,
+            };
+            let g = RegionGeometry::new(440, 400, scale, (1200. * scale) as u32, Some(side));
+            let region = region::create(g).unwrap();
+            let point = |x: f64, y: f64| unsafe {
+                PtInRegion(
+                    region.0,
+                    (x * scale).round() as i32,
+                    (y * scale).round() as i32,
+                ) != 0
+            };
+            assert!(point(210., 110.), "inside the panel");
+            assert!(!point(375., 110.), "between the panel and the island");
+            assert!(!point(210., 230.), "below the panel");
+            assert!(point(600., 200.), "the island itself");
+        }
+    }
+
+    #[test]
     fn native_geometry_tracks_the_surface_radius_and_host_size() {
         for (width, radius) in [(144, 17), (300, 17), (360, 17), (400, 21), (440, 24)] {
-            assert_eq!(RegionGeometry::new(width, 34, 1., 680).radius, radius);
+            assert_eq!(RegionGeometry::new(width, 34, 1., 680, None).radius, radius);
         }
-        assert_eq!(RegionGeometry::new(300, 1, 1.5, 1020).height, 51);
-        assert_eq!(RegionGeometry::new(440, 900, 1.5, 1020).height, 924);
-        let narrow = RegionGeometry::new(350, 200, 1., 390);
+        assert_eq!(RegionGeometry::new(300, 1, 1.5, 1020, None).height, 51);
+        assert_eq!(RegionGeometry::new(440, 900, 1.5, 1020, None).height, 924);
+        let narrow = RegionGeometry::new(350, 200, 1., 390, None);
         assert_eq!((narrow.x, narrow.width, narrow.radius), (20, 350, 24));
-        let narrow_compact = RegionGeometry::new(290, 34, 1., 390);
+        let narrow_compact = RegionGeometry::new(290, 34, 1., 390, None);
         assert_eq!(narrow_compact.radius, 17);
     }
 }

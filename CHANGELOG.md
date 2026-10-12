@@ -11,7 +11,7 @@ Glim now shows only the agents you have open, one project per row.
 - **One row per project.** A project with several agents lists them under its name, and the island counts projects.
 - **Every agent is named by project and agent**, in the island and its notices: "Glim · Claude", "Glim · Codex".
 - **The weekly limit** shows beside context and the 5-hour limit, with when it resets.
-- **What the agent said.** When it hands over, the open island previews its last message, its question or the command it asks to run. The preview lives in memory only and is never written to disk.
+- **What the agent said.** When it hands over, the open island previews its last message, its question or the command it asks to run. Click it to read all of it in a panel beside the island, which never grows taller for it. It lives in memory only and is never written to disk.
 - **Go to the agent.** A button in the open island brings the window the agent runs in to the front: Windows Terminal, VS Code or a console. Glim can't pick a tab inside it.
 
 ### Fixed

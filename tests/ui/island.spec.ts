@@ -97,3 +97,21 @@ test('outside clicks collapse every view and compact stays black', async ({ page
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   await expect(page.getByRole('button', { name: /^Glim:/ })).toBeVisible();
 });
+
+test('the full message opens beside the island without making it taller', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Glim:/ }).click();
+  await page.getByRole('button', { name: /^design-system · Claude:/ }).click();
+  const island = page.getByTestId('island');
+  await page.waitForTimeout(800);
+  const before = (await island.boundingBox())!;
+  await page.getByRole('button', { name: 'Read what Claude said' }).click();
+  const panel = page.getByRole('complementary', { name: 'What Claude said' });
+  await expect(panel).toContainText('Want me to update the cards to match?');
+  const box = (await panel.boundingBox())!;
+  expect(box.x + box.width).toBeLessThan(before.x);
+  await page.waitForTimeout(400);
+  expect((await island.boundingBox())!.height).toBeCloseTo(before.height, 0);
+  await panel.getByRole('button', { name: 'Close' }).click();
+  await expect(panel).toHaveCount(0);
+});

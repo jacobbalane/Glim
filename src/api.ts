@@ -16,6 +16,12 @@ import { previewHistory, previewSnapshot } from './preview';
 import { PREVIEW_SCENES, sceneSnapshot } from './design-preview';
 
 export const native = isTauri();
+export interface Side {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
 // These fixtures are available only in the browser development server.
 export const designScene =
   import.meta.env.DEV && !native
@@ -71,8 +77,9 @@ export const api = {
   openWindow: async (view: 'settings' | 'history' | 'setup') => {
     if (native) await invoke('open_panel', { view });
   },
-  shape: async (expanded: boolean, width: number, height: number) => {
-    if (native) await invoke('island_shape', { expanded, width, height });
+  // The island's size, and a panel beside it when one is open, in window pixels.
+  shape: async (expanded: boolean, width: number, height: number, side: Side | null = null) => {
+    if (native) await invoke('island_shape', { expanded, width, height, side });
   },
   version: () => (native ? getVersion() : Promise.resolve(packageVersion)),
   // Glim goes online only here, when the person asks: GitHub's latest release, signature checked.

@@ -91,6 +91,7 @@ fn island_shape(
     expanded: bool,
     width: u32,
     height: u32,
+    side: Option<platform::Side>,
     app: tauri::AppHandle,
     state: tauri::State<Shared>,
 ) -> Result<(), String> {
@@ -100,7 +101,7 @@ fn island_shape(
         collector.island_expanded = expanded;
         changed.then_some(expanded)
     };
-    platform::shape(&app, width, height, focus)
+    platform::shape(&app, width, height, side, focus)
 }
 #[tauri::command]
 async fn open_panel(view: String, app: tauri::AppHandle) -> Result<(), String> {
@@ -182,7 +183,8 @@ pub fn run() {
                 .preferences
                 .clone();
             platform::position_island(app.handle(), &preferences).map_err(std::io::Error::other)?;
-            platform::shape(app.handle(), 300, 34, Some(false)).map_err(std::io::Error::other)?;
+            platform::shape(app.handle(), 300, 34, None, Some(false))
+                .map_err(std::io::Error::other)?;
             if let Some(window) = app.get_webview_window("island") {
                 window.show()?;
                 window.on_window_event({
