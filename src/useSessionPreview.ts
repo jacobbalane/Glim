@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { holdOf, isNotice, notchView, PREVIEW_INTERVAL, type Group } from './session-presentation';
 
 // Keep notice delivery separate from the working rotation. Nothing here opens the island.
+// `pace` shortens how long each notice holds the notch: the website's demo of several agents runs
+// faster, so a visitor sees every state without waiting. The app keeps 1.
 export default function useSessionPreview(
   groups: Group[],
   seenAt: number,
@@ -10,11 +12,12 @@ export default function useSessionPreview(
     held,
     dwell,
     ready,
-  }: { enabled: boolean; held: boolean; dwell: number; ready: boolean },
+    pace = 1,
+  }: { enabled: boolean; held: boolean; dwell: number; ready: boolean; pace?: number },
 ) {
   const [, redraw] = useState(0);
-  const latest = useRef({ groups, enabled, held, dwell, seenAt });
-  latest.current = { groups, enabled, held, dwell, seenAt };
+  const latest = useRef({ groups, enabled, held, dwell, seenAt, pace });
+  latest.current = { groups, enabled, held, dwell, seenAt, pace };
   const state = useRef({
     known: null as Map<string, string> | null,
     queue: [] as string[],
@@ -32,7 +35,7 @@ export default function useSessionPreview(
     );
     const id = s.queue.shift();
     const group = all.find((g) => g.session.id === id);
-    if (id && group) s.presenting = { id, remaining: holdOf(group.session) };
+    if (id && group) s.presenting = { id, remaining: holdOf(group.session) * latest.current.pace };
   };
   const now = Date.now();
   const keys = groups
@@ -52,9 +55,9 @@ export default function useSessionPreview(
       next.forEach((key, id) => {
         if (s.known!.get(id) === key || s.queue.includes(id)) return;
         if (s.presenting?.id === id) {
-          s.presenting.remaining = holdOf(
-            latest.current.groups.find((g) => g.session.id === id)!.session,
-          );
+          s.presenting.remaining =
+            holdOf(latest.current.groups.find((g) => g.session.id === id)!.session) *
+            latest.current.pace;
           return;
         }
         s.docked.delete(id);
@@ -70,7 +73,8 @@ export default function useSessionPreview(
   }, [keys, seenAt, ready]);
   useEffect(() => {
     const s = state.current;
-    s.remaining += Math.max(0, dwell - s.dwell);
+    // A shorter dwell takes effect at once; a longer one extends the turn already running.
+    s.remaining = Math.min(s.remaining + Math.max(0, dwell - s.dwell), dwell);
     s.dwell = dwell;
   }, [dwell]);
   useEffect(() => {

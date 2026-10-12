@@ -22,6 +22,7 @@ export function AppIsland({
   onPrefs,
   connectors,
   onConnectors,
+  fast = false,
 }: {
   sessions: Session[];
   seenAt: number;
@@ -32,12 +33,15 @@ export function AppIsland({
   onPrefs: (next: Preferences) => void;
   connectors: Connector[];
   onConnectors: (next: Connector[]) => void;
+  // Several agents on show: the notch moves through them and their notices quickly.
+  fast?: boolean;
 }) {
   const reduced = useReducedMotion();
   const anchor = useRef<HTMLDivElement>(null);
   const returnFocus = useRef(false);
   const [now, setNow] = useState(Date.now);
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [listed, setListed] = useState(false);
   const [held, setHeld] = useState(false);
   const [run, setRun] = useState(0);
   const [inboxHidden, setInboxHidden] = useState(false);
@@ -49,7 +53,8 @@ export function AppIsland({
     enabled: !expanded && !prefs.paused,
     held,
     ready: true,
-    dwell: Math.max(6000, 2600 + (run / 40) * 1000),
+    dwell: fast ? 1800 : Math.max(6000, 2600 + (run / 40) * 1000),
+    pace: fast ? 0.35 : 1,
   });
   const save = async (next: Preferences) => onPrefs(next);
 
@@ -112,8 +117,9 @@ export function AppIsland({
         paused={prefs.paused}
         now={now}
         onRun={setRun}
-        onOpen={(id) => {
+        onOpen={(id, picked) => {
           setFocusId(id ?? null);
+          if (picked) setListed(false);
           back();
         }}
       />
@@ -129,9 +135,15 @@ export function AppIsland({
       <Glance
         groups={groups}
         focusId={focus?.session.id}
+        listed={listed}
         now={now}
         paused={prefs.paused}
-        onFocus={setFocusId}
+        onList={setListed}
+        onFocus={(id) => {
+          setFocusId(id);
+          setListed(false);
+        }}
+        onShow={collapse}
         onDetails={(id) => {
           setFocusId(id);
           onView('details');

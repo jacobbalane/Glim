@@ -125,7 +125,17 @@ const PROJECTS: Record<string, string> = {
   'glim-desktop': 'glim-website',
   'api-service': 'glim-3d',
   'design-system': 'site-copy',
-  'docs-site': 'install-docs',
+  // A second agent in the website's own folder, so the island shows one project with two.
+  'docs-site': 'glim-website',
+};
+// What each sample agent says when it hands the turn over, asks, or wants to run.
+const SAID: Record<string, string> = {
+  'demo-claude':
+    'The hero is drawn: the island light, the headline and a row of Glims.\n\nWant me to color the state cards next?',
+  'demo-claude-2':
+    'I tightened the state notes so each one fits on two lines. Should the privacy section get the same pass?',
+  'demo-codex': 'Bash: npm run render -- --glims 12',
+  'demo-docs': 'Bash: npm run site:build',
 };
 const PLAN = [
   'Draw the hero',
@@ -182,7 +192,15 @@ function onSite(list: Session[], group: string): Session[] {
       : s.activity === 'working' && GENERIC.has(s.detail)
         ? work[i % work.length]
         : s.detail;
-    return { ...s, project: PROJECTS[s.project] ?? s.project, tasks, detail };
+    return {
+      ...s,
+      project: PROJECTS[s.project] ?? s.project,
+      tasks,
+      detail,
+      message: SAID[s.id] ?? s.message,
+      // Each agent has a terminal to go back to; on the website, going there closes the island.
+      process: s.parentId ? undefined : ([0, 0] as [number, number]),
+    };
   });
 }
 
@@ -1093,19 +1111,31 @@ function Site() {
     const grid = stateGrid.current;
     if (!phone || !grid) return;
     let timer = 0;
+    const showAt = (index: number) => {
+      const state = STATES[index];
+      if (state && state.title !== shownNow.current) show(state);
+    };
+    const nearest = () => {
+      const card = grid.firstElementChild as HTMLElement | null;
+      if (!card) return;
+      const stride = card.offsetWidth + parseFloat(getComputedStyle(grid).columnGap);
+      showAt(Math.round(grid.scrollLeft / stride));
+    };
     const settle = () => {
       clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const card = grid.firstElementChild as HTMLElement | null;
-        if (!card) return;
-        const stride = card.offsetWidth + parseFloat(getComputedStyle(grid).columnGap);
-        const state = STATES[Math.round(grid.scrollLeft / stride)];
-        if (state && state.title !== shownNow.current) show(state);
-      }, 150);
+      timer = window.setTimeout(nearest, 80);
+    };
+    // Where the browser says which card a swipe will settle on, that card shows while it still
+    // slides; elsewhere, just after the swipe ends.
+    const changing = (event: Event) => {
+      const target = (event as Event & { snapTargetInline?: Element | null }).snapTargetInline;
+      if (target) showAt([...grid.children].indexOf(target));
     };
     grid.addEventListener('scroll', settle, { passive: true });
+    grid.addEventListener('scrollsnapchanging', changing);
     return () => {
       grid.removeEventListener('scroll', settle);
+      grid.removeEventListener('scrollsnapchanging', changing);
       clearTimeout(timer);
     };
   }, [phone, show]);
@@ -1140,6 +1170,7 @@ function Site() {
           onPrefs={setPrefs}
           connectors={connectors}
           onConnectors={setConnectors}
+          fast={shown === 'Several agents'}
         />
       </div>
 
