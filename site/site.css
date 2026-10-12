@@ -208,8 +208,12 @@ body {
   letter-spacing: -0.045em;
   text-decoration: none;
 }
-.site-pill.site-brand {
-  padding: 2px 16px 2px 4px;
+/* The brand, with the site's own pages beside it. */
+.site-pages .site-brand {
+  padding-right: 12px;
+}
+.site-link[aria-current='page'] {
+  background: rgba(255, 255, 255, 0.1);
 }
 .site-link {
   display: inline-flex;
@@ -2393,7 +2397,9 @@ body {
 /* ---------- Smaller screens ---------- */
 
 @media (max-width: 1100px) {
-  .site-anchor {
+  /* Beside the island the corners run out of room; the footer keeps every link. */
+  .site-anchor,
+  .site:not(.site-doc) .site-page-link {
     display: none;
   }
   .site-link span {
@@ -2533,5 +2539,310 @@ body {
     display: flex;
     align-items: center;
     min-height: 40px;
+  }
+}
+
+/* ---------- Docs and Changelog: reading pages under a still island light ---------- */
+
+.site-doc::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 560px;
+  background: radial-gradient(56% 100% at 50% 0%, rgba(99, 102, 241, 0.2), transparent 72%);
+  pointer-events: none;
+}
+.site-doc-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 136px clamp(16px, 4vw, 40px) clamp(96px, 10vw, 140px);
+}
+.site.site-doc h1 {
+  font-size: clamp(40px, 5vw, 64px);
+  line-height: 1.02;
+}
+.site.site-doc h2:not(.gl *) {
+  max-width: none;
+  font-size: clamp(24px, 2.4vw, 30px);
+  line-height: 1.15;
+}
+.site-doc-head .site-lede {
+  margin-top: 18px;
+}
+.site-doc-head .site-lede p {
+  margin: 0;
+}
+.site-doc h3 {
+  margin: 30px 0 8px;
+  color: var(--site-text);
+  font-size: 17px;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+}
+.site-doc :is(.site-doc-body, .site-log-body) :is(p, li) {
+  color: var(--site-text-2);
+  font-size: 16.5px;
+  line-height: 1.7;
+  text-wrap: pretty;
+}
+.site-doc :is(.site-doc-body, .site-log-body) p {
+  margin: 14px 0 0;
+}
+.site-doc :is(ul, ol) {
+  margin: 14px 0 0;
+  padding-left: 1.3em;
+}
+.site-doc li + li {
+  margin-top: 8px;
+}
+.site-doc li::marker {
+  color: rgba(255, 255, 255, 0.34);
+}
+.site-doc main b {
+  color: var(--site-text);
+  font-weight: 720;
+}
+.site-doc main :is(p, li, .site-lede) a {
+  color: #c7d2fe;
+  text-decoration-color: rgba(199, 210, 254, 0.4);
+  text-underline-offset: 3px;
+}
+.site-doc main :is(p, li, .site-lede) a:hover {
+  color: #fff;
+  text-decoration-color: currentColor;
+}
+.site-doc main :is(code, kbd) {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--site-text);
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 0.86em;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.site-doc main pre {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  border-radius: 12px;
+  background: var(--night-2);
+  box-shadow: inset 0 0 0 1px var(--site-line);
+}
+.site-doc main pre code {
+  padding: 0;
+  background: none;
+  overflow-wrap: normal;
+}
+
+/* Docs: what is on the page, beside it; the sections, one column to read. */
+.site-doc-grid {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: clamp(32px, 6vw, 96px);
+  align-items: start;
+  margin-top: 56px;
+}
+.site-doc-toc {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 2px;
+}
+.site-doc-toc b {
+  margin-bottom: 8px;
+  color: var(--site-text);
+  font-size: 13px;
+  font-weight: 760;
+}
+.site-doc-toc a {
+  margin-left: -12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--site-text-2);
+  font-size: 14.5px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    color 150ms var(--ease-out),
+    background-color 150ms var(--ease-out);
+}
+.site-doc-toc a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--site-text);
+}
+.site-doc-body {
+  max-width: 720px;
+}
+.site-doc-body section + section {
+  margin-top: 56px;
+  padding-top: 56px;
+  border-top: 1px solid var(--site-line);
+}
+
+/* The island's states, each in its own color. */
+.site-doc-states {
+  margin: 20px 0 0;
+  border-top: 1px solid var(--site-line);
+}
+.site-doc-states > div {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: 4px 20px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--site-line);
+}
+.site-doc-states dt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--site-text);
+  font-weight: 720;
+}
+.site-doc-states .dot {
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 12px var(--tone);
+}
+.site-doc-states dd {
+  margin: 0;
+  color: var(--site-text-2);
+  line-height: 1.6;
+}
+
+.site-doc-table {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+.site-doc-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.site-doc-table :is(th, td) {
+  padding: 11px 16px 11px 0;
+  border-bottom: 1px solid var(--site-line);
+  text-align: left;
+  white-space: nowrap;
+}
+.site-doc-table thead th {
+  color: var(--site-text);
+  font-weight: 760;
+}
+.site-doc-table tbody th {
+  color: var(--site-text);
+  font-weight: 620;
+}
+.site-doc-table td {
+  color: var(--site-text-2);
+}
+
+/* Changelog: each release, its number held beside what changed. */
+.site-log {
+  max-width: 980px;
+  margin: 0 auto;
+}
+.site-log-release {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: clamp(24px, 6vw, 96px);
+  padding: 48px 0;
+  border-top: 1px solid var(--site-line);
+}
+.site-log-release:first-of-type {
+  margin-top: 56px;
+}
+.site-log-meta {
+  position: sticky;
+  top: 92px;
+  align-self: start;
+  display: grid;
+  gap: 6px;
+}
+.site.site-doc .site-log-meta h2:not(.gl *) {
+  font-size: clamp(26px, 2.8vw, 34px);
+}
+.site-log-meta time {
+  color: var(--site-text-2);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.site-log-release.is-next .site-log-meta h2 {
+  color: #a5b4fc;
+}
+.site-log-body > :first-child {
+  margin-top: 0;
+}
+.site-log-body > p:first-child {
+  color: var(--site-text);
+  font-size: 18px;
+}
+.site-doc .site-log-body h3 {
+  margin: 28px 0 0;
+  color: #a5b4fc;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.site-log-body h3 + ul {
+  margin-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .site-doc-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+  }
+  .site-doc-toc {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 16px 16px 12px;
+    border-radius: 16px;
+    background: var(--night-2);
+    box-shadow: inset 0 0 0 1px var(--site-line);
+  }
+  .site-doc-toc b {
+    grid-column: 1 / -1;
+  }
+  .site-doc-toc a {
+    margin-left: 0;
+    padding: 6px 8px;
+  }
+}
+@media (max-width: 720px) {
+  /* The navbar is at the bottom here, as on the landing page. */
+  .site-doc-main {
+    padding-top: 64px;
+  }
+  .site-doc .site-brand > span:not(.glim3d),
+  .site-doc .site-button-small span {
+    display: none;
+  }
+  .site-doc .site-pages .site-brand {
+    padding-right: 4px;
+  }
+  .site-doc .site-page-link {
+    width: auto;
+    padding: 0 12px;
+  }
+  .site-doc .site-button-small {
+    width: 40px;
+    padding: 0;
+  }
+  .site-doc-states > div,
+  .site-log-release {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .site-log-release {
+    gap: 16px;
+    padding: 36px 0;
+  }
+  .site-log-meta {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 14px;
   }
 }

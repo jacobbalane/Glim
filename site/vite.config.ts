@@ -12,5 +12,15 @@ export default defineConfig({
   publicDir: here('../public'),
   plugins: [react()],
   server: { host: '127.0.0.1', port: 3000, strictPort: true, fs: { allow: [here('..')] } },
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        home: here('index.html'),
+        docs: here('docs/index.html'),
+        changelog: here('changelog/index.html'),
+      },
+    },
+  },
 });

@@ -15,7 +15,7 @@ import {
   type RefObject,
 } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, Check, Cloud, Download, Github, Monitor, X } from 'lucide-react';
+import { ArrowUpRight, Check, Cloud, Download, Monitor, X } from 'lucide-react';
 import '@fontsource-variable/manrope';
 import '@fontsource-variable/unbounded';
 import '../preview-claude/style.css';
@@ -48,11 +48,10 @@ import { GlimDrawing } from '../preview-claude/brand';
 import { Glim3D, Glim3DInPlace, type Mood as GlimMood, type Tone as GlimTone } from './Glim3D';
 import FaultyTerminal from './react-bits/FaultyTerminal';
 import GradualBlur from './react-bits/GradualBlur';
+import { Brand, DOWNLOAD, GetLinks, PageLinks, REPO, SiteFoot } from './chrome';
 
 // Public files, relative to wherever the site is served from.
 const ASSETS = import.meta.env.BASE_URL;
-const REPO = 'https://github.com/jacobbalane/Glim';
-const DOWNLOAD = `${REPO}/releases/latest`;
 const SEEN = T0 - 60_000;
 const PREFS: Preferences = { ...DEFAULT_PREFERENCES, onboardingComplete: true };
 const motionOk = () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1145,10 +1144,10 @@ function Site() {
       </div>
 
       <header className={`site-top${scrolled ? ' is-scrolled' : ''}`}>
-        <a className="site-pill site-brand" href="#top">
-          <Glim3D tone="brand" mood="open" size={36} label="Glim" />
-          <span aria-hidden="true">Glim</span>
-        </a>
+        <div className="site-pill site-pages">
+          <Brand root="" />
+          <PageLinks root="" />
+        </div>
         <nav className="site-pill site-nav" aria-label="Glim">
           <a className="site-link site-anchor" href="#states">
             States
@@ -1156,19 +1155,7 @@ function Site() {
           <a className="site-link site-anchor" href="#privacy">
             Privacy
           </a>
-          <a className="site-link" href={REPO} target="_blank" rel="noreferrer" aria-label="GitHub">
-            <Github size={18} aria-hidden="true" />
-            <span>GitHub</span>
-          </a>
-          <a
-            className="site-button site-button-small"
-            href={DOWNLOAD}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Download size={16} strokeWidth={2.4} aria-hidden="true" />
-            Download
-          </a>
+          <GetLinks />
         </nav>
       </header>
 
@@ -1596,45 +1583,7 @@ function Site() {
         className="site-haze"
         style={{ zIndex: 40 }}
       />
-      <footer className="site-foot">
-        <div className="site-wrap site-foot-grid">
-          <div className="site-foot-brand">
-            <a className="site-brand" href="#top">
-              <Glim3D tone="brand" mood="open" size={34} label="Glim" />
-              <span aria-hidden="true">Glim</span>
-            </a>
-            <p>A glimpse at your agents. Then back to your flow.</p>
-          </div>
-          <nav aria-label="Product">
-            <b>Product</b>
-            <a href={DOWNLOAD} target="_blank" rel="noreferrer">
-              Download
-            </a>
-            <a href={`${REPO}/releases`} target="_blank" rel="noreferrer">
-              Releases
-            </a>
-            <a href={`${REPO}/blob/main/docs/compatibility.md`} target="_blank" rel="noreferrer">
-              Compatibility
-            </a>
-          </nav>
-          <nav aria-label="Project">
-            <b>Project</b>
-            <a href={REPO} target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-            <a href={`${REPO}#privacy`} target="_blank" rel="noreferrer">
-              Privacy
-            </a>
-            <a href={`${REPO}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
-              License
-            </a>
-          </nav>
-        </div>
-        <p className="site-wrap site-foot-note">
-          Glim is an independent open-source project. Claude Code is made by Anthropic and Codex by
-          OpenAI; neither is affiliated with Glim.
-        </p>
-      </footer>
+      <SiteFoot root="" />
     </div>
   );
 }
