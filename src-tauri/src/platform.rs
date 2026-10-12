@@ -466,7 +466,7 @@ mod tests {
     fn a_side_panel_joins_the_region_and_the_gap_beside_it_stays_click_through() {
         for scale in [1., 1.5] {
             let side = Side {
-                x: 60.,
+                x: 834.,
                 y: 10.,
                 width: 300.,
                 height: 200.,
@@ -480,9 +480,9 @@ mod tests {
                     (y * scale).round() as i32,
                 ) != 0
             };
-            assert!(point(210., 110.), "inside the panel");
-            assert!(!point(375., 110.), "between the panel and the island");
-            assert!(!point(210., 230.), "below the panel");
+            assert!(point(984., 110.), "inside the panel");
+            assert!(!point(827., 110.), "between the island and the panel");
+            assert!(!point(984., 230.), "below the panel");
             assert!(point(600., 200.), "the island itself");
         }
     }

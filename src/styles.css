@@ -919,17 +919,18 @@ html:has(.native-stage) {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
-/* Beside the open island, so a long message never makes the island taller. The native window
-   cuts the same rounded box into its region. */
+/* To the right of the open island, so a long message never makes the island taller; a longer one
+   scrolls inside it. The native window cuts the same rounded box into its region. */
 .island-side {
   position: absolute;
   top: 10px;
-  right: calc(100% + 14px);
+  left: calc(100% + 14px);
 }
 .side-said {
   display: flex;
   flex-direction: column;
-  width: 320px;
+  /* Narrower on small screens: half the window, less half the island and the gap. */
+  width: min(320px, calc(50vw - 242px));
   max-height: min(440px, calc(100vh - 24px));
   border-radius: 14px;
   background: var(--ink);
@@ -947,6 +948,7 @@ html:has(.native-stage) {
   color: var(--tone);
 }
 .side-said p {
+  min-height: 0;
   margin: 0;
   padding: 0 14px 14px;
   overflow-y: auto;
