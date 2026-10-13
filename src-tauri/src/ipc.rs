@@ -157,7 +157,8 @@ pub async fn serve(
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
-    #[tokio::test]
+    // Two threads: the test waits for the event while the server accepts it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn an_event_crosses_the_socket_and_the_socket_is_private() {
         use std::os::unix::fs::PermissionsExt;
         std::env::set_var(
