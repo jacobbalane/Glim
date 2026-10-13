@@ -10,6 +10,7 @@ import { groupSessions } from '../src/session-presentation';
 import useSessionPreview from '../src/useSessionPreview';
 import useReducedMotion from '../src/useReducedMotion';
 import type { Connector, Preferences, Session } from '../src/types';
+import type { Notch } from '../src/api';
 
 export type IslandView = 'compact' | 'glance' | 'details' | 'settings' | 'usage' | 'setup';
 
@@ -24,6 +25,7 @@ export function AppIsland({
   connectors,
   onConnectors,
   fast = false,
+  notch = null,
 }: {
   sessions: Session[];
   seenAt: number;
@@ -36,6 +38,8 @@ export function AppIsland({
   onConnectors: (next: Connector[]) => void;
   // Several agents on show: the notch moves through them and their notices quickly.
   fast?: boolean;
+  // A Mac's camera notch to wrap, as the app does on a MacBook.
+  notch?: Notch | null;
 }) {
   const reduced = useReducedMotion();
   const anchor = useRef<HTMLDivElement>(null);
@@ -51,7 +55,7 @@ export function AppIsland({
   const groups = groupSessions(sessions, seenAt);
   const focus = groups.find((g) => g.session.id === focusId) ?? groups[0];
   // The same rotation and notices as the app, with the same timings.
-  const notch = useSessionPreview(groups, seenAt, {
+  const preview = useSessionPreview(groups, seenAt, {
     enabled: !expanded && !prefs.paused,
     held,
     ready: true,
@@ -112,7 +116,8 @@ export function AppIsland({
   if (view === 'compact')
     content = (
       <Compact
-        view={notch}
+        view={preview}
+        notch={notch}
         inboxHidden={inboxHidden}
         onInboxHiddenChange={setInboxHidden}
         count={groups.length}
@@ -165,8 +170,9 @@ export function AppIsland({
     >
       <IslandSurface
         expanded={expanded}
+        notch={notch}
         viewKey={viewKey}
-        tone={prefs.paused || !notch.current ? 'calm' : notch.current.look.tone}
+        tone={prefs.paused || !preview.current ? 'calm' : preview.current.look.tone}
         reduced={reduced}
         onError={() => {}}
       >

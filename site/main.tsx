@@ -48,7 +48,19 @@ import { GlimDrawing } from '../preview-claude/brand';
 import { Glim3D, Glim3DInPlace, type Mood as GlimMood, type Tone as GlimTone } from './Glim3D';
 import FaultyTerminal from './react-bits/FaultyTerminal';
 import GradualBlur from './react-bits/GradualBlur';
-import { Brand, DOWNLOAD, GetLinks, PageLinks, REPO, SiteFoot } from './chrome';
+import {
+  Brand,
+  DownloadLink,
+  GetLinks,
+  NEEDS,
+  OTHER,
+  PageLinks,
+  REPO,
+  SiteFoot,
+  SYSTEM,
+  SystemSwitch,
+  type System,
+} from './chrome';
 
 // Public files, relative to wherever the site is served from.
 const ASSETS = import.meta.env.BASE_URL;
@@ -412,7 +424,7 @@ const FACTS: { scene: SceneId; title: string; text: string }[] = [
   {
     scene: 'details-usage',
     title: 'Thirty days of history',
-    text: 'Daily charts by agent and project, kept on this PC.',
+    text: 'Daily charts by agent and project, kept on this computer.',
   },
 ];
 
@@ -645,8 +657,8 @@ const PIPE = [
   { from: 'codex', tone: 'done', mood: 'happy', text: 'Done' },
 ] as const;
 
-// Both agents report to Glim through a local pipe inside this PC. Each event goes on from Glim
-// towards the cloud and is stopped at the edge of the PC; then the other agent speaks.
+// Both agents report to Glim through a private channel inside this computer. Each event goes on
+// from Glim towards the cloud and is stopped at its edge; then the other agent speaks.
 function LocalPipe() {
   const box = useRef<HTMLDivElement>(null);
   const step = useLoop(box, 3400);
@@ -664,7 +676,7 @@ function LocalPipe() {
         <div className="site-pipe-pc">
           <span className="site-pipe-tag">
             <Monitor size={13} strokeWidth={2.2} />
-            This PC
+            This computer
           </span>
           {(['claude', 'codex'] as const).map((provider, i) => (
             <span
@@ -707,7 +719,7 @@ function LocalPipe() {
               {shown.text}
             </span>
           )}
-          <span className="site-pipe-note">A local pipe only your Windows account can open</span>
+          <span className="site-pipe-note">A private channel only your account can open</span>
         </div>
         {got >= 0 && (
           <>
@@ -807,7 +819,7 @@ function Kept() {
   return (
     <div className="site-kept" ref={box}>
       <div>
-        <span>Kept 30 days, on this PC</span>
+        <span>Kept 30 days, on this computer</span>
         <ul>{KEPT.map((name, i) => row(name, false, i))}</ul>
       </div>
       <div className="is-never">
@@ -898,6 +910,9 @@ function Facts({ step, onPick }: { step: number; onPick?: (i: number) => void })
 
 const SEVERAL = groupSessions(onSite(SCENARIOS.several.build(T0), 'details'), SEEN);
 
+// A MacBook's camera notch, in points, for the island shown as on a Mac.
+const DEMO_NOTCH = { width: 200, height: 32 };
+
 function Site() {
   // Wide enough to open the island beside the copy without covering it.
   const wide = useMedia('(min-width: 1200px) and (min-height: 700px)');
@@ -910,6 +925,8 @@ function Site() {
   );
   const [scene, setScene] = useState<SceneId>('hero');
   const [shown, setShown] = useState<string | null>(null);
+  // The system the island and the install steps are shown for: the visitor's, until they switch.
+  const [system, setSystem] = useState<System>(SYSTEM);
   // A visitor who clicks takes over the island until they scroll into the next part.
   const [pinned, setPinned] = useState(false);
   const manual = useRef(false);
@@ -1171,6 +1188,7 @@ function Site() {
           connectors={connectors}
           onConnectors={setConnectors}
           fast={shown === 'Several agents'}
+          notch={system === 'macOS' && !phone ? DEMO_NOTCH : null}
         />
       </div>
 
@@ -1222,16 +1240,20 @@ function Site() {
               you can stay in your own work.
             </p>
             <div className="site-cta" style={at(2)}>
-              <a className="site-button" href={DOWNLOAD} target="_blank" rel="noreferrer">
+              <DownloadLink className="site-button">
                 <Download size={19} strokeWidth={2.4} aria-hidden="true" />
-                Download for Windows
-              </a>
+                Download for {SYSTEM}
+              </DownloadLink>
               <a className="site-more" href={REPO} target="_blank" rel="noreferrer">
                 View on GitHub <ArrowUpRight size={17} aria-hidden="true" />
               </a>
             </div>
             <p className="site-meta" style={at(3)}>
-              Windows 11 · Free and open source · No account
+              {NEEDS[SYSTEM]} ·{' '}
+              <DownloadLink system={OTHER} className="site-also">
+                Also for {OTHER}
+              </DownloadLink>{' '}
+              · Free and open source · No account
             </p>
             <div className="site-try" style={at(4)} data-keep-open>
               <span id="site-try">Try it on the island above</span>
@@ -1257,6 +1279,12 @@ function Site() {
                 <button onClick={() => fire('work')}>Back to work</button>
               </div>
               <p>The agent on the island reacts. It runs on sample sessions.</p>
+              {!phone && (
+                <div className="site-try-system">
+                  <span aria-hidden="true">See it on</span>
+                  <SystemSwitch value={system} onChange={setSystem} label="See the island on" />
+                </div>
+              )}
             </div>
           </div>
           <div className="site-crowd" aria-hidden="true">
@@ -1391,12 +1419,13 @@ function Site() {
           <div className="site-wrap">
             <div className="site-privacy-head">
               <h2 id="privacy-title" className="site-rise" data-show>
-                <span>Stays on your PC.</span>
+                <span>Stays on your computer.</span>
               </h2>
               <p className="site-lede site-rise" data-show>
                 <span>
-                  Your agents tell Glim what they are doing through a pipe only your Windows account
-                  can open. Glim keeps the little it needs on this PC, and nothing goes online.
+                  Your agents tell Glim what they are doing through a private channel only your
+                  account can open. Glim keeps the little it needs on this computer, and nothing
+                  goes online.
                 </span>
               </p>
             </div>
@@ -1480,8 +1509,8 @@ function Site() {
                 </div>
                 <h3>Pause anytime.</h3>
                 <p>
-                  One switch in the tray or in settings stops collection until you turn it back on.
-                  Try it: the island above sleeps too.
+                  One switch in Glim's menu or in Settings stops collection until you turn it back
+                  on. Try it: the island above sleeps too.
                 </p>
               </article>
             </div>
@@ -1498,16 +1527,22 @@ function Site() {
             <h2 id="install-title" className="site-rise" data-show>
               <span>Three steps, then back to work.</span>
             </h2>
+            <SystemSwitch value={system} onChange={setSystem} label="Install steps for" />
             <ol className="site-steps" data-show>
               <li className="site-item" style={at(0)}>
                 <b>Download</b>
-                <span>Get the installer from GitHub Releases. Windows 11, 64-bit.</span>
+                <span>
+                  {system === 'macOS'
+                    ? 'Get Glim from GitHub Releases. macOS 13 or later, on Apple silicon or Intel.'
+                    : 'Get the installer from GitHub Releases. Windows 11, 64-bit.'}
+                </span>
               </li>
               <li className="site-item" style={at(1)}>
                 <b>Install</b>
                 <span>
-                  It installs for your account only, so no administrator rights. If Windows warns
-                  about a new app, choose More info, then Run anyway.
+                  {system === 'macOS'
+                    ? 'Open it and drag Glim to Applications. Apple has not notarized Glim yet, so the first time, open System Settings, then Privacy & Security, and choose Open Anyway.'
+                    : 'It installs for your account only, so no administrator rights. If Windows warns about a new app, choose More info, then Run anyway.'}
                 </span>
               </li>
               <li className="site-item" style={at(2)}>
@@ -1528,8 +1563,8 @@ function Site() {
                 Codex CLI
               </span>
               <p>
-                In native Windows terminals, including the one in your IDE. WSL and remote sessions
-                are not supported yet.
+                In the terminals you already use: Terminal, iTerm2, Warp, Ghostty, Windows Terminal
+                and the one in your IDE. WSL and remote sessions are not supported yet.
               </p>
             </div>
           </div>
@@ -1582,20 +1617,21 @@ function Site() {
                 back to your work.
               </p>
               <div className="site-close-cta site-item" style={at(1)}>
-                <a
-                  className="site-button site-button-light"
-                  href={DOWNLOAD}
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <DownloadLink className="site-button site-button-light">
                   <Download size={19} strokeWidth={2.4} aria-hidden="true" />
-                  Download for Windows
-                </a>
+                  Download for {SYSTEM}
+                </DownloadLink>
                 <a className="site-more" href={REPO} target="_blank" rel="noreferrer">
                   View on GitHub <ArrowUpRight size={17} aria-hidden="true" />
                 </a>
               </div>
-              <p className="site-meta">Windows 11, 64-bit · MIT license</p>
+              <p className="site-meta">
+                {NEEDS[SYSTEM]} ·{' '}
+                <DownloadLink system={OTHER} className="site-also">
+                  Also for {OTHER}
+                </DownloadLink>{' '}
+                · MIT license
+              </p>
             </div>
           </div>
         </section>
