@@ -2,6 +2,22 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
+## Unreleased
+
+Glim comes to the Mac.
+
+### New
+
+- **Glim for macOS.** macOS 13 or later, on Apple silicon and Intel. Open the disk image and drag Glim to Applications. It lives in the menu bar and stays out of the Dock. Apple has not notarized Glim yet, so the first time, open System Settings, Privacy & Security, and click Open Anyway.
+- **Around the notch.** On a MacBook, the island grows out of the notch: the agent on the left, its step and state on the right, and nothing where the camera is. The open island starts below the notch. On other screens it hangs from the top of the menu bar.
+- **Go to the agent, on a Mac.** The button brings the agent's app to the front, and in Terminal and iTerm2 it selects the agent's own tab. macOS asks once whether Glim may control them.
+- **Open at login**, **Hide over fullscreen apps** and updates from Settings work on the Mac as they do on Windows.
+- **The website** offers the download for your system, with the other one a click away, and shows the island around a notch for Mac visitors. The docs cover both systems.
+
+### Fixed
+
+- A view opened again while it was still closing no longer comes back with what it had loaded before: Usage could show history from before it was cleared.
+
 ## 0.1.3 (2026-10-12)
 
 Glim now shows only the agents you have open, one project per row.

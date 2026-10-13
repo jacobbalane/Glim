@@ -1,12 +1,12 @@
 # Architecture
 
-Glim is a local Windows application. React renders the interface; Tauri hosts the windows and tray; Rust collects and stores measurements. There is no application server or Glim account.
+Glim is a local application for macOS and Windows. React renders the interface; Tauri hosts the windows and the tray or menu-bar icon; Rust collects and stores measurements. There is no application server or Glim account.
 
 ```mermaid
 flowchart LR
   A[Claude Code / Codex] -->|Lifecycle events| H[Native hook helper]
   A -->|Local JSONL records| C[Rust collector]
-  H -->|Allow-listed metadata / private named pipe| C
+  H -->|Allow-listed metadata / private socket or named pipe| C
   C --> D[(Local SQLite)]
   C -->|Snapshot events| I[React island and panels]
   I -->|Tauri commands| C
@@ -16,7 +16,7 @@ flowchart LR
 
 Connectors merge user configuration only after the user chooses Connect. They retain existing hooks, back up the original configuration, and record the exact commands Glim owns. Disconnect removes those commands and restores the previous Claude status line when it is still wrapped by Glim. Codex hook trust remains the user's responsibility inside Codex.
 
-The helper sends lifecycle metadata and optional measurements to a pipe restricted to the current Windows user. It never sends prompts or tool arguments. Failure to reach Glim succeeds silently so monitoring does not block the agent. Claude's original status-line command still receives its original input.
+The helper sends lifecycle metadata and optional measurements over a channel only the current user can open: a named pipe on Windows, and on macOS a socket file with mode 0600 in the per-user temporary folder, whose server also checks the connecting user. It never sends prompts or tool arguments. Failure to reach Glim succeeds silently so monitoring does not block the agent. Claude's original status-line command still receives its original input.
 
 The collector discovers recent native session records and accepts hook-supplied transcript paths only inside the provider's directory. Parsers extract known token fields, structured task labels, model information, and supported lifecycle states. Raw records stay in memory.
 
@@ -24,7 +24,7 @@ Each transcript batch commits its counters, request high-water marks, cursor, an
 
 ## Windows and motion
 
-The island is an undecorated, transparent, topmost window positioned within the selected monitor's work area. A Win32 region restricts its visible and clickable area to the island. Expanding enables focus for keyboard interaction; collapsing disables it. Background updates change measurements without expanding the island.
+The island is an undecorated, transparent, topmost window. On Windows it sits within the selected monitor's work area, and a Win32 region restricts its visible and clickable area to the island. On macOS it floats above the menu bar on every Space, Glim stays out of the Dock, and macOS has no window regions: a 30 Hz pointer check lets clicks through wherever the island and its side panel are not. On a screen with a notch, the compact island spans the notch with a wing on each side, nothing drawn where the camera is, and the open island starts below it. Expanding enables focus for keyboard interaction; collapsing disables it. Background updates change measurements without expanding the island.
 
 Settings, onboarding, history, and agent details share the same island and WebView. The tray routes navigation to that existing surface. Spring values continuously resize the visible surface and its native hit region, while content keeps its natural dimensions. Transitions can reverse immediately without replacing the window or scaling text. The tray remains available when the island is hidden or monitoring is paused.
 
@@ -42,6 +42,6 @@ Add a provider normalization adapter and sanitized fixtures before exposing its 
 
 ## Verification
 
-Frontend unit tests check token math and session ranking. Browser tests exercise expansion, interruption, selection, setup, history filtering, reduced motion, and narrow layouts. Rust tests cover normalization, configuration preservation, replay handling, partial records, and transaction rollback. The native smoke test exercises WebView2, the real helper and pipe, isolated provider configuration, and persistence using synthetic records.
+Frontend unit tests check token math and session ranking. Browser tests exercise expansion, interruption, selection, setup, history filtering, reduced motion, and narrow layouts. Rust tests cover normalization, configuration preservation, replay handling, partial records, and transaction rollback. The native smoke tests exercise the real app on each system (WebView2 and the pipe on Windows, WKWebView and the socket on macOS), the real helper, isolated provider configuration, and persistence using synthetic records. On macOS, CI also installs Glim from its disk image and updates it from one version to the next through Settings.
 
 Live authenticated provider sessions, clean-machine installation and upgrades, and signing remain release acceptance checks; synthetic integration tests do not establish those results.
