@@ -213,7 +213,11 @@ try {
   );
 
   // Settings, Check, Update: Glim installs N+1 over itself and opens it.
-  await until(() => click(/^Glim:/), 'compact island');
+  // Onboarding opened on the first start; Esc leaves it for the open island, which has Settings.
+  await until(() => has('[data-testid=island][data-expanded=true]'), 'onboarding');
+  await run(
+    `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); return true;`,
+  );
   await until(() => click('Settings'), 'Settings button');
   await until(() => click('Check'), 'Check for updates');
   await until(
