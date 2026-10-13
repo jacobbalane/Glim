@@ -24,6 +24,24 @@ pub fn test_report(id: u64, result: String) {
     let _ = (id, result);
 }
 
+/// Whether the pointer passes through the island's window where it is now (macOS debug builds).
+#[tauri::command]
+pub fn test_pointer() -> Option<bool> {
+    pointer_passes()
+}
+#[cfg(all(debug_assertions, target_os = "macos"))]
+fn pointer_passes() -> Option<bool> {
+    match crate::platform::POINTER.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => Some(true),
+        2 => Some(false),
+        _ => None,
+    }
+}
+#[cfg(not(all(debug_assertions, target_os = "macos")))]
+fn pointer_passes() -> Option<bool> {
+    None
+}
+
 #[cfg(all(debug_assertions, unix))]
 pub fn start(app: tauri::AppHandle) {
     use std::io::{Read, Write};

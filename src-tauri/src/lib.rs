@@ -188,7 +188,8 @@ pub fn run() {
             show_agent,
             screen_shape,
             open_releases,
-            test_control::test_report
+            test_control::test_report,
+            test_control::test_pointer
         ])
         .setup(|app| {
             // A menu-bar app on macOS: no Dock icon, and the menu bar stays the agent's.

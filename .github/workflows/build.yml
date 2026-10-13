@@ -85,6 +85,17 @@ jobs:
       - run: node scripts/prepare-bridge.mjs
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      # The real app on a real Mac, driven through its debug-only test control.
+      - run: brew install cliclick
+      - name: macOS native smoke
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --bin glim --bin glim-bridge --features custom-protocol
+          node scripts/native-smoke-mac.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-native-smoke
+          path: .cache/native-smoke-mac-*/screenshots/
       - run: node scripts/prepare-bridge.mjs --release --target universal-apple-darwin
       - run: npx tauri build --target universal-apple-darwin
       # The updater installs the app from a tarball of Glim.app; people install from the .dmg.

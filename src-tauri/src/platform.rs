@@ -317,6 +317,11 @@ pub fn shape(
     Ok(())
 }
 
+/// Whether the pointer last passed through the island's window: 0 not yet known, 1 through,
+/// 2 caught by the island. Read by the macOS native smoke test.
+#[cfg(target_os = "macos")]
+pub static POINTER: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
 /// macOS: lets the pointer through the island's window everywhere but the island and its side
 /// panel, checking 30 times a second where the pointer is.
 #[cfg(target_os = "macos")]
@@ -342,6 +347,10 @@ pub fn follow_pointer(app: AppHandle) {
             });
             if passing != Some(!over) && window.set_ignore_cursor_events(!over).is_ok() {
                 passing = Some(!over);
+                POINTER.store(
+                    if over { 2 } else { 1 },
+                    std::sync::atomic::Ordering::Relaxed,
+                );
             }
         }
     });
