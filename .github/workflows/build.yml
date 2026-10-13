@@ -54,7 +54,7 @@ jobs:
             src-tauri/target/release/bundle/nsis/*.sha256
   # The Mac build runs on Apple Silicon and makes one app for Apple Silicon and Intel.
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
