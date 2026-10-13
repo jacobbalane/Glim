@@ -28,7 +28,7 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 
 1. Download the Windows setup executable from the [website](https://glim.jacobbalane.com/) or [Releases](https://github.com/jacobbalane/Glim/releases/latest), and run it.
 2. Open Glim. Connect Claude Code, Codex, or both in onboarding. Glim previews the configuration entries it will add and saves backups.
-3. For Codex, open `/hooks` and review and trust the Glim hooks. Glim never bypasses provider trust checks.
+3. For Codex, choose **Add Codex hooks** in Glim, then open the Codex CLI and enter `/hooks`. Review and trust the Glim hooks there. **Hooks added** means Glim wrote the configuration; Codex must trust it before live hooks can run. Glim cannot confirm that trust setting or approve it for you.
 4. Start a new agent session as usual. No separate Glim account or API key is required.
 5. Click the island for details. Use the tray to open settings, pause, or quit.
 

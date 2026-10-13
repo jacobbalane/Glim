@@ -1,6 +1,9 @@
 use crate::model::Preferences;
 use tauri::{AppHandle, Manager, PhysicalPosition};
 
+#[cfg(windows)]
+pub mod windows_frame;
+
 #[derive(Default)]
 pub struct IslandShape(std::sync::Mutex<ShapeState>);
 

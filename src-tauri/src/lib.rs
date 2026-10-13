@@ -186,6 +186,10 @@ pub fn run() {
             platform::shape(app.handle(), 300, 34, None, Some(false))
                 .map_err(std::io::Error::other)?;
             if let Some(window) = app.get_webview_window("island") {
+                // The CSS surface owns every visible edge, including when the window loses focus.
+                #[cfg(windows)]
+                platform::windows_frame::install(window.hwnd()?.0 as _)
+                    .map_err(std::io::Error::other)?;
                 window.show()?;
                 window.on_window_event({
                     let window = window.clone();

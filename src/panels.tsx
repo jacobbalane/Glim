@@ -202,10 +202,12 @@ export function Connectors({
       onChange(result.connectors);
       setNotice(
         enabled
-          ? `${PROVIDERS[c.provider].name} connected. ${c.note}`
+          ? c.provider === 'codex'
+            ? 'Codex hooks added. Finish setup in Codex.'
+            : `${PROVIDERS[c.provider].name} connected. ${c.note}`
           : `${PROVIDERS[c.provider].name} disconnected. Its other settings are untouched.`,
       );
-      setOpen(null);
+      setOpen(enabled && c.provider === 'codex' ? 'codex' : null);
       setConfirm(null);
     } catch (e) {
       setError(String(e));
@@ -238,12 +240,12 @@ export function Connectors({
                 </small>
               </span>
               {c.enabled ? (
-                <span className="conn-status">
+                <span className={`conn-status${c.provider === 'codex' ? ' hooks-added' : ''}`}>
                   <i className="dot" />
-                  Connected
+                  {c.provider === 'codex' ? 'Hooks added' : 'Connected'}
                 </span>
               ) : c.detected && !isOpen ? (
-                <span className="btn small">Connect</span>
+                <span className="btn small">{c.provider === 'codex' ? 'Set up' : 'Connect'}</span>
               ) : null}
               <ChevronDown size={15} className="conn-chev" />
             </button>
@@ -259,9 +261,23 @@ export function Connectors({
                   ))}
                 </ul>
                 <code>{c.configPath}</code>
-                <p className="fine">
-                  {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
-                </p>
+                {(c.enabled || c.provider !== 'codex') && (
+                  <p className="fine">
+                    {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
+                  </p>
+                )}
+                {c.provider === 'codex' && (
+                  <div className="conn-next" aria-label="Codex setup steps">
+                    <b>{c.enabled ? 'Finish in Codex' : 'One more step in Codex'}</b>
+                    <p>
+                      Open the Codex CLI, enter <kbd>/hooks</kbd>, and review and trust the Glim
+                      hooks. Then start a new session with Glim running.
+                    </p>
+                    <p className="fine">
+                      Glim can add the hooks, but cannot confirm Codex's trust setting.
+                    </p>
+                  </div>
+                )}
                 {c.error && (
                   <p role="alert" className="inline-error">
                     {c.error}
@@ -275,8 +291,12 @@ export function Connectors({
                       onClick={() => set(c, true)}
                     >
                       {busy === c.provider
-                        ? 'Connecting…'
-                        : `Connect ${PROVIDERS[c.provider].short}`}
+                        ? c.provider === 'codex'
+                          ? 'Adding hooks…'
+                          : 'Connecting…'
+                        : c.provider === 'codex'
+                          ? 'Add Codex hooks'
+                          : `Connect ${PROVIDERS[c.provider].short}`}
                     </button>
                   ) : confirm === c.provider ? (
                     <>

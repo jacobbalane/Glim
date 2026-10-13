@@ -1626,6 +1626,26 @@ html:has(.native-stage) {
   font-weight: 650;
   color: var(--fg-2);
 }
+.conn-status.hooks-added {
+  --tone: var(--fg-3);
+}
+.conn-next {
+  margin-top: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.conn-next b {
+  font-weight: 700;
+}
+.conn-next p {
+  margin-top: 5px;
+  color: var(--fg-2);
+}
+.conn-next kbd {
+  font-family: ui-monospace, monospace;
+  font-weight: 650;
+  color: var(--fg-1);
+}
 .conn-chev {
   flex-shrink: 0;
   color: var(--fg-3);
