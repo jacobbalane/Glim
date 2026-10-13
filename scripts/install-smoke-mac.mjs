@@ -12,7 +12,7 @@ import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DatabaseSync } from 'node:sqlite';
-import { control, endpoint } from './mac-control.mjs';
+import { control, endpoint, screencapture } from './mac-control.mjs';
 
 assert.equal(process.platform, 'darwin', 'This test runs on macOS.');
 const dmg = resolve(process.argv[2] ?? assert.fail('Name the Glim .dmg to install.'));
@@ -116,7 +116,7 @@ try {
     }
   }, 'an agent event through the installed helper');
   await delay(1000);
-  execFileSync('screencapture', ['-x', join(shots, 'installed.png')]);
+  screencapture(join(shots, 'installed.png'));
   release.kill();
   console.log('The installed Glim runs and hears its agents through its own helper.');
 
@@ -255,7 +255,7 @@ try {
     "Hooks' helper is the new version's.",
   );
   await delay(1000);
-  execFileSync('screencapture', ['-x', join(shots, 'updated.png')]);
+  screencapture(join(shots, 'updated.png'));
   server.close();
   console.log('Glim 9.9.0 updated itself from Settings to 9.9.1 and kept its data.');
   console.log(`macOS install and update test passed. Screenshots: ${shots}`);

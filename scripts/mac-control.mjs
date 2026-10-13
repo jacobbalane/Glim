@@ -1,5 +1,6 @@
 // Drives a debug build of Glim on macOS through its test control (src-tauri/src/test_control.rs):
 // scripts sent over a socket beside Glim's own run in the island and return their result.
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -52,4 +53,15 @@ export function control(data) {
   const text = (selector) =>
     run(`return document.querySelector(${JSON.stringify(selector)})?.innerText ?? null;`);
   return { socket, run, invoke, click, has, text };
+}
+
+// A screenshot for review. It needs Screen Recording permission; without it the test goes on.
+export function screencapture(file, region) {
+  try {
+    execFileSync('screencapture', ['-x', ...(region ? [`-R${region}`] : []), file], {
+      stdio: 'pipe',
+    });
+  } catch (error) {
+    console.log(`No screenshot ${file}: ${error.message}`);
+  }
 }

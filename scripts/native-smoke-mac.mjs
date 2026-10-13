@@ -9,7 +9,7 @@ import { appendFile, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/p
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DatabaseSync } from 'node:sqlite';
-import { control } from './mac-control.mjs';
+import { control, screencapture } from './mac-control.mjs';
 
 assert.equal(process.platform, 'darwin', 'This smoke test runs on macOS.');
 const executable = resolve(process.env.GLIM_TEST_EXE ?? 'src-tauri/target/debug/glim');
@@ -92,7 +92,7 @@ async function screenshot(name) {
     Math.round(island.width + 120),
     Math.round(island.y + island.height + 60),
   ].join(',');
-  execFileSync('screencapture', ['-x', `-R${region}`, join(shots, `${name}.png`)]);
+  screencapture(join(shots, `${name}.png`), region);
 }
 // Runs a hook the way an agent would: through the shell, with the command Glim installed.
 function hook(command, input, agent) {
@@ -120,7 +120,7 @@ try {
   // Onboarding, connecting both agents through the UI.
   await click('Get started');
   for (const [provider, button] of [
-    ['Codex', 'Connect Codex'],
+    ['Codex', 'Add Codex hooks'],
     ['Claude Code', 'Connect Claude'],
   ]) {
     await run(`
