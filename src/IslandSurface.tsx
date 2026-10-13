@@ -33,14 +33,19 @@ export const SideSlot = createContext<HTMLElement | null>(null);
 // An exiting view keeps its own layout; only the incoming view measures the surface.
 function ViewFrame({
   width,
-  compact,
+  least,
+  fit,
   inset,
   reduced,
   onSize,
   children,
 }: {
   width: number;
-  compact: boolean;
+  // The least width of a view sized about the centre.
+  least: number;
+  // How the view is sized: by its content from the left edge, by its content about the centre
+  // (around a notch), or at the open island's width.
+  fit: 'start' | 'centre' | 'open';
   inset: number;
   reduced: boolean;
   onSize: (width: number, height: number) => void;
@@ -51,10 +56,14 @@ function ViewFrame({
   const ref = useRef<HTMLDivElement>(null);
   const report = useRef(onSize);
   report.current = onSize;
+  const [own, setOwn] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!present || !el) return;
-    const send = () => report.current(el.offsetWidth, el.offsetHeight + inset);
+    const send = () => {
+      setOwn(el.offsetWidth);
+      report.current(el.offsetWidth, el.offsetHeight + inset);
+    };
     send();
     const observer = new ResizeObserver(send);
     observer.observe(el);
@@ -65,9 +74,16 @@ function ViewFrame({
       ref={ref}
       className="frame"
       style={
-        compact
+        fit === 'start'
           ? { width: 'max-content', minWidth: 144, maxWidth: width, left: 0 }
-          : { width, marginLeft: -width / 2, top: inset }
+          : fit === 'centre'
+            ? {
+                width: 'max-content',
+                minWidth: least,
+                maxWidth: width,
+                marginLeft: -Math.ceil(own / 2),
+              }
+            : { width, marginLeft: -width / 2, top: inset }
       }
       inert={!present}
       aria-hidden={!present || undefined}
@@ -85,7 +101,7 @@ function ViewFrame({
         transition: { duration: reduced ? 0.06 : 0.18, ease: [0.23, 1, 0.32, 1] },
       }}
     >
-      <motion.div style={{ opacity: ink ? (compact ? ink.compact : ink.expanded) : 1 }}>
+      <motion.div style={{ opacity: ink ? (fit === 'start' ? ink.compact : ink.expanded) : 1 }}>
         {children}
       </motion.div>
     </motion.div>
@@ -112,12 +128,16 @@ export default function IslandSurface({
   notch?: Notch | null;
 }) {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
-  // Around a notch the island leaves 160 pixels either side of the camera for its wings.
-  const room = notch ? Math.max(440, notch.width + 320) : 440;
+  const [fitted, setFitted] = useState(300);
+  // Around a notch, each wing beside the camera is as wide as the wider of the two needs, from
+  // 96 to 220 pixels; the open island is at least 160 pixels either side, and never narrower.
+  const widest = notch ? Math.min(notch.width + 440, viewportWidth - 40) : 0;
+  const narrowest = notch ? Math.min(notch.width + 192, widest) : 0;
+  const winged = Math.min(widest, Math.max(narrowest, Math.ceil(fitted / 2) * 2));
+  const room = notch ? Math.max(440, notch.width + 320, winged) : 440;
   const wide = Math.max(204, Math.min(room, viewportWidth - 40));
   const cap = Math.min(360, wide - 60);
-  const [fitted, setFitted] = useState(300);
-  const targetWidth = expanded || notch ? wide : Math.max(144, Math.min(cap, fitted));
+  const targetWidth = expanded ? wide : notch ? winged : Math.max(144, Math.min(cap, fitted));
   const floor = notch && !expanded ? notch.height : 34;
   const inset = notch && expanded ? notch.height : 0;
   const width = useSpring(targetWidth, SURFACE_SPRING);
@@ -230,8 +250,9 @@ export default function IslandSurface({
             <AnimatePresence initial={false}>
               <ViewFrame
                 key={viewKey}
-                width={expanded || notch ? wide : cap}
-                compact={!expanded && !notch}
+                width={expanded ? wide : notch ? widest : cap}
+                least={narrowest}
+                fit={expanded ? 'open' : notch ? 'centre' : 'start'}
                 inset={inset}
                 reduced={reduced}
                 onSize={onSize}

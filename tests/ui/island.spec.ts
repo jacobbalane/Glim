@@ -159,10 +159,19 @@ test('around a Mac notch, nothing sits where the camera is and the open view sta
     expect(box.x + box.width <= camera.left + 0.5 || box.x >= camera.right - 0.5).toBe(true);
   }
   expect((await button.boundingBox())!.height).toBeCloseTo(32, 0);
-  // Both wings fit the agent's name: 160 pixels either side of the camera.
-  expect(shape.width).toBeCloseTo(520, 0);
+  // The wings are as wide as the agent's name needs, the same on both sides of the camera.
+  expect(
+    await button.locator('.compact-title').evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  const [left, right] = await button
+    .locator('.wing')
+    .evaluateAll((wings) => wings.map((wing) => wing.getBoundingClientRect().width));
+  expect(left).toBeCloseTo(right, 0);
   await button.click();
   const bar = page.locator('.frame:not([aria-hidden]) .bar');
   await expect(bar).toBeVisible();
   expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(32);
+  await page.waitForTimeout(600);
+  // Opening never narrows the island.
+  expect((await island.boundingBox())!.width).toBeGreaterThanOrEqual(shape.width - 0.5);
 });

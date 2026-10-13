@@ -552,8 +552,8 @@ html:has(.native-stage) {
   cursor: pointer;
   transition: background-color 150ms var(--ease-out);
 }
-/* Around a Mac's notch: as tall as the notch and as wide as the open island, the camera between
-   two equal wings, so the island stays centred on it. */
+/* Around a Mac's notch: as tall as the notch, the camera between two equal wings as wide as the
+   wider one needs, so the island stays centred on it. */
 .compact.notched {
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--notch-w) minmax(0, 1fr);
