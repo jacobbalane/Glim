@@ -26,6 +26,8 @@ These are parser reference versions, not a claim that every provider configurati
 
 ## Integration behavior
 
+Codex hooks added by Glim include a `statusMessage` such as **Glim - PreToolUse** for each of the 12 events. This is the supported hook status text, not a custom event name: Codex's top-level `/hooks` rows keep their standard names. To add labels to an existing connection after installing this change, disconnect Codex in Glim and choose **Add Codex hooks** again, then review the changed entries in `/hooks`. Codex may require renewed trust when a hook definition changes. Glim does not approve hooks automatically.
+
 Claude Code settings are merged in its configured user directory (`CLAUDE_CONFIG_DIR`, or `~/.claude`). Codex hooks are merged in `CODEX_HOME/hooks.json`, or `~/.codex/hooks.json`. Project configuration or managed policies can override or disable user integrations. Glim does not change managed policy or hook trust.
 
 Claude's existing status line is wrapped by the helper. Its command receives the original stdin, working directory, and environment. On Windows the relay uses the configured Git Bash executable, or the default Git Bash installation when available. If no previous command exists, a simple model label is printed.
