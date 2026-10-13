@@ -147,11 +147,21 @@ pub async fn serve(
     loop {
         let (stream, _) = listener.accept().await.map_err(|e| e.to_string())?;
         // Only the signed-in user's own processes, whatever the file's mode.
-        if stream.peer_cred().map(|c| c.uid()).ok() != Some(me) {
+        if peer_uid(&stream) != Some(me) {
             continue;
         }
         tokio::spawn(receive(stream, sender.clone()));
     }
+}
+
+/// The user who connected, as the socket recorded it at connect time. The helper writes and
+/// exits at once, and tokio's `peer_cred` also asks for the peer's process, which macOS refuses
+/// once that process has hung up, so it is not used here.
+#[cfg(unix)]
+fn peer_uid(stream: &tokio::net::UnixStream) -> Option<libc::uid_t> {
+    use std::os::fd::AsRawFd;
+    let (mut uid, mut gid) = (0, 0);
+    (unsafe { libc::getpeereid(stream.as_raw_fd(), &mut uid, &mut gid) } == 0).then_some(uid)
 }
 
 #[cfg(all(test, unix))]
@@ -189,6 +199,7 @@ mod tests {
         stream
             .write_all(&serde_json::to_vec(&event).unwrap())
             .unwrap();
+        // Hung up, likely before Glim accepts, as the helper does.
         drop(stream);
         let got = receiver
             .recv_timeout(std::time::Duration::from_secs(2))
