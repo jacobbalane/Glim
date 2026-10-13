@@ -120,7 +120,7 @@ try {
   // Onboarding, connecting both agents through the UI.
   await click('Get started');
   for (const [provider, button] of [
-    ['Codex', 'Add Codex hooks'],
+    ['Codex', 'Connect Codex'],
     ['Claude Code', 'Connect Claude'],
   ]) {
     await run(`
