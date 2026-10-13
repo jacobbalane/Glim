@@ -136,6 +136,12 @@ fn show_agent(id: String, state: tauri::State<Shared>) -> Result<bool, String> {
         process::is_open(agent) && process::show(agent.0, &project)
     }))
 }
+/// Opens the version an update just installed. On Windows, Setup has already closed Glim and
+/// opened the new one; on macOS the update replaces Glim.app, and Glim starts it here.
+#[tauri::command]
+fn relaunch(app: tauri::AppHandle) {
+    app.restart();
+}
 /// The screen the island hangs from: its notch on a Mac, if any, and the menu bar's height.
 #[tauri::command]
 fn screen_shape(app: tauri::AppHandle) -> platform::ScreenShape {
@@ -187,6 +193,7 @@ pub fn run() {
             open_panel,
             show_agent,
             screen_shape,
+            relaunch,
             open_releases,
             test_control::test_report,
             test_control::test_pointer

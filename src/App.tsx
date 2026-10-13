@@ -6,6 +6,7 @@ import { DEFAULT_PREFERENCES, type Snapshot } from './types';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from './panels';
 import { Compact, Glance } from './island-views';
 import IslandSurface from './IslandSurface';
+import useViewKey from './useViewKey';
 import BrandPreview from './BrandPreview';
 import { CharacterEnvironment } from './Character';
 import { groupSessions, isNotice } from './session-presentation';
@@ -59,6 +60,7 @@ export default function App() {
   const returnFocus = useRef(false);
   const reduced = useReducedMotion() || (!!designScene && !designMotion);
   const expanded = view !== 'compact';
+  const viewKey = useViewKey(view, focusId ?? undefined);
   const paused = snapshot.preferences.paused;
   const groups = useMemo(
     () => groupSessions(snapshot.sessions, seenAt),
@@ -313,7 +315,7 @@ export default function App() {
       >
         <IslandSurface
           expanded={expanded}
-          viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
+          viewKey={viewKey}
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
           reduced={reduced}
           onError={setError}

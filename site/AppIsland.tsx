@@ -3,6 +3,7 @@
 // app's data and window plumbing (src/App.tsx) with the website's sample sessions and scenes.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import IslandSurface from '../src/IslandSurface';
+import useViewKey from '../src/useViewKey';
 import { Compact, Glance } from '../src/island-views';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from '../src/panels';
 import { groupSessions } from '../src/session-presentation';
@@ -46,6 +47,7 @@ export function AppIsland({
   const [run, setRun] = useState(0);
   const [inboxHidden, setInboxHidden] = useState(false);
   const expanded = view !== 'compact';
+  const viewKey = useViewKey(view, focusId ?? undefined);
   const groups = groupSessions(sessions, seenAt);
   const focus = groups.find((g) => g.session.id === focusId) ?? groups[0];
   // The same rotation and notices as the app, with the same timings.
@@ -163,7 +165,7 @@ export function AppIsland({
     >
       <IslandSurface
         expanded={expanded}
-        viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
+        viewKey={viewKey}
         tone={prefs.paused || !notch.current ? 'calm' : notch.current.look.tone}
         reduced={reduced}
         onError={() => {}}

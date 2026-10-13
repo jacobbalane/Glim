@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ShieldCheck } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
-import { api } from './api';
+import { api, mac } from './api';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
 import { ago, limitName, nameOf, type Group } from './session-presentation';
@@ -404,7 +404,7 @@ function IslandFields({
         </div>
       )}
       <Switch
-        label="Start with Windows"
+        label={mac ? 'Open at login' : 'Start with Windows'}
         checked={prefs.startAtLogin}
         onChange={(startAtLogin) => save({ ...prefs, startAtLogin })}
       />
@@ -558,8 +558,9 @@ type UpdateState =
   | { kind: 'available' | 'installing'; update: Update; percent: number | null }
   | { kind: 'failed'; message: string };
 
-// A newer Glim from GitHub, only when asked. Installing hands over to Setup, which closes Glim and
-// opens it again on the new version.
+// A newer Glim from GitHub, only when asked. On Windows, installing hands over to Setup, which
+// closes Glim and opens it again on the new version; on macOS the new Glim.app is in place once
+// the install finishes, and Glim opens it.
 function Updates() {
   const [state, setState] = useState<UpdateState>({ kind: 'idle' });
   const checkNow = async () => {
@@ -590,6 +591,7 @@ function Updates() {
           });
         }
       });
+      await api.relaunch();
     } catch {
       setState({
         kind: 'failed',
