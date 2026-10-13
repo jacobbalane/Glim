@@ -16,6 +16,24 @@ import { previewHistory, previewSnapshot } from './preview';
 import { PREVIEW_SCENES, sceneSnapshot } from './design-preview';
 
 export const native = isTauri();
+// The screen the island hangs from: a Mac's camera notch, if it has one, and its menu bar's
+// height, in CSS pixels. The browser preview takes ?notch=200x32 to draw the island around one.
+export interface Notch {
+  width: number;
+  height: number;
+}
+export interface ScreenShape {
+  notch: Notch | null;
+  bar: number;
+}
+function previewNotch(): ScreenShape {
+  const [width, height] = (new URLSearchParams(location.search).get('notch') ?? '')
+    .split('x')
+    .map(Number);
+  return width > 0 && height > 0
+    ? { notch: { width, height }, bar: height }
+    : { notch: null, bar: 0 };
+}
 export interface Side {
   x: number;
   y: number;
@@ -84,6 +102,8 @@ export const api = {
   version: () => (native ? getVersion() : Promise.resolve(packageVersion)),
   // Glim goes online only here, when the person asks: GitHub's latest release, signature checked.
   checkUpdate: (): Promise<Update | null> => (native ? check() : Promise.resolve(null)),
+  screenShape: (): Promise<ScreenShape> =>
+    native ? invoke<ScreenShape>('screen_shape') : Promise.resolve(previewNotch()),
   // Brings the window the agent runs in to the front; false when Glim can't find it.
   showAgent: (id: string): Promise<boolean> =>
     native ? invoke<boolean>('show_agent', { id }) : Promise.resolve(false),

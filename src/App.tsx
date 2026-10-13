@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUpRight, X } from 'lucide-react';
-import { api, demo, native, designScene, designMotion } from './api';
+import { api, demo, native, designScene, designMotion, type ScreenShape } from './api';
 import { DEFAULT_PREFERENCES, type Snapshot } from './types';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from './panels';
 import { Compact, Glance } from './island-views';
@@ -32,6 +32,15 @@ export default function App() {
   );
   // The open island as a list of every agent, kept until an agent is picked.
   const [listed, setListed] = useState(false);
+  // On a Mac, the island wraps the screen's camera notch. Read again when the window moves to
+  // another display.
+  const [screen, setScreen] = useState<ScreenShape>({ notch: null, bar: 0 });
+  useEffect(() => {
+    const read = () => api.screenShape().then(setScreen, () => {});
+    read();
+    window.addEventListener('resize', read);
+    return () => window.removeEventListener('resize', read);
+  }, []);
   const [seenAt, setSeenAt] = useState(Date.now);
   const [inboxHidden, setInboxHidden] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot>({
@@ -233,6 +242,7 @@ export default function App() {
         count={groups.length}
         paused={paused}
         now={now}
+        notch={screen.notch}
         onRun={setRun}
         onOpen={(id, picked) => {
           setFocusId(id ?? null);
@@ -307,6 +317,7 @@ export default function App() {
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
           reduced={reduced}
           onError={setError}
+          notch={screen.notch}
         >
           <CharacterEnvironment.Provider value={{ animate: !reduced, active: !hidden }}>
             {content}

@@ -76,7 +76,7 @@ export default function Ticker({
       transition={{ duration: reduced ? 0 : present ? 0.2 : 0.12, ease: [0.23, 1, 0.32, 1] }}
     >
       <motion.span className="compact-line" style={{ opacity: present ? settled : 1 }}>
-        <b className="compact-title">{title}</b>
+        {title && <b className="compact-title">{title}</b>}
         {children && (
           <span ref={box} className={`ticker-box${run ? ' is-marquee' : ''}`}>
             <span

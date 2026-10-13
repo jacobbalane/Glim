@@ -30,6 +30,11 @@ jobs:
       - run: npm run test:ui
         env:
           GLIM_TEST_BROWSER: chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-results-windows
+          path: test-results/
       - run: node scripts/prepare-bridge.mjs
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
@@ -65,10 +70,18 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
-      - run: npx playwright install chromium
+      - run: npx playwright install chromium webkit
       - run: npm run test:ui
         env:
           GLIM_TEST_BROWSER: chromium
+      - run: npm run test:ui
+        env:
+          GLIM_TEST_BROWSER: webkit
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-results-macos
+          path: test-results/
       - run: node scripts/prepare-bridge.mjs
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings

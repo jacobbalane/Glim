@@ -6,6 +6,7 @@ pub mod normalize;
 mod platform;
 pub mod process;
 mod storage;
+mod test_control;
 
 use collector::Collector;
 use model::*;
@@ -186,7 +187,8 @@ pub fn run() {
             open_panel,
             show_agent,
             screen_shape,
-            open_releases
+            open_releases,
+            test_control::test_report
         ])
         .setup(|app| {
             // A menu-bar app on macOS: no Dock icon, and the menu bar stays the agent's.
@@ -256,6 +258,8 @@ pub fn run() {
                 });
             }
             start_collector(shared, receiver, app.handle().clone());
+            #[cfg(all(debug_assertions, unix))]
+            test_control::start(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())

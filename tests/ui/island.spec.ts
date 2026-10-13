@@ -140,3 +140,29 @@ test('the open agent folds into the list, which stays until an agent is picked',
     page.getByRole('heading', { name: 'api-service · Codex', exact: true }),
   ).toBeVisible();
 });
+
+test('around a Mac notch, nothing sits where the camera is and the open view starts below it', async ({
+  page,
+}) => {
+  await page.goto('/?notch=200x32');
+  const island = page.getByTestId('island');
+  const button = page.locator('.compact.notched');
+  await expect(button).toBeVisible();
+  await page.waitForTimeout(600);
+  const shape = (await island.boundingBox())!;
+  const middle = shape.x + shape.width / 2;
+  // The camera: 200 pixels wide at the top centre of the screen, which the island is centred on.
+  const camera = { left: middle - 100, right: middle + 100 };
+  for (const part of await button.locator('.wing > *').all()) {
+    const box = await part.boundingBox();
+    if (!box || box.width === 0) continue;
+    expect(box.x + box.width <= camera.left + 0.5 || box.x >= camera.right - 0.5).toBe(true);
+  }
+  expect((await button.boundingBox())!.height).toBeCloseTo(32, 0);
+  // Both wings fit the agent's name: 160 pixels either side of the camera.
+  expect(shape.width).toBeCloseTo(520, 0);
+  await button.click();
+  const bar = page.locator('.frame:not([aria-hidden]) .bar');
+  await expect(bar).toBeVisible();
+  expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(32);
+});

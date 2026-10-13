@@ -18,7 +18,7 @@ import {
   useTransform,
   type MotionValue,
 } from 'motion/react';
-import { api, native, designScene } from './api';
+import { api, native, designScene, type Notch } from './api';
 import type { Tone } from './Character';
 
 export const SURFACE_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 1 };
@@ -34,12 +34,14 @@ export const SideSlot = createContext<HTMLElement | null>(null);
 function ViewFrame({
   width,
   compact,
+  inset,
   reduced,
   onSize,
   children,
 }: {
   width: number;
   compact: boolean;
+  inset: number;
   reduced: boolean;
   onSize: (width: number, height: number) => void;
   children: ReactNode;
@@ -52,12 +54,12 @@ function ViewFrame({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!present || !el) return;
-    const send = () => report.current(el.offsetWidth, el.offsetHeight);
+    const send = () => report.current(el.offsetWidth, el.offsetHeight + inset);
     send();
     const observer = new ResizeObserver(send);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [present]);
+  }, [present, inset]);
   return (
     <motion.div
       ref={ref}
@@ -65,7 +67,7 @@ function ViewFrame({
       style={
         compact
           ? { width: 'max-content', minWidth: 144, maxWidth: width, left: 0 }
-          : { width, marginLeft: -width / 2 }
+          : { width, marginLeft: -width / 2, top: inset }
       }
       inert={!present}
       aria-hidden={!present || undefined}
@@ -97,6 +99,7 @@ export default function IslandSurface({
   reduced,
   children,
   onError,
+  notch = null,
 }: {
   expanded: boolean;
   viewKey: string;
@@ -104,21 +107,36 @@ export default function IslandSurface({
   reduced: boolean;
   children: ReactNode;
   onError: (error: string) => void;
+  // A Mac's camera notch: the island takes its height when compact and keeps the open island's
+  // width, the camera between its two wings; open views start below it.
+  notch?: Notch | null;
 }) {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
-  const wide = Math.max(204, Math.min(440, viewportWidth - 40));
+  // Around a notch the island leaves 160 pixels either side of the camera for its wings.
+  const room = notch ? Math.max(440, notch.width + 320) : 440;
+  const wide = Math.max(204, Math.min(room, viewportWidth - 40));
   const cap = Math.min(360, wide - 60);
   const [fitted, setFitted] = useState(300);
-  const targetWidth = expanded ? wide : Math.max(144, Math.min(cap, fitted));
+  const targetWidth = expanded || notch ? wide : Math.max(144, Math.min(cap, fitted));
+  const floor = notch && !expanded ? notch.height : 34;
+  const inset = notch && expanded ? notch.height : 0;
   const width = useSpring(targetWidth, SURFACE_SPRING);
-  const height = useSpring(34, SURFACE_SPRING);
+  const height = useSpring(floor, SURFACE_SPRING);
   const target = useMotionValue(targetWidth);
   // Drawn in whole, even pixels: the surface stays centred on the same pixel as it resizes, so the
   // views inside never shift by a fraction, which made their icons jitter between two pixels.
   const even = useTransform(width, (v) => Math.round(v / 2) * 2);
-  const radius = useTransform(width, [cap, wide], [17, 24]);
-  const compactInk = useTransform(width, [cap, cap + 26], [1, 0]);
-  const expandedInk = useTransform(width, [wide - 30, wide], [0, 1]);
+  // Without a notch the island widens as it opens, and its corners and content follow the width.
+  // Around a notch only its height changes, so the corners follow that and both views stay inked.
+  const widthRadius = useTransform(width, [cap, wide], [17, 24]);
+  const notchHeight = notch?.height ?? 34;
+  const heightRadius = useTransform(height, [notchHeight, notchHeight + 80], [12, 24]);
+  const radius = notch ? heightRadius : widthRadius;
+  const widthCompact = useTransform(width, [cap, cap + 26], [1, 0]);
+  const widthExpanded = useTransform(width, [wide - 30, wide], [0, 1]);
+  const solid = useMotionValue(1);
+  const compactInk = notch ? solid : widthCompact;
+  const expandedInk = notch ? solid : widthExpanded;
   const settle = useTransform(() =>
     Math.max(0, Math.min(1, 1 - (Math.abs(width.get() - target.get()) - 3) / 16)),
   );
@@ -145,8 +163,8 @@ export default function IslandSurface({
   }, [targetWidth, reduced, width, target]);
   const onSize = (w: number, h: number) => {
     if (!expanded) setFitted(Math.ceil(w));
-    if (reduced) height.jump(Math.max(34, h));
-    else height.set(Math.max(34, h));
+    if (reduced) height.jump(Math.max(floor, h));
+    else height.set(Math.max(floor, h));
   };
   const synchronize = () => {
     if (scheduled.current !== null) return;
@@ -212,8 +230,9 @@ export default function IslandSurface({
             <AnimatePresence initial={false}>
               <ViewFrame
                 key={viewKey}
-                width={expanded ? wide : cap}
-                compact={!expanded}
+                width={expanded || notch ? wide : cap}
+                compact={!expanded && !notch}
+                inset={inset}
                 reduced={reduced}
                 onSize={onSize}
               >
