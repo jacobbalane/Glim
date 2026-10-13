@@ -36,12 +36,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let payload = serde_json::to_vec(&event)?;
             if payload.len() <= 65536 {
                 for attempt in 0..3 {
-                    match std::fs::OpenOptions::new()
-                        .write(true)
-                        .open(ipc::pipe_name())
-                    {
-                        Ok(mut pipe) => {
-                            let _ = pipe.write_all(&payload);
+                    match connect() {
+                        Ok(mut channel) => {
+                            let _ = channel.write_all(&payload);
                             break;
                         }
                         Err(_) if attempt < 2 => {
@@ -80,6 +77,36 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     Ok(())
 }
+/// Glim's end of the channel: the pipe on Windows, the socket file on macOS (see ipc.rs).
+#[cfg(windows)]
+fn connect() -> std::io::Result<std::fs::File> {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(ipc::endpoint())
+}
+#[cfg(unix)]
+fn connect() -> std::io::Result<std::os::unix::net::UnixStream> {
+    std::os::unix::net::UnixStream::connect(ipc::endpoint())
+}
+
+/// Runs the status line the person had before Glim, with the same input, as Claude Code would.
+#[cfg(unix)]
+fn relay_command(command: &str, input: &[u8]) {
+    use std::process::{Command, Stdio};
+    if let Ok(mut process) = Command::new("/bin/sh")
+        .args(["-c", command])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()
+    {
+        if let Some(mut stdin) = process.stdin.take() {
+            let _ = stdin.write_all(input);
+        }
+        let _ = process.wait();
+    }
+}
+#[cfg(windows)]
 fn relay_command(command: &str, input: &[u8]) {
     use std::process::{Command, Stdio};
     let bash = std::env::var_os("CLAUDE_CODE_GIT_BASH_PATH")

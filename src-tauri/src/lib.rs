@@ -47,7 +47,11 @@ fn save_preferences(
     }
     let mut c = lock(&state)?;
     if preferences.start_at_login != c.preferences.start_at_login {
-        platform::autostart(preferences.start_at_login)?;
+        platform::autostart(&app, preferences.start_at_login)?;
+    }
+    #[cfg(target_os = "macos")]
+    if preferences.hide_fullscreen != c.preferences.hide_fullscreen {
+        platform::float_over_menu_bar(&app, !preferences.hide_fullscreen);
     }
     platform::position_island(&app, &preferences)?;
     c.store.save_preferences(&preferences)?;
@@ -131,29 +135,46 @@ fn show_agent(id: String, state: tauri::State<Shared>) -> Result<bool, String> {
         process::is_open(agent) && process::show(agent.0, &project)
     }))
 }
+/// The screen the island hangs from: its notch on a Mac, if any, and the menu bar's height.
+#[tauri::command]
+fn screen_shape(app: tauri::AppHandle) -> platform::ScreenShape {
+    platform::screen_shape(&app)
+}
 #[tauri::command]
 fn open_releases() -> Result<(), String> {
-    let mut command = std::process::Command::new("rundll32.exe");
-    command.args([
-        "url.dll,FileProtocolHandler",
-        "https://github.com/jacobbalane/Glim/releases",
-    ]);
+    const RELEASES: &str = "https://github.com/jacobbalane/Glim/releases";
     #[cfg(windows)]
-    {
+    let mut command = {
         use std::os::windows::process::CommandExt;
+        let mut command = std::process::Command::new("rundll32.exe");
+        command.args(["url.dll,FileProtocolHandler", RELEASES]);
         command.creation_flags(0x08000000);
-    }
+        command
+    };
+    #[cfg(not(windows))]
+    let mut command = {
+        let mut command = std::process::Command::new("open");
+        command.arg(RELEASES);
+        command
+    };
     command.spawn().map_err(|e| e.to_string())?;
     Ok(())
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             queue_panel("settings".into(), app.clone());
         }))
         // Checks GitHub for a signed newer release, only when asked from Settings.
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    // Open at login on macOS is a LaunchAgent; Windows uses its Run key (platform::autostart).
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None,
+    ));
+    builder
         .invoke_handler(tauri::generate_handler![
             snapshot,
             history,
@@ -164,11 +185,18 @@ pub fn run() {
             island_shape,
             open_panel,
             show_agent,
+            screen_shape,
             open_releases
         ])
         .setup(|app| {
+            // A menu-bar app on macOS: no Dock icon, and the menu bar stays the agent's.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let root = connectors::data_dir();
             std::fs::create_dir_all(&root)?;
+            // Hooks call a copy of the helper that stays put when Glim.app moves or updates.
+            #[cfg(target_os = "macos")]
+            connectors::refresh_bridge();
             let store =
                 storage::Store::open(&root.join("usage.sqlite3")).map_err(std::io::Error::other)?;
             let connectors = [Provider::Claude, Provider::Codex]
@@ -185,6 +213,11 @@ pub fn run() {
             platform::position_island(app.handle(), &preferences).map_err(std::io::Error::other)?;
             platform::shape(app.handle(), 300, 34, None, Some(false))
                 .map_err(std::io::Error::other)?;
+            #[cfg(target_os = "macos")]
+            {
+                platform::float_over_menu_bar(app.handle(), !preferences.hide_fullscreen);
+                platform::follow_pointer(app.handle().clone());
+            }
             if let Some(window) = app.get_webview_window("island") {
                 window.show()?;
                 window.on_window_event({
@@ -207,7 +240,6 @@ pub fn run() {
             }
             create_tray(app.handle())?;
             let (sender, receiver) = std::sync::mpsc::channel::<AgentEvent>();
-            #[cfg(windows)]
             {
                 let shared = shared.clone();
                 let handle = app.handle().clone();
@@ -283,6 +315,15 @@ fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 queue_panel("settings".into(), tray.app_handle().clone());
             }
         });
+    #[cfg(target_os = "macos")]
+    {
+        tray = tray
+            .icon(tauri::image::Image::from_bytes(include_bytes!(
+                "../icons/tray-template.png"
+            ))?)
+            .icon_as_template(true);
+    }
+    #[cfg(not(target_os = "macos"))]
     if let Some(icon) = app.default_window_icon() {
         tray = tray.icon(icon.clone());
     }

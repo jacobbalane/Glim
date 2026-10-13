@@ -55,7 +55,7 @@ pub fn agent() -> Option<(u32, u64)> {
     }
     None
 }
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 pub fn agent() -> Option<(u32, u64)> {
     None
 }
@@ -99,7 +99,7 @@ pub fn is_open((pid, at): (u32, u64)) -> bool {
         None => (unsafe { GetLastError() }) != ERROR_INVALID_PARAMETER,
     }
 }
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 pub fn is_open(_: (u32, u64)) -> bool {
     true
 }
@@ -127,7 +127,7 @@ pub fn show(pid: u32, project: &str) -> bool {
         SetForegroundWindow(window) != 0
     }
 }
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "macos")))]
 pub fn show(_: u32, _: &str) -> bool {
     false
 }
@@ -226,6 +226,182 @@ fn family_window(pid: u32, project: &str) -> Option<Window> {
         pid = *parent;
     }
     None
+}
+
+// macOS: the kernel's own record of each process, through proc_pidinfo.
+
+/// A process's record: its parent, name, start and terminal. None once it has exited (ESRCH) or
+/// when the kernel will not say (EPERM).
+#[cfg(target_os = "macos")]
+fn record(pid: u32) -> Option<libc::proc_bsdinfo> {
+    let mut info: libc::proc_bsdinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_bsdinfo>() as i32;
+    let read = unsafe {
+        libc::proc_pidinfo(
+            pid as i32,
+            libc::PROC_PIDTBSDINFO,
+            0,
+            (&mut info as *mut libc::proc_bsdinfo).cast(),
+            size,
+        )
+    };
+    (read == size).then_some(info)
+}
+#[cfg(target_os = "macos")]
+fn name_of(info: &libc::proc_bsdinfo) -> String {
+    let raw: &[libc::c_char] = if info.pbi_name[0] != 0 {
+        &info.pbi_name
+    } else {
+        &info.pbi_comm
+    };
+    let bytes: Vec<u8> = raw
+        .iter()
+        .take_while(|&&c| c != 0)
+        .map(|&c| c as u8)
+        .collect();
+    String::from_utf8_lossy(&bytes).to_ascii_lowercase()
+}
+/// When it started, in microseconds since 1970.
+#[cfg(target_os = "macos")]
+fn start_of(info: &libc::proc_bsdinfo) -> u64 {
+    info.pbi_start_tvsec * 1_000_000 + info.pbi_start_tvusec
+}
+
+#[cfg(target_os = "macos")]
+pub fn agent() -> Option<(u32, u64)> {
+    // Hooks run through the person's shell, sometimes through login first.
+    const SHELLS: [&str; 8] = ["zsh", "bash", "sh", "dash", "fish", "tcsh", "ksh", "login"];
+    let mut pid = std::os::unix::process::parent_id();
+    for _ in 0..8 {
+        let info = record(pid)?;
+        if !SHELLS.contains(&name_of(&info).trim_start_matches('-')) {
+            return Some((pid, start_of(&info)));
+        }
+        pid = info.pbi_ppid;
+    }
+    None
+}
+
+#[cfg(target_os = "macos")]
+pub fn is_open((pid, at): (u32, u64)) -> bool {
+    match record(pid) {
+        Some(info) => start_of(&info) == at,
+        // Only "no such process" proves it closed; "not permitted" does not.
+        None => std::io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH),
+    }
+}
+
+/// Brings the app the agent runs in to the front: the nearest ancestor macOS knows as an app
+/// (Terminal, iTerm2, VS Code, Warp, Ghostty…). In Terminal and iTerm2 it also selects the agent's
+/// own tab, by the agent's terminal device; macOS asks once whether Glim may do that.
+#[cfg(target_os = "macos")]
+pub fn show(pid: u32, _project: &str) -> bool {
+    use objc2_app_kit::{NSApplicationActivationPolicy, NSRunningApplication};
+    let tty = record(pid).and_then(|info| tty_of(info.e_tdev));
+    let mut ancestor = pid;
+    for _ in 0..16 {
+        if let Some(app) =
+            NSRunningApplication::runningApplicationWithProcessIdentifier(ancestor as libc::pid_t)
+        {
+            if app.activationPolicy() == NSApplicationActivationPolicy::Regular {
+                let bundle = app.bundleIdentifier().map(|id| id.to_string());
+                // AppleScript may wait on the permission prompt; never on the main thread.
+                std::thread::spawn(move || {
+                    if let (Some(bundle), Some(tty)) = (bundle, tty) {
+                        select_tab(&bundle, &tty);
+                    }
+                    activate(ancestor);
+                });
+                return true;
+            }
+        }
+        match record(ancestor) {
+            Some(info) if info.pbi_ppid > 1 => ancestor = info.pbi_ppid,
+            _ => break,
+        }
+    }
+    false
+}
+#[cfg(target_os = "macos")]
+fn activate(pid: u32) {
+    use objc2_app_kit::{NSApplicationActivationOptions, NSRunningApplication};
+    if let Some(app) =
+        NSRunningApplication::runningApplicationWithProcessIdentifier(pid as libc::pid_t)
+    {
+        // Needed on macOS 13; macOS 14 and later activate cooperatively and ignore it.
+        #[allow(deprecated)]
+        app.activateWithOptions(NSApplicationActivationOptions::ActivateIgnoringOtherApps);
+    }
+}
+/// The terminal device a process writes to, such as "/dev/ttys003".
+#[cfg(target_os = "macos")]
+fn tty_of(device: u32) -> Option<String> {
+    if device == 0 || device == u32::MAX {
+        return None;
+    }
+    let name = unsafe { libc::devname(device as libc::dev_t, libc::S_IFCHR) };
+    if name.is_null() {
+        return None;
+    }
+    let name = unsafe { std::ffi::CStr::from_ptr(name) }.to_string_lossy();
+    (name != "??").then(|| format!("/dev/{name}"))
+}
+#[cfg(target_os = "macos")]
+fn select_tab(bundle: &str, tty: &str) {
+    let script = match bundle {
+        "com.apple.Terminal" => format!(
+            r#"tell application "Terminal"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        if tty of t is "{tty}" then
+                            set selected of t to true
+                            set index of w to 1
+                        end if
+                    end repeat
+                end repeat
+            end tell"#
+        ),
+        "com.googlecode.iterm2" => format!(
+            r#"tell application "iTerm2"
+                repeat with w in windows
+                    repeat with t in tabs of w
+                        repeat with s in sessions of t
+                            if tty of s is "{tty}" then
+                                tell w to select
+                                tell t to select
+                                tell s to select
+                            end if
+                        end repeat
+                    end repeat
+                end repeat
+            end tell"#
+        ),
+        _ => return,
+    };
+    let _ = std::process::Command::new("/usr/bin/osascript")
+        .args(["-e", &script])
+        .output();
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod mac_tests {
+    use super::*;
+    #[test]
+    fn a_running_process_is_open_and_a_gone_or_reused_one_is_not() {
+        let me = std::process::id();
+        let at = start_of(&record(me).unwrap());
+        assert!(is_open((me, at)));
+        // The same id with another start time is a different process.
+        assert!(!is_open((me, at - 1)));
+        // Above the kernel's process id limit, so it never exists.
+        assert!(!is_open((999_999_999, 1)));
+    }
+    #[test]
+    fn a_process_knows_its_parent_and_name() {
+        let info = record(std::process::id()).unwrap();
+        assert_eq!(info.pbi_ppid, std::os::unix::process::parent_id());
+        assert!(!name_of(&info).is_empty());
+    }
 }
 
 #[cfg(all(test, windows))]
