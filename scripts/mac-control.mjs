@@ -5,15 +5,16 @@ import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-// Matches ipc::endpoint(): one socket per data folder, in the per-user temporary folder.
-export const controlSocket = (data) =>
+// Matches ipc::endpoint(): one socket per data folder, in the per-user temporary folder. The test
+// control's sits beside Glim's, as `.test`.
+export const endpoint = (data, extension = 'sock') =>
   join(
     tmpdir(),
-    `glim-${createHash('sha256').update(data.toLowerCase()).digest('hex').slice(0, 16)}.test`,
+    `glim-${createHash('sha256').update(data.toLowerCase()).digest('hex').slice(0, 16)}.${extension}`,
   );
 
 export function control(data) {
-  const socket = controlSocket(data);
+  const socket = endpoint(data, 'test');
   // Runs a script, the body of an async function, in the island; returns what it returns.
   const run = (script) =>
     new Promise((done, fail) => {

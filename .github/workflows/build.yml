@@ -108,6 +108,13 @@ jobs:
           tar -czf "out/Glim_${version}_universal.app.tar.gz" -C "$bundle/macos" Glim.app
           cd out
           for file in *; do shasum -a 256 "$file" > "$file.sha256"; done
+      # Installed from the .dmg, then updated from Settings to the next version.
+      - run: node scripts/install-smoke-mac.mjs out/*.dmg
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-install-smoke
+          path: .cache/install-smoke-mac-*/screenshots/
       - uses: actions/upload-artifact@v4
         with:
           name: Glim-macos-universal

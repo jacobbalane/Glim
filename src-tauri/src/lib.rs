@@ -137,10 +137,12 @@ fn show_agent(id: String, state: tauri::State<Shared>) -> Result<bool, String> {
     }))
 }
 /// Opens the version an update just installed. On Windows, Setup has already closed Glim and
-/// opened the new one; on macOS the update replaces Glim.app, and Glim starts it here.
+/// opened the new one; on macOS the update replaces Glim.app, and Glim starts it here. A requested
+/// restart exits through the event loop first, so the single-instance lock is gone before the new
+/// Glim looks for it.
 #[tauri::command]
 fn relaunch(app: tauri::AppHandle) {
-    app.restart();
+    app.request_restart();
 }
 /// The screen the island hangs from: its notch on a Mac, if any, and the menu bar's height.
 #[tauri::command]
