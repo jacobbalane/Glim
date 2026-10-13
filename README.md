@@ -4,7 +4,7 @@
 
 A minimal desktop island for Claude Code and Codex CLI, on macOS and Windows. On a MacBook it wraps the notch. Live activity, context, token usage, and reported task progress stay above your workspace. Your data stays on your device.
 
-[![The Glim website: the island at the top of the screen, the headline, and a row of 3D Glims](docs/images/website.jpg)](https://glim.jacobbalane.com/)
+[![The Glim website: the island around a Mac notch at the top of the screen, the headline, and a row of 3D Glims](docs/images/website.jpg)](https://glim.jacobbalane.com/)
 
 **[Try it on the website →](https://glim.jacobbalane.com/)** The page runs the real island on sample sessions. Ask for approval, finish a turn or hit an error, and watch it react. Nothing to install.
 
