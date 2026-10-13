@@ -129,9 +129,11 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      # The installers only, not the test screenshots.
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: Glim-*
           merge-multiple: true
       # Signs the installer for the in-app updater. The key is used only here, never in the job
       # that installs and runs the build's dependencies; without it the release stops.
