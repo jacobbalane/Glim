@@ -4,14 +4,12 @@
 // test_control.rs). Screenshots land in the test folder for review.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { appendFile, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
-import { connect } from 'node:net';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DatabaseSync } from 'node:sqlite';
+import { control } from './mac-control.mjs';
 
 assert.equal(process.platform, 'darwin', 'This smoke test runs on macOS.');
 const executable = resolve(process.env.GLIM_TEST_EXE ?? 'src-tauri/target/debug/glim');
@@ -49,9 +47,7 @@ const env = {
   GLIM_AGENT_HOME: home,
   GLIM_TEST_CONTROL: '1',
 };
-// Matches ipc::endpoint(): one socket per data folder in the per-user temporary folder.
-const hash = createHash('sha256').update(data.toLowerCase()).digest('hex').slice(0, 16);
-const control = join(tmpdir(), `glim-${hash}.test`);
+const { socket: controlSocket, run, invoke, click, has, text } = control(data);
 
 let app;
 let nativeError = '';
@@ -83,43 +79,6 @@ async function until(fn, description, timeout = 20000) {
   }
   throw new Error(`Timed out: ${description}${lastError ? ` (${lastError.message})` : ''}`);
 }
-// Runs a script, the body of an async function, in the island; returns what it returns.
-function run(script) {
-  return new Promise((done, fail) => {
-    const socket = connect(control);
-    let answer = '';
-    socket.on('data', (chunk) => {
-      answer += chunk;
-    });
-    socket.on('error', fail);
-    socket.on('end', () => {
-      try {
-        const result = JSON.parse(answer);
-        if (result.error) fail(new Error(result.error));
-        else done(result.value);
-      } catch (error) {
-        fail(error);
-      }
-    });
-    socket.end(script);
-  });
-}
-const invoke = (command, args = {}) =>
-  run(
-    `return await window.__TAURI_INTERNALS__.invoke(${JSON.stringify(command)}, ${JSON.stringify(args)});`,
-  );
-// Clicks the first button whose accessible name matches.
-const click = (name) =>
-  run(`
-    const name = new RegExp(${JSON.stringify(name.source ?? `^${name}$`)});
-    const label = (b) => (b.getAttribute('aria-label') ?? b.textContent).trim();
-    const button = [...document.querySelectorAll('button')].find((b) => name.test(label(b)));
-    if (!button) throw new Error('No button named ' + name);
-    button.click();
-    return true;`);
-const has = (selector) => run(`return !!document.querySelector(${JSON.stringify(selector)});`);
-const text = (selector) =>
-  run(`return document.querySelector(${JSON.stringify(selector)})?.innerText ?? null;`);
 // The island's place on screen, in points from the main display's top left.
 const islandOnScreen = () =>
   run(`
@@ -153,7 +112,7 @@ const session = async (id) => (await snapshot()).sessions.find((s) => s.id === i
 
 try {
   launch();
-  await until(() => stat(control).then(() => true), 'test control');
+  await until(() => stat(controlSocket).then(() => true), 'test control');
   await until(() => has('.glim-character'), 'island drawn');
   assert.equal((await snapshot()).sessions.length, 0, 'Native mode never shows sample sessions.');
   console.log('Native startup on macOS responsive.');
@@ -380,7 +339,7 @@ try {
 
   // Around a notch: nothing drawn where the camera is, and the open view starts below it.
   launch({ GLIM_TEST_NOTCH: '200x32' });
-  await until(() => stat(control).then(() => true), 'test control again');
+  await until(() => stat(controlSocket).then(() => true), 'test control again');
   await until(() => has('.compact.notched'), 'notched island');
   await delay(800);
   const clear = await run(`
