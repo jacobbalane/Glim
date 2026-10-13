@@ -40,15 +40,23 @@ export function control(data) {
     run(
       `return await window.__TAURI_INTERNALS__.invoke(${JSON.stringify(command)}, ${JSON.stringify(args)});`,
     );
-  // Clicks the first button whose accessible name matches.
+  // Clicks the first enabled button whose accessible name matches, waiting up to five seconds for
+  // it to appear. Buttons in a view that is closing don't count.
   const click = (name) =>
     run(`
       const name = new RegExp(${JSON.stringify(name.source ?? `^${name}$`)});
       const label = (b) => (b.getAttribute('aria-label') ?? b.textContent).trim();
-      const button = [...document.querySelectorAll('button')].find((b) => name.test(label(b)));
-      if (!button) throw new Error('No button named ' + name);
-      button.click();
-      return true;`);
+      for (let tries = 0; tries < 50; tries++) {
+        const button = [...document.querySelectorAll('button')].find(
+          (b) => !b.disabled && !b.closest('[inert]') && name.test(label(b)),
+        );
+        if (button) {
+          button.click();
+          return true;
+        }
+        await new Promise((wait) => setTimeout(wait, 100));
+      }
+      throw new Error('No button named ' + name);`);
   const has = (selector) => run(`return !!document.querySelector(${JSON.stringify(selector)});`);
   const text = (selector) =>
     run(`return document.querySelector(${JSON.stringify(selector)})?.innerText ?? null;`);

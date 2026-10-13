@@ -73,7 +73,7 @@ pub fn start(app: tauri::AppHandle) {
             let wrapped = format!(
                 "(async () => {{ {script}\n }})()\
                  .then(value => ({{ value: value === undefined ? null : value }}),\
-                       error => ({{ error: String((error && error.stack) || error) }}))\
+                       error => ({{ error: [String(error), error && error.stack].filter(Boolean).join('\\n') }}))\
                  .then(result => window.__TAURI_INTERNALS__.invoke('test_report',\
                        {{ id: {id}, result: JSON.stringify(result) }}))"
             );
