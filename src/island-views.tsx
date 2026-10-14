@@ -87,11 +87,13 @@ export function Compact({
       <button
         ref={opener}
         className={`compact tone-${tone}`}
+        data-island-drag
+        data-island-options
+        aria-description="Click to open. Hold to move horizontally. Use Alt and the arrow keys to move, or Shift and F10 for options."
         onClick={() => onOpen?.(s?.id)}
         data-session-id={s?.id}
         aria-expanded={false}
         aria-label={`Glim: ${title}${status ? `, ${status}` : ''}. ${plural(agents, 'agent')}. Open.`}
-        title={status ? `${title} · ${status}` : title}
       >
         <Eyes mood={mood} tone={tone} size={28} />
         {/* The old text fades out while the island changes width; the new one follows. */}
@@ -112,7 +114,6 @@ export function Compact({
           className="inbox-show"
           aria-label="Show notices"
           aria-expanded={false}
-          title={plural(inbox.length, 'hidden notice')}
           style={{ opacity: ink?.settle ?? 1 }}
           onClick={(event) => {
             onInboxHiddenChange(false);
@@ -508,6 +509,8 @@ export function Glance({
         {/* The whole bar collapses for the pointer; the chevron is the keyboard stop. */}
         <button
           className="bar-toggle"
+          data-island-drag
+          aria-description="Click to collapse. Hold to move horizontally."
           aria-label="Collapse Glim"
           tabIndex={-1}
           onClick={onCollapse}

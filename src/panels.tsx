@@ -1,7 +1,18 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ShieldCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  Power,
+  ShieldCheck,
+} from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
-import { api } from './api';
+import { api, native } from './api';
+import { motion } from 'motion/react';
+import HorizontalCentreIcon from './HorizontalCentreIcon';
+import QuickOptionsSettings from './QuickOptionsSettings';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
 import { ago, limitName, nameOf, type Group } from './session-presentation';
@@ -35,7 +46,7 @@ function Sheet({
 }) {
   return (
     <div className="sheet">
-      <header className="sheet-head">
+      <header className="sheet-head" data-island-drag>
         {onBack && (
           <IconButton label="Back" onClick={onBack}>
             <ArrowLeft size={15} />
@@ -47,13 +58,14 @@ function Sheet({
         </div>
         {end}
       </header>
-      <div
+      <motion.div
+        layoutScroll
         role={bodyLabel ? 'region' : undefined}
         aria-label={bodyLabel}
         className={`sheet-body${scroll ? ' scroll' : ''}`}
       >
         {children}
-      </div>
+      </motion.div>
       {foot}
     </div>
   );
@@ -476,6 +488,23 @@ export function SettingsSheet({
   const pending = useRef(false);
   const [cleared, setCleared] = useState(false);
   const [version, setVersion] = useState('');
+  const [appBusy, setAppBusy] = useState<'centre' | 'quit' | null>(null);
+  const appPending = useRef(false);
+  const appAction = async (kind: 'centre' | 'quit') => {
+    if (appPending.current) return;
+    appPending.current = true;
+    setAppBusy(kind);
+    setError(null);
+    try {
+      if (kind === 'centre') await api.islandPosition(0.5);
+      else await api.quit();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      appPending.current = false;
+      setAppBusy(null);
+    }
+  };
   useEffect(() => {
     api.version().then(setVersion, () => {});
   }, []);
@@ -488,6 +517,18 @@ export function SettingsSheet({
       <section className="sec">
         <h4>Island</h4>
         <IslandFields prefs={prefs} onPrefs={onPrefs} full />
+        <div className="field">
+          <span className="field-label">Position</span>
+          <button
+            className="btn small"
+            disabled={!!appBusy}
+            onClick={() => void appAction('centre')}
+          >
+            <HorizontalCentreIcon size={14} />
+            Centre horizontally
+          </button>
+        </div>
+        <QuickOptionsSettings prefs={prefs} onPrefs={onPrefs} />
       </section>
       <section className="sec">
         <h4>Data</h4>
@@ -562,12 +603,23 @@ export function SettingsSheet({
       )}
       <footer className="about">
         <span>Glim {version}</span>
-        <button
-          className="link"
-          onClick={() => api.openRelease().catch((e) => setError(String(e)))}
-        >
-          Releases <ArrowUpRight size={12} />
-        </button>
+        <div className="actions">
+          <button
+            className="link"
+            onClick={() => api.openRelease().catch((e) => setError(String(e)))}
+          >
+            Releases <ArrowUpRight size={12} />
+          </button>
+          <button
+            className="link"
+            disabled={!native || !!appBusy}
+            aria-description={native ? undefined : 'Available in the desktop app'}
+            onClick={() => void appAction('quit')}
+          >
+            <Power size={12} aria-hidden="true" />
+            Quit Glim
+          </button>
+        </div>
       </footer>
     </Sheet>
   );

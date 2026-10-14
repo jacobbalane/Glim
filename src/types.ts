@@ -1,4 +1,13 @@
 export type Provider = 'claude' | 'codex';
+export type QuickOptionId = 'centre' | 'pause' | 'settings' | 'usage' | 'setup' | 'quit';
+export const QUICK_OPTION_ORDER: QuickOptionId[] = [
+  'centre',
+  'pause',
+  'settings',
+  'usage',
+  'setup',
+  'quit',
+];
 export type Activity =
   'working' | 'waiting' | 'idle' | 'finished' | 'interrupted' | 'error' | 'stale';
 export interface Tokens {
@@ -44,6 +53,10 @@ export interface Preferences {
   startAtLogin: boolean;
   hideFullscreen: boolean;
   monitor: string | null;
+  islandPosition: number;
+  quickOptionsEnabled: boolean;
+  quickOptions: QuickOptionId[];
+  quickOptionsOrder: QuickOptionId[];
   paused: boolean;
   onboardingComplete: boolean;
 }
@@ -82,6 +95,10 @@ export const DEFAULT_PREFERENCES: Preferences = {
   startAtLogin: false,
   hideFullscreen: true,
   monitor: null,
+  islandPosition: 0.5,
+  quickOptionsEnabled: false,
+  quickOptions: ['centre', 'quit'],
+  quickOptionsOrder: [...QUICK_OPTION_ORDER],
   paused: false,
   onboardingComplete: false,
 };

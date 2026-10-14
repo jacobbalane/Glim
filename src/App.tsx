@@ -1,3 +1,4 @@
+import { quickAction, selectedQuickOptions } from './quick-options';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUpRight, X } from 'lucide-react';
@@ -307,6 +308,27 @@ export default function App() {
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
           reduced={reduced}
           onError={setError}
+          position={snapshot.preferences.islandPosition ?? 0.5}
+          onPosition={api.islandPosition}
+          options={
+            snapshot.preferences.quickOptionsEnabled
+              ? selectedQuickOptions(snapshot.preferences).map((id) =>
+                  quickAction(
+                    id,
+                    {
+                      centre: () => api.islandPosition(0.5),
+                      pause: () =>
+                        api.savePreferences({ ...snapshot.preferences, paused: !paused }),
+                      settings: async () => openPanel('settings'),
+                      usage: async () => openPanel('history'),
+                      setup: async () => openPanel('setup'),
+                      quit: native ? api.quit : undefined,
+                    }[id],
+                    paused,
+                  ),
+                )
+              : undefined
+          }
         >
           <CharacterEnvironment.Provider value={{ animate: !reduced, active: !hidden }}>
             {content}

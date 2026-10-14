@@ -23,7 +23,7 @@ cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
 Use a Visual Studio x64 Developer PowerShell when your MSVC toolchain is not available on PATH. The build needs a real Microsoft `link.exe`; Git also ships a different program with that name.
 
-The browser tests use installed Chrome. Change `channel` in `playwright.config.ts` if another supported browser is available. Screenshots are written to ignored `test-results/`.
+The browser tests use installed Chrome and start their own server on port 1421, so they always test the current checkout. Set `GLIM_TEST_PORT` to another unused port when testing multiple worktrees. Change `channel` in `playwright.config.ts` if another supported browser is available. Screenshots are written to ignored `test-results/`.
 
 ## Isolated native testing
 

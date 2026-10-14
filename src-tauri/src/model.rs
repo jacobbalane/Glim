@@ -126,6 +126,10 @@ pub struct Preferences {
     pub start_at_login: bool,
     pub hide_fullscreen: bool,
     pub monitor: Option<String>,
+    pub island_position: f64,
+    pub quick_options_enabled: bool,
+    pub quick_options: Vec<String>,
+    pub quick_options_order: Vec<String>,
     pub paused: bool,
     pub onboarding_complete: bool,
 }
@@ -136,6 +140,13 @@ impl Default for Preferences {
             start_at_login: false,
             hide_fullscreen: true,
             monitor: None,
+            island_position: 0.5,
+            quick_options_enabled: false,
+            quick_options: vec!["centre".into(), "quit".into()],
+            quick_options_order: ["centre", "pause", "settings", "usage", "setup", "quit"]
+                .into_iter()
+                .map(String::from)
+                .collect(),
             paused: false,
             onboarding_complete: false,
         }

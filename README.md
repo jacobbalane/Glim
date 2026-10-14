@@ -17,6 +17,8 @@ A minimal Windows desktop island for Claude Code and Codex CLI. Live activity, c
 - A compact island attached to the top of your selected display. Its width fits the live status, and long text scrolls into view.
 - Rotating session previews, with new approvals, questions, and completions briefly taking priority. An attached banner keeps their counts visible.
 - Click the preview to expand; click its header again or outside the island to collapse. The expanded view keeps your selected session stable.
+- Hold the preview or header for 350 ms to move the island left or right. Release to keep its position. With the preview focused, Alt + Left/Right moves it by keyboard.
+- Enable **Quick options** in Settings to reveal a small **⋯** pill after hovering over the collapsed preview. Choose shortcuts and drag them into order. Centre, monitoring, Settings, usage, agent setup and Quit are available. Right click or Shift + F10 opens the enabled shortcuts. Centre and Quit are also in Settings; Quit remains in the tray menu.
 - Reported token counts, cached reads, context usage, and structured task steps.
 - Account limits and reset times when Claude Code supplies them.
 - Local daily usage charts and 30-day retention.

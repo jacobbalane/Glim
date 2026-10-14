@@ -45,6 +45,11 @@ fn save_preferences(
     if !["pill", "hidden"].contains(&preferences.idle_behavior.as_str()) {
         return Err("Unknown idle behavior".into());
     }
+    if !preferences.island_position.is_finite()
+        || !(0.0..=1.0).contains(&preferences.island_position)
+    {
+        return Err("Invalid island position".into());
+    }
     let mut c = lock(&state)?;
     if preferences.start_at_login != c.preferences.start_at_login {
         platform::autostart(preferences.start_at_login)?;
@@ -83,8 +88,33 @@ async fn set_connector(
     .map_err(|e| e.to_string())?
 }
 #[tauri::command]
+fn quit_glim(app: tauri::AppHandle) {
+    app.exit(0);
+}
+#[tauri::command]
 fn monitors(app: tauri::AppHandle) -> Result<Vec<platform::Display>, String> {
     platform::monitors(&app)
+}
+#[tauri::command]
+fn set_island_position(
+    position: f64,
+    state: tauri::State<Shared>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    if !position.is_finite() || !(0.0..=1.0).contains(&position) {
+        return Err("Invalid island position".into());
+    }
+    let mut c = lock(&state)?;
+    let mut preferences = c.preferences.clone();
+    preferences.island_position = position;
+    c.store.save_preferences(&preferences)?;
+    c.preferences = preferences;
+    app.emit("glim:snapshot", c.snapshot())
+        .map_err(|e| e.to_string())
+}
+#[tauri::command]
+fn set_island_dragging(active: bool, app: tauri::AppHandle) -> Result<(), String> {
+    platform::dragging(&app, active)
 }
 #[tauri::command]
 fn island_shape(
@@ -92,16 +122,21 @@ fn island_shape(
     width: u32,
     height: u32,
     side: Option<platform::Side>,
+    offset: Option<f64>,
     app: tauri::AppHandle,
     state: tauri::State<Shared>,
 ) -> Result<(), String> {
+    let offset = offset.unwrap_or(0.0);
+    if !offset.is_finite() {
+        return Err("Invalid island offset".into());
+    }
     let focus = {
         let mut collector = lock(&state)?;
         let changed = collector.island_expanded != expanded;
         collector.island_expanded = expanded;
         changed.then_some(expanded)
     };
-    platform::shape(&app, width, height, side, focus)
+    platform::shape(&app, width, height, side, focus, offset)
 }
 #[tauri::command]
 async fn open_panel(view: String, app: tauri::AppHandle) -> Result<(), String> {
@@ -161,6 +196,9 @@ pub fn run() {
             save_preferences,
             set_connector,
             monitors,
+            quit_glim,
+            set_island_position,
+            set_island_dragging,
             island_shape,
             open_panel,
             show_agent,
@@ -183,7 +221,7 @@ pub fn run() {
                 .preferences
                 .clone();
             platform::position_island(app.handle(), &preferences).map_err(std::io::Error::other)?;
-            platform::shape(app.handle(), 300, 34, None, Some(false))
+            platform::shape(app.handle(), 300, 34, None, Some(false), 0.0)
                 .map_err(std::io::Error::other)?;
             if let Some(window) = app.get_webview_window("island") {
                 // The CSS surface owns every visible edge, including when the window loses focus.
