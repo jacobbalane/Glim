@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { hasGpu } from './gpu';
+import { settledBox } from './settle';
 
 async function simulate(page: Page, activity: string, id: string, detail?: string) {
   await page.evaluate(
@@ -167,7 +168,7 @@ test('notices fold into a strip of colored dots and unfold on demand', async ({ 
   await expect(show).toHaveAccessibleName(/Needs approval.*Show notices/);
   await expect(show.locator('.dot')).toHaveCount(5);
   await expect(show.locator('.dot.tone-attention')).toHaveCount(3);
-  const folded = (await island.boundingBox())!.height;
+  const folded = (await settledBox(island)).height;
   expect(folded).toBeLessThan(70);
   await show.click();
   await expect(island.locator('.inbox-row')).toHaveCount(3);

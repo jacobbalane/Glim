@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settledBox } from './settle';
 
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
 const island = (page: Page) => page.getByTestId('island');
@@ -180,7 +181,7 @@ test('a held island gives a little, a flick carries it on, and near the middle i
   await page.goto('/');
   await expect(compact(page)).toBeVisible();
   const start = await centre(page);
-  const width = (await island(page).boundingBox())!.width;
+  const width = (await settledBox(island(page))).width;
   // Held, it presses in from the top edge; let go, it springs back.
   await hold(page);
   await expect.poll(async () => (await island(page).boundingBox())!.width).toBeLessThan(width - 4);
@@ -216,6 +217,7 @@ test('the full message moves to the left when the notch sits at the right edge',
   await page.mouse.move(1439, 16, { steps: 6 });
   await page.mouse.up();
   await compact(page).click();
+  await expect(page.locator('.frame[aria-hidden]')).toHaveCount(0);
   await page.getByRole('button', { name: /^design-system · Claude:/ }).click();
   await page.getByRole('button', { name: 'Read what Claude said' }).click();
   const panel = page.getByRole('complementary', { name: 'What Claude said' });

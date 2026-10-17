@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settledBox } from './settle';
 
 const island = (page: Page) => page.getByTestId('island');
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
@@ -29,7 +30,7 @@ test('the options button reveals icons in the same pill without changing the not
   await gotoWithOptions(page);
   await expect(compact(page)).toBeVisible();
   await expect(page.locator('.frame:not([aria-hidden])')).toHaveCSS('opacity', '1');
-  const before = (await island(page).boundingBox())!;
+  const before = await settledBox(island(page));
   await openOptions(page);
   await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
   await expect(island(page)).toHaveAttribute('data-expanded', 'false');
@@ -193,7 +194,7 @@ test('hover stays continuous across the gap, hides on leaving and supports keybo
   await gotoWithOptions(page);
   await expect(trigger(page)).toHaveCount(0);
   await compact(page).hover();
-  const before = (await island(page).boundingBox())!;
+  const before = await settledBox(island(page));
   await expect(trigger(page)).toBeVisible();
   await expect
     .poll(async () => {
