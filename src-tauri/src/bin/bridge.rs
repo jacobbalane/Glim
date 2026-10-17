@@ -86,7 +86,10 @@ fn connect() -> std::io::Result<std::fs::File> {
 }
 #[cfg(unix)]
 fn connect() -> std::io::Result<std::os::unix::net::UnixStream> {
-    std::os::unix::net::UnixStream::connect(ipc::endpoint())
+    let stream = std::os::unix::net::UnixStream::connect(ipc::endpoint())?;
+    // Glim reads for half a second; a hook never waits on it longer than that.
+    stream.set_write_timeout(Some(std::time::Duration::from_millis(500)))?;
+    Ok(stream)
 }
 
 /// Runs the status line the person had before Glim, with the same input, as Claude Code would.
