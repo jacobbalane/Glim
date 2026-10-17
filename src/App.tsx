@@ -306,6 +306,7 @@ export default function App() {
           expanded={expanded}
           viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
+          glow={snapshot.preferences.glow ?? 50}
           reduced={reduced}
           onError={setError}
           position={snapshot.preferences.islandPosition ?? 0.5}

@@ -396,7 +396,12 @@ html:has(.native-stage) {
   left: calc(100% - 1px);
   clip-path: path('M9 0H0V8H1A8 8 0 0 1 9 0Z');
 }
-/* When something wants you to look, light in its color spills under the island. */
+/* When something wants you to look, light in its color spills under the island and rises
+   inside it. --glow-level (0 to 1, the Glow setting) sets how far and how bright. Windows clips
+   the window to the island, so there the light inside it is what shows. */
+.shell {
+  --glow-level: 0.5;
+}
 .shell[data-tone='attention'] {
   --glow: var(--amber);
 }
@@ -406,27 +411,65 @@ html:has(.native-stage) {
 .shell[data-tone='success'] {
   --glow: var(--teal);
 }
-.shell[data-compact='true']:is(
+/* Moving the Glow slider lights the island in its color, or in amber, to show the strength. */
+.island-shell:has(.glow-range:is(:active, :focus-visible)):not(
     [data-tone='attention'],
     [data-tone='error'],
     [data-tone='success']
-  )::after {
+  ) {
+  --glow: var(--amber);
+}
+.shell:not([data-glow='off'])[data-compact='true']:is(
+    [data-tone='attention'],
+    [data-tone='error'],
+    [data-tone='success']
+  )::after,
+.island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible))::after {
   content: '';
   position: absolute;
   z-index: -1;
-  left: 16%;
-  right: 16%;
-  bottom: -5px;
-  height: 12px;
+  left: calc(16% - var(--glow-level) * 12%);
+  right: calc(16% - var(--glow-level) * 12%);
+  bottom: calc(-4px - var(--glow-level) * 6px);
+  height: calc(8px + var(--glow-level) * 16px);
   border-radius: 50%;
   background: var(--glow);
-  filter: blur(9px);
-  opacity: 0.6;
+  filter: blur(calc(6px + var(--glow-level) * 12px));
+  opacity: min(1, calc(var(--glow-level) * 1.5));
   animation: spill 2s var(--ease-in-out) infinite;
+  pointer-events: none;
+}
+.shell:not([data-glow='off'])[data-compact='true']:is(
+    [data-tone='attention'],
+    [data-tone='error'],
+    [data-tone='success']
+  )
+  .surface::before,
+.island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible)) .surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  /* Light rising from the island's lower edge and sides, brightest at the bottom middle. */
+  background: radial-gradient(
+    ellipse 75% calc(14px + var(--glow-level) * 34px) at 50% 100%,
+    color-mix(in srgb, var(--glow) calc(var(--glow-level) * 85%), transparent),
+    transparent
+  );
+  box-shadow: inset 0 calc(var(--glow-level) * -6px) calc(var(--glow-level) * 22px)
+    calc(var(--glow-level) * -4px)
+    color-mix(in srgb, var(--glow) calc(var(--glow-level) * 100%), transparent);
+  animation: glow-breathe 2s var(--ease-in-out) infinite;
+  pointer-events: none;
 }
 @keyframes spill {
   50% {
-    opacity: 0.18;
+    opacity: calc(min(1, calc(var(--glow-level) * 1.5)) * 0.35);
+  }
+}
+@keyframes glow-breathe {
+  50% {
+    opacity: 0.45;
   }
 }
 .frame {
@@ -2169,4 +2212,52 @@ html:has(.native-stage) {
 .island-options-glyph {
   display: grid;
   place-items: center;
+}
+/* The Glow slider: a thin track filled to its value, with a white thumb. */
+.glow-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.glow-range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 132px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.glow-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--fg-1) var(--fill, 50%),
+    rgba(255, 255, 255, 0.14) var(--fill, 50%)
+  );
+}
+.glow-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms var(--ease-out);
+}
+.glow-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.glow-range:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.glow-value {
+  min-width: 34px;
+  color: var(--fg-2);
+  font-size: 12px;
+  text-align: right;
 }

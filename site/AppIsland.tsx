@@ -165,6 +165,7 @@ export function AppIsland({
         expanded={expanded}
         viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
         tone={prefs.paused || !notch.current ? 'calm' : notch.current.look.tone}
+        glow={prefs.glow ?? 50}
         reduced={reduced}
         onError={() => {}}
       >

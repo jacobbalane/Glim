@@ -54,6 +54,8 @@ export interface Preferences {
   hideFullscreen: boolean;
   monitor: string | null;
   islandPosition: number;
+  // How strongly a waiting, finished or failed agent lights the island: 0 (none) to 100.
+  glow: number;
   quickOptionsEnabled: boolean;
   quickOptions: QuickOptionId[];
   quickOptionsOrder: QuickOptionId[];
@@ -96,6 +98,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   hideFullscreen: true,
   monitor: null,
   islandPosition: 0.5,
+  glow: 50,
   quickOptionsEnabled: false,
   quickOptions: ['centre', 'quit'],
   quickOptionsOrder: [...QUICK_OPTION_ORDER],

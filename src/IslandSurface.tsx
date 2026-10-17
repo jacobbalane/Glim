@@ -17,6 +17,7 @@ import {
   useMotionValueEvent,
   useSpring,
   useTransform,
+  type MotionStyle,
   type MotionValue,
 } from 'motion/react';
 import { api, native, designScene } from './api';
@@ -203,6 +204,7 @@ export default function IslandSurface({
   position = 0.5,
   onPosition,
   options,
+  glow = 50,
 }: {
   expanded: boolean;
   viewKey: string;
@@ -213,6 +215,8 @@ export default function IslandSurface({
   position?: number;
   onPosition?: (position: number) => Promise<void>;
   options?: QuickAction[];
+  // The Glow setting, 0 (none) to 100.
+  glow?: number;
 }) {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const [fitted, setFitted] = useState(300);
@@ -412,7 +416,17 @@ export default function IslandSurface({
       data-testid="island"
       data-expanded={expanded}
       data-dragging={drag.dragging}
-      style={{ width: even, height, x: horizontal, scale: drag.scale, originY: 0 }}
+      data-glow={glow === 0 ? 'off' : undefined}
+      style={
+        {
+          width: even,
+          height,
+          x: horizontal,
+          scale: drag.scale,
+          originY: 0,
+          '--glow-level': glow / 100,
+        } as MotionStyle
+      }
       {...drag.bindings}
       onPointerEnter={(event) => event.pointerType === 'mouse' && setHovered(true)}
       onPointerLeave={() => setHovered(false)}

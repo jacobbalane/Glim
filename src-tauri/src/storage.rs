@@ -207,6 +207,7 @@ mod tests {
             .unwrap();
         let mut prefs = db.preferences();
         assert_eq!(prefs.island_position, 0.5);
+        assert_eq!(prefs.glow, 50);
         assert!(!prefs.quick_options_enabled);
         assert_eq!(prefs.quick_options, ["centre", "quit"]);
         assert_eq!(prefs.quick_options_order.len(), 6);

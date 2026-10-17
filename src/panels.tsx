@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   AlignHorizontalJustifyCenter,
   ArrowLeft,
@@ -355,6 +355,80 @@ export function Connectors({
   );
 }
 
+// How strongly the island lights up when an agent wants you, from off to very bright. Moving the
+// slider lights the island so the strength shows; each change is saved as it comes, the latest
+// winning over any still being written.
+function GlowField({
+  prefs,
+  onPrefs,
+}: {
+  prefs: Preferences;
+  onPrefs: (next: Preferences) => Promise<void>;
+}) {
+  const id = useId();
+  const [value, setValue] = useState(prefs.glow ?? 50);
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef(prefs);
+  latest.current = prefs;
+  const queued = useRef<number | null>(null);
+  const saving = useRef(false);
+  useEffect(() => {
+    if (!saving.current && queued.current === null) setValue(prefs.glow ?? 50);
+  }, [prefs.glow]);
+  const commit = async (glow: number) => {
+    queued.current = glow;
+    if (saving.current) return;
+    saving.current = true;
+    while (queued.current !== null) {
+      const next = queued.current;
+      queued.current = null;
+      try {
+        await onPrefs({ ...latest.current, glow: next });
+        setError(null);
+      } catch (e) {
+        setError(String(e));
+      }
+    }
+    saving.current = false;
+  };
+  const shown = value === 0 ? 'Off' : `${value}%`;
+  return (
+    <>
+      <div className="field">
+        <label className="field-label" htmlFor={id}>
+          Glow
+        </label>
+        <div className="glow-control">
+          <input
+            id={id}
+            className="glow-range"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={value}
+            aria-valuetext={shown}
+            style={{ '--fill': `${value}%` } as CSSProperties}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              setValue(next);
+              void commit(next);
+            }}
+          />
+          <span className="num glow-value" aria-hidden="true">
+            {shown}
+          </span>
+        </div>
+      </div>
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
+  );
+}
+
 function IslandFields({
   prefs,
   onPrefs,
@@ -445,6 +519,7 @@ function IslandFields({
         checked={prefs.hideFullscreen}
         onChange={(hideFullscreen) => save({ ...prefs, hideFullscreen })}
       />
+      {full && <GlowField prefs={prefs} onPrefs={onPrefs} />}
       {full && (
         <Switch
           label="Pause monitoring"

@@ -256,3 +256,27 @@ test('clearing history calls the API only after confirmation', async ({ page }) 
   await page.getByRole('button', { name: 'View', exact: true }).click();
   await expect(page.getByText('Nothing recorded in this period.')).toBeVisible();
 });
+
+test('the glow slider sets how strongly the island lights up, down to off', async ({ page }) => {
+  await page.goto('/?scene=settings&motion=1');
+  const slider = page.getByRole('slider', { name: 'Glow' });
+  const island = page.getByTestId('island');
+  await expect(slider).toHaveValue('50');
+  await expect(slider).toHaveAttribute('aria-valuetext', '50%');
+  await slider.focus();
+  await page.keyboard.press('Home');
+  await expect(slider).toHaveAttribute('aria-valuetext', 'Off');
+  await expect(island).toHaveAttribute('data-glow', 'off');
+  await page.keyboard.press('End');
+  await expect(slider).toHaveAttribute('aria-valuetext', '100%');
+  await expect(island).not.toHaveAttribute('data-glow', 'off');
+  await expect
+    .poll(() =>
+      island.evaluate((el) => getComputedStyle(el).getPropertyValue('--glow-level').trim()),
+    )
+    .toBe('1');
+  const saved = await page.evaluate(
+    "import('/src/api.ts').then(({ api }) => api.snapshot()).then(s => s.preferences.glow)",
+  );
+  expect(saved).toBe(100);
+});

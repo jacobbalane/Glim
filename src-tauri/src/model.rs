@@ -127,6 +127,8 @@ pub struct Preferences {
     pub hide_fullscreen: bool,
     pub monitor: Option<String>,
     pub island_position: f64,
+    /// How strongly a waiting, finished or failed agent lights the island, 0 to 100.
+    pub glow: u8,
     pub quick_options_enabled: bool,
     pub quick_options: Vec<String>,
     pub quick_options_order: Vec<String>,
@@ -141,6 +143,7 @@ impl Default for Preferences {
             hide_fullscreen: true,
             monitor: None,
             island_position: 0.5,
+            glow: 50,
             quick_options_enabled: false,
             quick_options: vec!["centre".into(), "quit".into()],
             quick_options_order: ["centre", "pause", "settings", "usage", "setup", "quit"]
