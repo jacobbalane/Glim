@@ -348,6 +348,14 @@ pub fn shape(
 #[cfg(target_os = "macos")]
 pub static POINTER: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
+/// The island's left, width and height in the window's physical pixels, for the test control.
+#[cfg(all(debug_assertions, target_os = "macos"))]
+pub fn shape_box(app: &AppHandle) -> Option<[i32; 3]> {
+    let state = app.state::<IslandShape>();
+    let applied = state.0.lock().ok()?.applied?;
+    Some([applied.x, applied.width, applied.height])
+}
+
 /// macOS: lets the pointer through the island's window everywhere but the island and its side
 /// panel, checking 30 times a second where the pointer is.
 #[cfg(target_os = "macos")]

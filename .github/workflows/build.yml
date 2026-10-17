@@ -96,6 +96,8 @@ jobs:
         with:
           name: macos-native-smoke
           path: .cache/native-smoke-mac-*/screenshots/
+          # .cache is a hidden folder, which the upload skips by default.
+          include-hidden-files: true
       - run: node scripts/prepare-bridge.mjs --release --target universal-apple-darwin
       - run: npx tauri build --target universal-apple-darwin
       # The updater installs the app from a tarball of Glim.app; people install from the .dmg.
@@ -115,6 +117,7 @@ jobs:
         with:
           name: macos-install-smoke
           path: .cache/install-smoke-mac-*/screenshots/
+          include-hidden-files: true
       - uses: actions/upload-artifact@v4
         with:
           name: Glim-macos-universal

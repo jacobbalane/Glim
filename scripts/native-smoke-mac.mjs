@@ -59,7 +59,7 @@ function launch(extra = {}) {
   });
 }
 async function quit() {
-  if (app && app.exitCode === null) {
+  if (app && app.exitCode === null && app.signalCode === null) {
     app.kill();
     await once(app, 'exit');
   }
@@ -68,7 +68,8 @@ async function until(fn, description, timeout = 20000) {
   const end = Date.now() + timeout;
   let lastError;
   while (Date.now() < end) {
-    if (app.exitCode !== null) throw new Error(`Glim exited (${app.exitCode}): ${nativeError}`);
+    if (app.exitCode !== null || app.signalCode !== null)
+      throw new Error(`Glim exited (${app.exitCode ?? app.signalCode}): ${nativeError}`);
     try {
       const result = await fn();
       if (result) return result;
@@ -298,13 +299,19 @@ try {
     const island = await islandOnScreen();
     const at = (x, y) => execFileSync('cliclick', [`m:${Math.round(x)},${Math.round(y)}`]);
     at(island.x + island.width / 2, island.y + island.height / 2);
-    await until(
-      async () => (await invoke('test_pointer')) === false,
-      'pointer caught by the island',
-      3000,
-    );
-    at(island.x + island.width / 2, island.y + island.height + 30);
-    await until(async () => (await invoke('test_pointer')) === true, 'pointer passing below', 3000);
+    // What Glim sees, for the log when the check fails: the pointer and window in physical
+    // pixels, and the island's shape in the window.
+    let seen;
+    const pointer = async () => (seen = await invoke('test_pointer')).passes;
+    try {
+      await until(async () => (await pointer()) === false, 'pointer caught by the island', 3000);
+      at(island.x + island.width / 2, island.y + island.height + 30);
+      await until(async () => (await pointer()) === true, 'pointer passing below', 3000);
+    } catch (error) {
+      throw new Error(
+        `${error.message}; island ${JSON.stringify(island)}; Glim saw ${JSON.stringify(seen)}`,
+      );
+    }
     pointerChecked = true;
     console.log('Click-through: the island catches the pointer, the space below lets it through.');
   } catch (error) {

@@ -24,22 +24,33 @@ pub fn test_report(id: u64, result: String) {
     let _ = (id, result);
 }
 
-/// Whether the pointer passes through the island's window where it is now (macOS debug builds).
+/// Whether the pointer passes through the island's window where it is now, with where Glim sees
+/// the pointer, the window and the island's shape (macOS debug builds).
 #[tauri::command]
-pub fn test_pointer() -> Option<bool> {
-    pointer_passes()
+pub fn test_pointer(app: tauri::AppHandle) -> serde_json::Value {
+    pointer_state(&app)
 }
 #[cfg(all(debug_assertions, target_os = "macos"))]
-fn pointer_passes() -> Option<bool> {
-    match crate::platform::POINTER.load(std::sync::atomic::Ordering::Relaxed) {
+fn pointer_state(app: &tauri::AppHandle) -> serde_json::Value {
+    use tauri::Manager;
+    let passes = match crate::platform::POINTER.load(std::sync::atomic::Ordering::Relaxed) {
         1 => Some(true),
         2 => Some(false),
         _ => None,
-    }
+    };
+    let window = app.get_webview_window("island");
+    serde_json::json!({
+        "passes": passes,
+        "pointer": app.cursor_position().ok().map(|p| [p.x, p.y]),
+        "origin": window.as_ref().and_then(|w| w.outer_position().ok()).map(|p| [p.x, p.y]),
+        "scale": window.as_ref().and_then(|w| w.scale_factor().ok()),
+        "shape": crate::platform::shape_box(app),
+    })
 }
 #[cfg(not(all(debug_assertions, target_os = "macos")))]
-fn pointer_passes() -> Option<bool> {
-    None
+fn pointer_state(app: &tauri::AppHandle) -> serde_json::Value {
+    let _ = app;
+    serde_json::json!({ "passes": null })
 }
 
 #[cfg(all(debug_assertions, unix))]
