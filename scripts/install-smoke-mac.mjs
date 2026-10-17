@@ -6,7 +6,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { existsSync, mkdirSync, openSync, readFileSync, readlinkSync } from 'node:fs';
+import { once } from 'node:events';
+import { existsSync, mkdirSync, openSync, readFileSync, readlinkSync, rmSync } from 'node:fs';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { arch } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -94,16 +95,37 @@ try {
   assert.match(signature, /Signature=adhoc/, 'Glim is ad-hoc signed, so Apple Silicon runs it.');
   console.log(`Glim ${version} from the .dmg: universal, ad-hoc signed, menu-bar only, licensed.`);
 
-  // The installed Glim starts, listens for its agents, and gives hooks their own helper.
+  // The installed Glim starts, listens for its agents, and gives hooks their own helper. Glim
+  // only hears agents the person connected, as in onboarding; a release build has no test
+  // control to do that, so a debug Glim on the same folders connects Claude first, then quits.
   const installed = folders('installed');
   const helper = join(installed.data, 'bin', 'glim-bridge');
+  const setup = spawn(resolve(process.env.GLIM_TEST_EXE ?? 'src-tauri/target/debug/glim'), [], {
+    env: { ...installed.env, GLIM_TEST_CONTROL: '1' },
+    stdio: ['ignore', output(), output()],
+  });
+  const debug = control(installed.data);
+  await until(() => debug.has('.glim-character'), 'a debug Glim to connect Claude');
+  await debug.invoke('set_connector', { provider: 'claude', enabled: true });
+  setup.kill();
+  await once(setup, 'exit');
+  // What the debug Glim leaves behind goes, so what follows is the installed Glim's own.
+  rmSync(endpoint(installed.data), { force: true });
+  rmSync(helper, { force: true });
   const release = launch(app, installed.env);
   await until(
     () => existsSync(endpoint(installed.data)) && existsSync(helper),
     'Glim listening, with its hooks helper in place',
   );
+  assert.ok(
+    readFileSync(helper).equals(readFileSync(join(app, 'Contents', 'MacOS', 'glim-bridge'))),
+    "Hooks call the installed Glim's own helper.",
+  );
+  const installedHook = JSON.parse(readFileSync(join(installed.home, '.claude', 'settings.json')))
+    .hooks.Stop.flatMap((group) => group.hooks)
+    .find((h) => h.command.includes('hook claude')).command;
   hook(
-    `"${helper}" hook claude`,
+    installedHook,
     { session_id: 'install-smoke', hook_event_name: 'UserPromptSubmit', cwd: '/work/install' },
     installed.env,
   );
