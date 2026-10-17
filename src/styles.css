@@ -397,7 +397,7 @@ html:has(.native-stage) {
   clip-path: path('M9 0H0V8H1A8 8 0 0 1 9 0Z');
 }
 /* When something wants you to look, light in its color spills under the island and rises
-   inside it. --glow-level (0 to 1, the Glow setting) sets how far and how bright. Windows clips
+   lights it from inside. --glow-level (0 to 1, the Glow setting) sets how far and how bright. Windows clips
    the window to the island, so there the light inside it is what shows. */
 .shell {
   --glow-level: 0.5;
@@ -439,37 +439,36 @@ html:has(.native-stage) {
   animation: spill 2s var(--ease-in-out) infinite;
   pointer-events: none;
 }
+/* Inside, the light follows the island's whole outline, its shoulders' curves included, through
+   the SVG filter beside it (IslandSurface), so island and shoulders glow as one shape. */
 .shell:not([data-glow='off'])[data-compact='true']:is(
     [data-tone='attention'],
     [data-tone='error'],
     [data-tone='success']
   )
-  .surface::before,
-.island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible)) .surface::before {
-  content: '';
+  .island-body,
+.island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible)) .island-body {
+  filter: var(--glow-filter) var(--island-shadow);
+}
+.island-glow-defs {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  /* Light rising from the island's lower edge and sides, brightest at the bottom middle. */
-  background: radial-gradient(
-    ellipse 75% calc(14px + var(--glow-level) * 34px) at 50% 100%,
-    color-mix(in srgb, var(--glow) calc(var(--glow-level) * 85%), transparent),
-    transparent
-  );
-  box-shadow: inset 0 calc(var(--glow-level) * -6px) calc(var(--glow-level) * 22px)
-    calc(var(--glow-level) * -4px)
-    color-mix(in srgb, var(--glow) calc(var(--glow-level) * 100%), transparent);
-  animation: glow-breathe 2s var(--ease-in-out) infinite;
-  pointer-events: none;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.island-glow-light {
+  flood-color: var(--glow);
+  flood-opacity: min(1, calc(var(--glow-level) * 1.6));
+  animation: glow-flood 2s var(--ease-in-out) infinite;
 }
 @keyframes spill {
   50% {
     opacity: calc(min(1, calc(var(--glow-level) * 1.5)) * 0.35);
   }
 }
-@keyframes glow-breathe {
+@keyframes glow-flood {
   50% {
-    opacity: 0.45;
+    flood-opacity: calc(min(1, calc(var(--glow-level) * 1.6)) * 0.45);
   }
 }
 .frame {

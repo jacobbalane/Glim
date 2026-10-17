@@ -232,6 +232,7 @@ export default function IslandSurface({
   const optionsSizeRef = useRef(openOptionsSize);
   optionsSizeRef.current = openOptionsSize;
   const menuId = useId();
+  const glowId = `island-glow-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   const wide = Math.max(204, Math.min(440, viewportWidth - 40));
   const drag = useIslandDrag({
     position,
@@ -425,6 +426,7 @@ export default function IslandSurface({
           scale: drag.scale,
           originY: 0,
           '--glow-level': glow / 100,
+          '--glow-filter': `url(#${glowId})`,
         } as MotionStyle
       }
       {...drag.bindings}
@@ -437,6 +439,33 @@ export default function IslandSurface({
         if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false);
       }}
     >
+      {/* The light inside the island follows its whole outline as one shape, the shoulders'
+          curves included: everything outside it, blurred inwards and kept inside it, then added
+          to the island like light. The screen edge above counts as inside, so it never lights. */}
+      <svg className="island-glow-defs" aria-hidden="true" focusable="false" width="0" height="0">
+        <filter
+          id={glowId}
+          x="-20%"
+          y="-20%"
+          width="140%"
+          height="160%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood x="-4000" y="-4000" width="8000" height="4000" result="screen-edge" />
+          <feMerge result="solid">
+            <feMergeNode in="SourceAlpha" />
+            <feMergeNode in="screen-edge" />
+          </feMerge>
+          <feComponentTransfer in="solid" result="outside">
+            <feFuncA type="table" tableValues="1 0" />
+          </feComponentTransfer>
+          <feGaussianBlur in="outside" stdDeviation={2 + (glow / 100) * 8} result="soft" />
+          <feFlood className="island-glow-light" result="light" />
+          <feComposite in="light" in2="soft" operator="in" result="rim" />
+          <feComposite in="rim" in2="SourceAlpha" operator="in" result="inside" />
+          <feBlend in="inside" in2="SourceGraphic" mode="screen" />
+        </filter>
+      </svg>
       <div className="island-body">
         <span className="shoulder l" aria-hidden="true" />
         <span className="shoulder r" aria-hidden="true" />
