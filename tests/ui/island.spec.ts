@@ -156,3 +156,34 @@ test('the open island keeps its header in reach while its agents scroll', async 
   await settings.click();
   await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
 });
+
+test('a long message shows it scrolls, and Escape closes it before the island', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Glim:/ }).click();
+  await expect(page.locator('.frame[aria-hidden]')).toHaveCount(0);
+  await page.getByRole('button', { name: /^design-system · Claude:/ }).click();
+  const preview = page.getByRole('button', { name: 'Read what Claude said' });
+  await preview.click();
+  const body = page.locator('.side-said-body');
+  await expect(body).toBeVisible();
+  await expect(page.locator('.side-said-track')).toHaveCount(0);
+  await body.evaluate((el) => {
+    el.querySelector('p')!.textContent = Array.from(
+      { length: 16 },
+      (_, i) => `Paragraph ${i + 1}: the cards now use the shared spacing scale.`,
+    ).join('\n\n');
+  });
+  // More below: the bottom edge fades and the panel's own scrollbar appears.
+  await expect(body).toHaveAttribute('data-more-below', 'true');
+  await expect(body).toHaveAttribute('data-more-above', 'false');
+  await expect(page.locator('.side-said-track i')).toBeVisible();
+  await body.evaluate((el) => el.scrollTo({ top: el.scrollHeight }));
+  await expect(body).toHaveAttribute('data-more-below', 'false');
+  await expect(body).toHaveAttribute('data-more-above', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('complementary', { name: 'What Claude said' })).toHaveCount(0);
+  await expect(page.getByTestId('island')).toHaveAttribute('data-expanded', 'true');
+  await expect(preview).toBeFocused();
+});

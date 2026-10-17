@@ -1151,16 +1151,92 @@ html:has(.native-stage) {
   font-weight: 700;
   color: var(--tone);
 }
-.side-said p {
+/* The message scrolls inside the panel. A thin scrollbar is always shown, and the text fades out
+   at whichever edge has more beyond it, so a long message reads as one to scroll. */
+.side-said-body {
+  flex: 1;
   min-height: 0;
-  margin: 0;
-  padding: 0 14px 14px;
+  margin-right: 12px;
+  padding: 0 4px 14px 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  border-radius: 0 0 12px 12px;
+  outline: none;
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+  transition:
+    --fade-top 180ms var(--ease-out),
+    --fade-bottom 180ms var(--ease-out);
+}
+.side-said-body[data-more-above='true'] {
+  --fade-top: 22px;
+}
+.side-said-body[data-more-below='true'] {
+  --fade-bottom: 30px;
+}
+.side-said-body:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--blue);
+}
+/* The system scrollbar gives way to the panel's own, drawn beside the text. */
+.side-said-body {
+  scrollbar-width: none;
+}
+.side-said-body::-webkit-scrollbar {
+  display: none;
+}
+.side-said {
+  position: relative;
+}
+.side-said-track {
+  position: absolute;
+  top: 40px;
+  right: 5px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.side-said-track i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  min-height: 18px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: grab;
+  transition: background-color 150ms var(--ease-out);
+}
+.side-said-track i:hover,
+.side-said-track i:active {
+  background: rgba(255, 255, 255, 0.5);
+}
+.side-said-track i:active {
+  cursor: grabbing;
+}
+.side-said p {
+  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 12.5px;
   line-height: 1.6;
+}
+/* The fade's edges are registered so they ease in and out as the scroll position changes. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
 }
 .hero-actions {
   display: inline-flex;

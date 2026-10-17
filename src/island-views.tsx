@@ -1,4 +1,13 @@
-import { forwardRef, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import {
@@ -291,6 +300,137 @@ const Inbox = forwardRef<
 const rolledUp = 'inset(0 0 100% 0 round 14px)';
 const unrolled = 'inset(0 0 0% 0 round 14px)';
 
+// An agent's whole message, beside the open island. It slides out of the island's side as it
+// unrolls from its top edge, its words following a beat later; it rolls back up faster than it
+// came. A long message scrolls, with a thin scrollbar always shown and its edges fading wherever
+// there is more to read. Escape closes it before it closes the island.
+function SaidPanel({
+  tone,
+  title,
+  message,
+  reduced,
+  fromLeft,
+  onClose,
+}: {
+  tone: Tone;
+  title: string;
+  message: string;
+  reduced: boolean;
+  fromLeft: boolean;
+  onClose: () => void;
+}) {
+  const body = useRef<HTMLDivElement>(null);
+  // Whether there is more above or below, and the scroll thumb's size and place, as fractions.
+  const [more, setMore] = useState({ above: false, below: false, size: 1, at: 0 });
+  const close = useRef(onClose);
+  close.current = onClose;
+  useLayoutEffect(() => {
+    const el = body.current;
+    if (!el) return;
+    const update = () => {
+      const range = el.scrollHeight - el.clientHeight;
+      setMore({
+        above: el.scrollTop > 1,
+        below: el.scrollTop < range - 1,
+        size: el.scrollHeight > 0 ? el.clientHeight / el.scrollHeight : 1,
+        at: range > 0 ? el.scrollTop / range : 0,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    // The text itself too: it can reflow, as when its font arrives, without the panel resizing.
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    el.addEventListener('scroll', update, { passive: true });
+    return () => {
+      observer.disconnect();
+      el.removeEventListener('scroll', update);
+    };
+  }, [message]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      close.current();
+    };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, []);
+  // Dragging the thumb scrolls the message by as much as the thumb moves along its track.
+  const drag = (event: ReactPointerEvent<HTMLElement>) => {
+    const el = body.current;
+    const thumb = event.currentTarget;
+    const track = thumb.parentElement;
+    if (!el || !track || event.button !== 0) return;
+    event.preventDefault();
+    const start = { y: event.clientY, top: el.scrollTop };
+    const scale =
+      (el.scrollHeight - el.clientHeight) / Math.max(1, track.clientHeight - thumb.offsetHeight);
+    thumb.setPointerCapture(event.pointerId);
+    const move = (e: PointerEvent) => {
+      el.scrollTop = start.top + (e.clientY - start.y) * scale;
+    };
+    const end = () => {
+      thumb.removeEventListener('pointermove', move);
+      thumb.removeEventListener('pointerup', end);
+      thumb.removeEventListener('pointercancel', end);
+    };
+    thumb.addEventListener('pointermove', move);
+    thumb.addEventListener('pointerup', end);
+    thumb.addEventListener('pointercancel', end);
+  };
+  const scrolls = more.above || more.below;
+  const offset = reduced ? 0 : fromLeft ? 12 : -12;
+  return (
+    <motion.aside
+      className={`side-said tone-${tone}`}
+      aria-label={`What ${title}`}
+      initial={{ clipPath: rolledUp, x: offset }}
+      animate={{ clipPath: unrolled, x: 0 }}
+      exit={{
+        clipPath: rolledUp,
+        x: offset,
+        transition: { duration: reduced ? 0 : 0.2, ease: EASE_OUT },
+      }}
+      transition={{
+        clipPath: { duration: reduced ? 0 : 0.36, ease: EASE_OUT },
+        x: reduced ? { duration: 0 } : DOT_LAYOUT,
+      }}
+    >
+      <motion.header {...textIn(reduced, 0.06)}>
+        <span>{title}</span>
+        <IconButton label="Close" onClick={onClose}>
+          <X size={14} />
+        </IconButton>
+      </motion.header>
+      <motion.div
+        ref={body}
+        className="side-said-body"
+        data-more-above={more.above}
+        data-more-below={more.below}
+        // A message longer than the panel can be scrolled from the keyboard too.
+        tabIndex={scrolls ? 0 : undefined}
+        {...textIn(reduced, 0.12)}
+      >
+        <p>{message}</p>
+      </motion.div>
+      {/* The panel's own scrollbar, always shown while there is more to read: system scrollbars
+          hide until hovered on Windows 11 and macOS. */}
+      <AnimatePresence>
+        {scrolls && (
+          <motion.div className="side-said-track" aria-hidden="true" {...textIn(reduced, 0.16)}>
+            <i
+              style={{ height: `${more.size * 100}%`, top: `${more.at * (1 - more.size) * 100}%` }}
+              onPointerDown={drag}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.aside>
+  );
+}
+
 function Hero({
   group,
   now,
@@ -323,6 +463,7 @@ function Hero({
         ? 'asks'
         : 'said';
   const [reading, setReading] = useState(false);
+  const preview = useRef<HTMLButtonElement>(null);
   const reduced = useReducedMotion();
   // A new message, or another agent, starts with the panel closed.
   useEffect(() => setReading(false), [s.id, s.message]);
@@ -359,6 +500,7 @@ function Hero({
             it opens beside the island, so the island never grows taller for it. */}
         {said && (
           <button
+            ref={preview}
             className="hero-said"
             aria-expanded={reading}
             aria-label={`Read what ${agent} ${saidVerb}`}
@@ -371,25 +513,18 @@ function Hero({
           createPortal(
             <AnimatePresence>
               {said && reading && (
-                // Unrolls downward from its top edge, and rolls back up when it closes.
-                <motion.aside
-                  className={`side-said tone-${look.tone}`}
-                  aria-label={`What ${agent} ${saidVerb}`}
-                  initial={{ clipPath: rolledUp }}
-                  animate={{ clipPath: unrolled }}
-                  exit={{ clipPath: rolledUp }}
-                  transition={{ duration: reduced ? 0 : 0.34, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <header>
-                    <span>
-                      {agent} {saidVerb}
-                    </span>
-                    <IconButton label="Close" onClick={() => setReading(false)}>
-                      <X size={14} />
-                    </IconButton>
-                  </header>
-                  <p>{s.message}</p>
-                </motion.aside>
+                <SaidPanel
+                  key="said"
+                  tone={look.tone}
+                  title={`${agent} ${saidVerb}`}
+                  message={s.message ?? ''}
+                  reduced={reduced}
+                  fromLeft={slot.classList.contains('on-left')}
+                  onClose={() => {
+                    setReading(false);
+                    preview.current?.focus({ preventScroll: true });
+                  }}
+                />
               )}
             </AnimatePresence>,
             slot,
