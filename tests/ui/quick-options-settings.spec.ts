@@ -57,7 +57,13 @@ test('settings select actions and save pointer and keyboard reordering', async (
   const to = await settledBox(page.getByRole('listitem', { name: 'Reorder Centre horizontally' }));
   await page.mouse.move(from.x + 70, from.y + 22);
   await page.mouse.down();
-  await page.mouse.move(from.x + 70, to.y + 12, { steps: 12 });
+  // As a hand drags: over several frames, then a moment's rest before letting go. A fast runner
+  // otherwise presses, moves and releases within one frame, before the drag has begun.
+  for (let step = 1; step <= 6; step++) {
+    await page.mouse.move(from.x + 70, from.y + 22 + ((to.y + 12 - from.y - 22) * step) / 6);
+    await page.waitForTimeout(32);
+  }
+  await page.waitForTimeout(150);
   await page.mouse.up();
   await expect(list.getByRole('listitem').first()).toHaveAttribute(
     'aria-label',
