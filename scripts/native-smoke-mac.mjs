@@ -139,6 +139,9 @@ try {
   await click('Continue');
   await click('Keep visible');
   await click('Done');
+  // Onboarding ends in the open island; the person closes it.
+  await click('Collapse Glim');
+  await until(() => has('.compact'), 'compact island after onboarding');
   const preferences = (await snapshot()).preferences;
   assert.equal(preferences.onboardingComplete, true);
   assert.ok((await snapshot()).connectors.every((connector) => connector.enabled));
