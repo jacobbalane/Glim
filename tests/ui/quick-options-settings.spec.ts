@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { settledBox } from './settle';
+import { settledBox, tap } from './settle';
 
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
 const trigger = (page: Page) => page.getByRole('button', { name: 'Glim options', exact: true });
@@ -7,7 +7,7 @@ const menu = (page: Page) => page.getByRole('menu', { name: 'Glim options' });
 async function settings(page: Page) {
   await page.goto('/');
   await compact(page).click();
-  await page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }).click();
+  await tap(page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }));
 }
 async function openOptions(page: Page) {
   await compact(page).hover();
@@ -31,7 +31,7 @@ test('quick options are hidden by default, including keyboard and context access
   await expect(trigger(page)).toHaveCount(0);
   await expect(menu(page)).toHaveCount(0);
   await compact(page).click();
-  await page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }).click();
+  await tap(page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }));
   await expect(page.getByRole('switch', { name: 'Quick options' })).toHaveAttribute(
     'aria-checked',
     'false',

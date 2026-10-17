@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { settledBox } from './settle';
+import { settledBox, tap } from './settle';
 
 const island = (page: Page) => page.getByTestId('island');
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
@@ -308,9 +308,9 @@ test('Settings centres horizontally without closing and exposes Quit beside the 
   await page.keyboard.press('Alt+ArrowRight');
   await expect.poll(() => centre(page)).toBeCloseTo(744, 0);
   await compact(page).click();
-  await island(page).getByRole('button', { name: 'Settings', exact: true }).click();
+  await tap(island(page).getByRole('button', { name: 'Settings', exact: true }));
   const action = island(page).getByRole('button', { name: 'Centre horizontally', exact: true });
-  await action.click();
+  await tap(action);
   await expect.poll(() => centre(page)).toBeCloseTo(720, 0);
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   expect(

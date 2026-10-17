@@ -1,10 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 import { hasGpu } from './gpu';
-import { settledBox } from './settle';
+import { settledBox, tap } from './settle';
 
-// React applies a pointer entering or leaving in a task of its own; this waits for it, so the
-// fake clock does not move on first. The clock leaves MessageChannel alone, as React does.
-async function pointerApplied(page: Page) {
+// React applies updates and runs effects in a task of its own; this waits for it, so a fake clock
+// does not move on first. The clock leaves MessageChannel alone, as React does.
+async function reactApplied(page: Page) {
   await page.evaluate(
     () =>
       new Promise<void>((resolve) => {
@@ -15,6 +15,9 @@ async function pointerApplied(page: Page) {
   );
 }
 async function simulate(page: Page, activity: string, id: string, detail?: string) {
+  // The page listens for simulated agents once the island is up; a message sent sooner is lost.
+  await expect(page.getByTestId('island')).toBeVisible();
+  await reactApplied(page);
   await page.evaluate(
     ({ activity, id, detail }) =>
       window.postMessage(
@@ -242,12 +245,12 @@ test('a notice that arrives opens the list, which folds itself after a while unl
   await expect(failed).toBeVisible();
   // Held under the pointer, the list stays open.
   await failed.hover();
-  await pointerApplied(page);
+  await reactApplied(page);
   await page.clock.fastForward(12000);
   await expect(failed).toBeVisible();
   // Left alone, it folds; the strip now counts both.
   await page.mouse.move(20, 300);
-  await pointerApplied(page);
+  await reactApplied(page);
   await page.clock.fastForward(8500);
   await expect(failed).toBeHidden();
   await expect(strip).toContainText('2 waiting');
@@ -261,7 +264,7 @@ test('connector disclosure preserves connection until the named removal is confi
   const claude = page.locator('.conn').filter({ hasText: 'Claude Code' });
   await claude.getByRole('button', { name: /Claude Code.*Connected/ }).click();
   await expect(claude.locator('.conn-status')).toHaveText('Connected');
-  await claude.getByRole('button', { name: 'Disconnect…' }).click();
+  await tap(claude.getByRole('button', { name: 'Disconnect…' }));
   await expect(claude.locator('.conn-status')).toHaveText('Connected');
   await claude.getByRole('button', { name: 'Keep', exact: true }).click();
   await claude.getByRole('button', { name: 'Disconnect…' }).click();
@@ -269,7 +272,7 @@ test('connector disclosure preserves connection until the named removal is confi
   await expect(page.getByRole('status').filter({ hasText: 'disconnected' })).toBeVisible();
   await expect(claude.locator('.conn-status')).toHaveCount(0);
   await claude.getByRole('button', { name: /Claude Code.*Connect/ }).click();
-  await claude.getByRole('button', { name: 'Connect Claude', exact: true }).click();
+  await tap(claude.getByRole('button', { name: 'Connect Claude', exact: true }));
   await expect(claude.locator('.conn-status')).toHaveText('Connected');
 });
 

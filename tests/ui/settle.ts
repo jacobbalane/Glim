@@ -18,3 +18,10 @@ export async function settledBox(target: Locator) {
     .toBe(true);
   return (await target.boundingBox())!;
 }
+
+// Clicks something once it has come to rest. A row or button still sliding into place, as the
+// island opens or a row unfolds, is clicked where it was a frame ago and the click misses.
+export async function tap(target: Locator) {
+  await settledBox(target);
+  await target.click();
+}

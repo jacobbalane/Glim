@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { tap } from './settle';
 
 test('adding Codex hooks keeps the trust instructions visible without claiming connection', async ({
   page,
@@ -7,7 +8,7 @@ test('adding Codex hooks keeps the trust instructions visible without claiming c
   const codex = page.locator('.conn').filter({ hasText: 'Codex' });
   await codex.locator('.conn-head').click();
   await expect(codex.getByLabel('Codex setup steps')).toContainText('/hooks');
-  await codex.getByRole('button', { name: 'Add Codex hooks', exact: true }).click();
+  await tap(codex.getByRole('button', { name: 'Add Codex hooks', exact: true }));
   await expect(codex.locator('.conn-status')).toHaveText('Hooks added');
   await expect(codex.locator('.conn-head')).toHaveAttribute('aria-expanded', 'true');
   await expect(codex.getByLabel('Codex setup steps')).toContainText('review and trust');
@@ -20,7 +21,7 @@ test('adding Codex hooks keeps the trust instructions visible without claiming c
   await expect(codex.getByLabel('Codex setup steps')).toBeVisible();
   await page.getByTestId('island').screenshot({ path: 'test-results/codex-hooks-added.png' });
 
-  await codex.getByRole('button', { name: 'Disconnect…' }).click();
+  await tap(codex.getByRole('button', { name: 'Disconnect…' }));
   await codex.getByRole('button', { name: 'Remove from hooks.json' }).click();
   await expect(codex.locator('.conn-status')).toHaveCount(0);
 });
