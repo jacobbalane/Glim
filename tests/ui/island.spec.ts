@@ -140,3 +140,17 @@ test('the open agent folds into the list, which stays until an agent is picked',
     page.getByRole('heading', { name: 'api-service · Codex', exact: true }),
   ).toBeVisible();
 });
+
+test('the open island keeps its header in reach while its agents scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 1000, height: 380 });
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Glim:/ }).click();
+  const island = page.getByTestId('island');
+  const list = page.locator('.frame:not([aria-hidden]) .glance');
+  await expect.poll(() => list.evaluate((g) => g.scrollHeight > g.clientHeight)).toBe(true);
+  await list.evaluate((g) => g.scrollTo({ top: g.scrollHeight }));
+  const settings = island.getByRole('button', { name: 'Settings', exact: true });
+  await expect.poll(async () => (await settings.boundingBox())?.y).toBeLessThan(42);
+  await settings.click();
+  await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
+});

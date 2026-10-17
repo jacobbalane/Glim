@@ -949,6 +949,36 @@ html:has(.native-stage) {
   height: 42px;
   padding: 0 2px 0 10px;
 }
+/* The open island's header stays put while its agents scroll under it, so Usage, Settings and
+   collapsing are always in reach. Its ink reaches the island's edges, and a hairline appears
+   under it once something has scrolled beneath. */
+.glance > .bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: 0 -8px;
+  padding: 0 10px 0 18px;
+  background: var(--ink);
+}
+.glance > .bar .bar-toggle {
+  inset: 0 8px;
+  width: auto;
+}
+@supports (animation-timeline: scroll()) {
+  .glance > .bar {
+    animation: bar-edge linear both;
+    animation-timeline: scroll(nearest);
+    animation-range: 0 12px;
+  }
+}
+@keyframes bar-edge {
+  from {
+    box-shadow: 0 1px 0 transparent;
+  }
+  to {
+    box-shadow: 0 1px 0 var(--hair);
+  }
+}
 .bar-title {
   display: flex;
   align-items: center;
