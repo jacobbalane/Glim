@@ -82,11 +82,21 @@ async function until(fn, description, timeout = 20000) {
 }
 // The island's place on screen, in points from the main display's top left. WebKit counts
 // window.screenY up from the bottom of the screen, so the window's place comes from Glim.
-async function islandOnScreen() {
+// With `withPanel`, the box takes in the side panel too.
+async function islandOnScreen(withPanel = false) {
   const { origin, scale } = await invoke('test_pointer');
   const r = await run(`
-    const r = document.querySelector('[data-testid=island]').getBoundingClientRect();
-    return { left: r.left, top: r.top, width: r.width, height: r.height };`);
+    const boxes = [document.querySelector('[data-testid=island]'), ${withPanel} && document.querySelector('.side-said')]
+      .filter(Boolean)
+      .map((element) => element.getBoundingClientRect());
+    const left = Math.min(...boxes.map((b) => b.left));
+    const top = Math.min(...boxes.map((b) => b.top));
+    return {
+      left,
+      top,
+      width: Math.max(...boxes.map((b) => b.right)) - left,
+      height: Math.max(...boxes.map((b) => b.bottom)) - top,
+    };`);
   return {
     x: origin[0] / scale + r.left,
     y: origin[1] / scale + r.top,
@@ -94,15 +104,20 @@ async function islandOnScreen() {
     height: r.height,
   };
 }
-async function screenshot(name) {
-  const island = await islandOnScreen();
+// The runner's desktop is black, as the island is; a light backdrop behind the island shows its
+// outline. Without one, the shot shows what is behind the window, the menu bar included.
+async function screenshot(name, backdrop = true) {
+  const island = await islandOnScreen(true);
   const region = [
     Math.max(0, Math.round(island.x - 60)),
     0,
     Math.round(island.width + 120),
     Math.round(island.y + island.height + 60),
   ].join(',');
+  if (backdrop) await run(`document.documentElement.style.background = '#d4d4d8'; return true;`);
+  await delay(100);
   screencapture(join(shots, `${name}.png`), region);
+  if (backdrop) await run(`document.documentElement.style.background = ''; return true;`);
 }
 // Runs a hook the way an agent would: through the shell, with the command Glim installed.
 function hook(command, input, agent) {
@@ -300,7 +315,7 @@ try {
   await click('Collapse');
   await until(() => has('.compact'), 'compact again');
   await delay(500);
-  await screenshot('compact');
+  await screenshot('compact', false);
 
   // Click-through: over the island the pointer is caught, just below it the pointer passes.
   let pointerChecked = false;
