@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import {
+  AlignHorizontalJustifyCenter,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
@@ -11,7 +12,6 @@ import {
 import type { Update } from '@tauri-apps/plugin-updater';
 import { api, native } from './api';
 import { motion } from 'motion/react';
-import HorizontalCentreIcon from './HorizontalCentreIcon';
 import QuickOptionsSettings from './QuickOptionsSettings';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
@@ -524,7 +524,7 @@ export function SettingsSheet({
             disabled={!!appBusy}
             onClick={() => void appAction('centre')}
           >
-            <HorizontalCentreIcon size={14} />
+            <AlignHorizontalJustifyCenter size={14} />
             Centre horizontally
           </button>
         </div>

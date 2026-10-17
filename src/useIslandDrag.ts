@@ -35,6 +35,8 @@ type Gesture = {
   active: boolean;
   timer: ReturnType<typeof setTimeout> | null;
   press: ReturnType<typeof setTimeout> | null;
+  // The latest pointer event's time, in the events' own clock.
+  time: number;
   // Recent positions while carried, for the release velocity.
   samples: { time: number; x: number }[];
 };
@@ -161,10 +163,21 @@ export default function useIslandDrag({
     const projected = clamp(from + velocity * FLICK, options.current.limit);
     return Math.abs(projected) < CENTRE_SNAP ? 0 : projected;
   };
-  const move = (event: PointerEvent) => {
+  // Pixels a second over the pointer's last 100 ms, in its own event clock. A pointer that
+  // stopped before letting go, or that only jumped once after a still hold, throws nothing.
+  const velocity = (g: Gesture, released: number) => {
+    const recent = g.samples.filter((sample) => g.time - sample.time <= 100);
+    const first = recent[0];
+    const last = recent[recent.length - 1];
+    if (recent.length < 2 || released - last.time > 80 || last.time === first.time) return 0;
+    const speed = ((last.x - first.x) / (last.time - first.time)) * 1000;
+    return Math.max(-MAX_SPEED, Math.min(MAX_SPEED, speed));
+  };
+  const move = (event: PointerEvent, sample = true) => {
     const g = gesture.current;
     if (!g || event.pointerId !== g.pointer) return;
     g.latest = event.clientX;
+    if (sample) g.time = event.timeStamp;
     if (!g.active) {
       if (Math.hypot(g.latest - g.origin, event.clientY - g.originY) > SLOP) {
         consumed.current = true;
@@ -177,8 +190,9 @@ export default function useIslandDrag({
     }
     event.preventDefault();
     x.set(clamp(g.start + g.latest - g.origin, options.current.limit));
-    g.samples.push({ time: event.timeStamp, x: x.get() });
-    while (g.samples.length > 2 && event.timeStamp - g.samples[0].time > 100) g.samples.shift();
+    if (!sample) return;
+    g.samples.push({ time: g.time, x: x.get() });
+    while (g.samples.length > 1 && g.time - g.samples[0].time > 100) g.samples.shift();
   };
 
   return {
@@ -210,6 +224,7 @@ export default function useIslandDrag({
           active: false,
           timer: null,
           press: null,
+          time: event.timeStamp,
           samples: [],
         };
         gesture.current = g;
@@ -228,7 +243,7 @@ export default function useIslandDrag({
           g.timer = null;
           consumed.current = true;
           x.set(clamp(g.start + g.latest - g.origin, options.current.limit));
-          g.samples = [{ time: performance.now(), x: x.get() }];
+          g.samples = [{ time: g.time, x: x.get() }];
           setDragging(true);
           notifyDragging(true, g);
         }, HOLD_MS);
@@ -238,18 +253,11 @@ export default function useIslandDrag({
         const g = gesture.current;
         if (!g || event.pointerId !== g.pointer) return;
         if (g.active) {
-          move(event);
+          move(event, false);
           event.preventDefault();
-          const first = g.samples[0];
-          const last = g.samples[g.samples.length - 1];
-          const elapsed = last && first ? last.time - first.time : 0;
-          // Pixels per second; a pointer that stopped before letting go has none.
-          const velocity =
-            elapsed > 0 && event.timeStamp - last.time < 80
-              ? Math.max(-MAX_SPEED, Math.min(MAX_SPEED, ((last.x - first.x) / elapsed) * 1000))
-              : 0;
-          const target = rest(x.get(), options.current.reduced ? 0 : velocity);
-          glide(target, velocity);
+          const thrown = options.current.reduced ? 0 : velocity(g, event.timeStamp);
+          const target = rest(x.get(), thrown);
+          glide(target, thrown);
           save(target);
         }
         clear(g);

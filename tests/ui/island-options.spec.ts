@@ -43,8 +43,8 @@ test('the options button reveals icons in the same pill without changing the not
   expect(Math.abs(after.width - text.width)).toBeLessThanOrEqual(2);
   // The initial spring can still settle by a fraction of a screen pixel.
   expect(after.height).toBeCloseTo(before.height, 0);
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '88px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const button = (await trigger(page).boundingBox())!;
   const menu = (await options(page).boundingBox())!;
   expect(menu.y).toBeCloseTo(button.y, 0);
@@ -121,7 +121,7 @@ test('a single click during centring still opens and lets the return to centre f
   await page.evaluate("import('/src/api.ts').then(({ api }) => api.islandPosition(0.9))");
   await expect.poll(() => centre(page)).toBeCloseTo(1104, 0);
   await compact(page).click({ button: 'right' });
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '88px');
   await page.clock.pauseAt(new Date(Date.now() + 100));
   const action = (await options(page)
     .getByRole('menuitem', { name: 'Centre horizontally' })
@@ -148,7 +148,7 @@ test('a long press interrupts centring and release keeps the newly dragged posit
   await page.evaluate("import('/src/api.ts').then(({ api }) => api.islandPosition(0.9))");
   await expect.poll(() => centre(page)).toBeCloseTo(1104, 0);
   await compact(page).click({ button: 'right' });
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '88px');
   await page.clock.pauseAt(new Date(Date.now() + 100));
   const action = (await options(page)
     .getByRole('menuitem', { name: 'Centre horizontally' })
@@ -203,8 +203,10 @@ test('hover stays continuous across the gap, hides on leaving and supports keybo
     })
     .toBeCloseTo(4, 0);
   const settled = (await trigger(page).boundingBox())!;
-  expect(settled.y).toBeCloseTo(4, 0);
-  expect(settled.y + settled.height).toBeLessThanOrEqual(30.5);
+  // A 28-pixel circle centred on the 34-pixel island.
+  expect(settled.y).toBeCloseTo(3, 0);
+  expect(settled.width).toBeCloseTo(settled.height, 0);
+  expect(settled.y + settled.height).toBeLessThanOrEqual(31.5);
   expect((await island(page).boundingBox())!.width).toBe(before.width);
   await page.mouse.move(before.x + before.width - 8, 17);
   await page.mouse.move(settled.x + settled.width / 2, 17, { steps: 12 });
@@ -276,7 +278,7 @@ test('the floating button stays on screen at the right edge and in a narrow prev
   expect(button.x + button.width).toBeLessThanOrEqual(1440);
   await trigger(page).click();
   await expect(options(page)).toHaveAttribute('aria-orientation', 'horizontal');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const edge = (await options(page).boundingBox())!;
   expect(edge.x + edge.width).toBeLessThanOrEqual(1440);
   await page.keyboard.press('Escape');
@@ -288,7 +290,7 @@ test('the floating button stays on screen at the right edge and in a narrow prev
   await trigger(page).click();
   await expect(options(page)).toBeVisible();
   await expect(options(page)).toHaveAttribute('aria-orientation', 'horizontal');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const menu = (await options(page).boundingBox())!;
   expect(menu.x).toBeGreaterThanOrEqual(0);
   expect(menu.x + menu.width).toBeLessThanOrEqual(320);

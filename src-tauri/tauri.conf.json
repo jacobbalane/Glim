@@ -40,8 +40,7 @@
       "../LICENSE": "licenses/glim.txt",
       "../public/fonts/Manrope-LICENSE.txt": "licenses/manrope.txt",
       "../public/licenses/three.txt": "licenses/three.txt",
-      "../THIRD_PARTY_NOTICES.md": "licenses/third-party-notices.md",
-      "../public/licenses/material-icons.txt": "licenses/material-icons.txt"
+      "../THIRD_PARTY_NOTICES.md": "licenses/third-party-notices.md"
     },
     "shortDescription": "A glimpse at your local coding agents",
     "longDescription": "Live activity, token usage, and progress for Claude Code and Codex, in a minimal desktop island. Local by design.",

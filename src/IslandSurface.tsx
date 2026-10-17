@@ -20,7 +20,7 @@ import {
   type MotionValue,
 } from 'motion/react';
 import { api, native, designScene } from './api';
-import { Ellipsis } from 'lucide-react';
+import { Ellipsis, X } from 'lucide-react';
 import type { Tone } from './Character';
 import useIslandDrag from './useIslandDrag';
 import IslandOptions from './IslandOptions';
@@ -28,6 +28,8 @@ import type { QuickAction } from './quick-options';
 
 export const SURFACE_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 1 };
 const OPTIONS_HOVER_MS = 500;
+// Each control in the options pill is a circle this wide, two pixels from the next.
+const OPTION_SIZE = 28;
 export const SurfaceInk = createContext<{
   compact: MotionValue<number>;
   expanded: MotionValue<number>;
@@ -147,7 +149,7 @@ function FloatingOptions({
         className="island-options-pill"
         data-left={left}
         initial={false}
-        animate={{ width: open ? openSize : 32, height: 26 }}
+        animate={{ width: open ? openSize : OPTION_SIZE, height: OPTION_SIZE }}
         // Opening follows the island's spring; closing is quicker, so the pill never lingers
         // empty after its icons have gone.
         transition={
@@ -165,9 +167,25 @@ function FloatingOptions({
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
           onClick={onOpen}
-          whileTap={reduced ? undefined : { scale: 0.94 }}
+          whileTap={reduced ? undefined : { scale: 0.92 }}
         >
-          <Ellipsis size={14} aria-hidden="true" />
+          {/* Open, the dots turn into a close mark. */}
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span
+              key={open ? 'close' : 'more'}
+              className="island-options-glyph"
+              initial={{ opacity: 0, rotate: reduced ? 0 : open ? -90 : 90, scale: 0.6 }}
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: reduced ? 0 : open ? 90 : -90, scale: 0.6 }}
+              transition={{ duration: reduced ? 0.06 : 0.18, ease: [0.23, 1, 0.32, 1] }}
+            >
+              {open ? (
+                <X size={14} aria-hidden="true" />
+              ) : (
+                <Ellipsis size={14} aria-hidden="true" />
+              )}
+            </motion.span>
+          </AnimatePresence>
         </motion.button>
         {children}
       </motion.div>
@@ -206,7 +224,7 @@ export default function IslandSurface({
   const [belowRight, setBelowRight] = useState(0);
   const [belowTop, setBelowTop] = useState(0);
   const hasOptions = !!options?.length;
-  const openOptionsSize = 32 + (options?.length ?? 0) * 36;
+  const openOptionsSize = OPTION_SIZE + (options?.length ?? 0) * (OPTION_SIZE + 2);
   const optionsSizeRef = useRef(openOptionsSize);
   optionsSizeRef.current = openOptionsSize;
   const menuId = useId();

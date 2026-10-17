@@ -1,13 +1,20 @@
 import type { ComponentType } from 'react';
-import { ChartNoAxesCombined, Pause, Play, Plug, Power, Settings2 } from 'lucide-react';
-import HorizontalCentreIcon from './HorizontalCentreIcon';
+import {
+  AlignHorizontalJustifyCenter,
+  ChartNoAxesColumn,
+  Pause,
+  Play,
+  Plug,
+  Power,
+  Settings2,
+} from 'lucide-react';
 import { QUICK_OPTION_ORDER, type Preferences, type QuickOptionId } from './types';
 
 export const QUICK_OPTIONS = {
-  centre: { label: 'Centre horizontally', Icon: HorizontalCentreIcon },
+  centre: { label: 'Centre horizontally', Icon: AlignHorizontalJustifyCenter },
   pause: { label: 'Pause monitoring', Icon: Pause },
   settings: { label: 'Settings', Icon: Settings2 },
-  usage: { label: 'Usage history', Icon: ChartNoAxesCombined },
+  usage: { label: 'Usage history', Icon: ChartNoAxesColumn },
   setup: { label: 'Connect agents', Icon: Plug },
   quit: { label: 'Quit Glim', Icon: Power },
 } satisfies Record<QuickOptionId, { label: string; Icon: ComponentType<{ size?: number }> }>;

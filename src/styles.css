@@ -106,13 +106,14 @@ html:has(.native-stage) {
   display: flex;
   align-items: flex-start;
   width: max-content;
-  padding: 4px 4px 4px 12px;
+  /* A 28-pixel circle, centred on the 34-pixel island beside it. */
+  padding: 3px 4px 3px 12px;
 }
 .island-options-pill {
   display: flex;
   align-items: flex-start;
   overflow: hidden;
-  border-radius: 13px;
+  border-radius: 14px;
   background: var(--ink);
 }
 .island-options-pill[data-left='true'] {
@@ -121,26 +122,36 @@ html:has(.native-stage) {
 .island-options.on-left {
   left: auto;
   right: calc(100% - 8px);
-  padding: 4px 12px 4px 4px;
+  padding: 3px 12px 3px 4px;
 }
 .island-options.below {
   left: auto;
   padding: 12px 0 4px;
 }
-.island-options-button {
+.island-options-button,
+.island-action {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 32px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--ink);
   color: var(--fg-2);
   cursor: pointer;
-  transition: color 120ms var(--ease-out);
+  transition:
+    color 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+.island-options-button {
+  background: var(--ink);
 }
 .island-options-button:hover,
-.island-options-button:focus-visible {
+.island-options-button:focus-visible,
+.island-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg-1);
+}
+.island-options-button[aria-expanded='true'] {
   color: var(--fg-1);
 }
 .island-shell[data-expanded='true'] .island-options {
@@ -150,13 +161,13 @@ html:has(.native-stage) {
 .island-options-menu {
   display: flex;
   flex-shrink: 0;
-  gap: 4px;
+  gap: 2px;
   width: max-content;
-  height: 26px;
-  padding-left: 4px;
+  height: 28px;
+  padding-left: 2px;
 }
 .island-options.on-left .island-options-menu {
-  padding: 0 4px 0 0;
+  padding: 0 2px 0 0;
 }
 .preview-bottom {
   position: absolute;
@@ -1342,22 +1353,6 @@ html:has(.native-stage) {
   scrollbar-width: thin;
   padding: 6px 10px 4px;
 }
-.island-action {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 26px;
-  border-radius: 50%;
-  color: var(--fg-2);
-  cursor: pointer;
-  transition:
-    color 120ms var(--ease-out),
-    background-color 120ms var(--ease-out);
-}
-.island-action:hover:not(:disabled) {
-  color: var(--fg-1);
-}
 .island-action:disabled {
   color: var(--fg-3);
   cursor: default;
@@ -2170,4 +2165,8 @@ html:has(.native-stage) {
   list-style: none;
   margin: 0;
   padding: 0 0 0 12px;
+}
+.island-options-glyph {
+  display: grid;
+  place-items: center;
 }

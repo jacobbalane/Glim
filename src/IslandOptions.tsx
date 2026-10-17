@@ -116,7 +116,7 @@ export default function IslandOptions({
           }}
           whileTap={reduced ? undefined : { scale: 0.9 }}
         >
-          <Icon size={12} />
+          <Icon size={14} />
         </motion.button>
       ))}
     </motion.div>
