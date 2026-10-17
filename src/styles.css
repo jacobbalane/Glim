@@ -101,6 +101,8 @@ html:has(.native-stage) {
 }
 .island-shell [data-island-drag] {
   touch-action: none;
+  /* Safari, the Mac app's engine, still needs the prefix; without it a drag selects text. */
+  -webkit-user-select: none;
   user-select: none;
 }
 .island-shell[data-dragging='true'] [data-island-drag] {
@@ -1606,6 +1608,7 @@ html:has(.native-stage) {
   font-size: 13px;
   cursor: grab;
   touch-action: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 .quick-option-row[data-grabbed='true'] {
