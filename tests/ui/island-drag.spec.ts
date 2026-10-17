@@ -138,9 +138,10 @@ test('losing capture cannot swallow the next unrelated header action', async ({ 
     // The active pointer in Playwright's mouse input has ID 1.
     element.releasePointerCapture(1);
   });
-  await expect(island(page)).toHaveAttribute('data-dragging', 'false');
+  // Chromium says the capture is lost; WebKit does not, and the release outside ends the hold.
   await page.mouse.move(30, 400);
   await page.mouse.up();
+  await expect(island(page)).toHaveAttribute('data-dragging', 'false');
   await compact(page).focus();
   await page.keyboard.press('Enter');
   await expect(island(page)).toHaveAttribute('data-expanded', 'true');

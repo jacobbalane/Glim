@@ -8,6 +8,9 @@ const centre = async (page: Page) => {
   const box = (await island(page).boundingBox())!;
   return box.x + box.width / 2;
 };
+// WebKit on macOS moves focus to buttons with Option-Tab, as Safari does.
+const TAB =
+  process.platform === 'darwin' && process.env.GLIM_TEST_BROWSER === 'webkit' ? 'Alt+Tab' : 'Tab';
 const trigger = (page: Page) => page.getByRole('button', { name: 'Glim options', exact: true });
 async function gotoWithOptions(page: Page, url = '/') {
   await page.goto(url);
@@ -215,7 +218,7 @@ test('hover stays continuous across the gap, hides on leaving and supports keybo
   await page.mouse.move(40, 200);
   await expect(trigger(page)).toHaveCount(0);
   await page.mouse.click(40, 200);
-  await page.keyboard.press('Tab');
+  await page.keyboard.press(TAB);
   await expect(compact(page)).toBeFocused();
   await expect(trigger(page)).toBeVisible();
   // The notices have their own buttons, so focus the newly revealed action directly.
@@ -341,6 +344,6 @@ test('the icon options toggle, dismiss on focus loss, and keep a failed action u
   await expect(action).toBeEnabled();
   await page.keyboard.press('ArrowRight');
   await expect(action).toBeFocused();
-  await page.keyboard.press('Tab');
+  await page.keyboard.press(TAB);
   await expect(options(page)).toHaveCount(0);
 });

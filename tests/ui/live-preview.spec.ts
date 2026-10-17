@@ -2,6 +2,18 @@ import { expect, test, type Page } from '@playwright/test';
 import { hasGpu } from './gpu';
 import { settledBox } from './settle';
 
+// React applies a pointer entering or leaving in a task of its own; this waits for it, so the
+// fake clock does not move on first. The clock leaves MessageChannel alone, as React does.
+async function pointerApplied(page: Page) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = () => resolve();
+        channel.port2.postMessage(null);
+      }),
+  );
+}
 async function simulate(page: Page, activity: string, id: string, detail?: string) {
   await page.evaluate(
     ({ activity, id, detail }) =>
@@ -230,10 +242,12 @@ test('a notice that arrives opens the list, which folds itself after a while unl
   await expect(failed).toBeVisible();
   // Held under the pointer, the list stays open.
   await failed.hover();
+  await pointerApplied(page);
   await page.clock.fastForward(12000);
   await expect(failed).toBeVisible();
   // Left alone, it folds; the strip now counts both.
   await page.mouse.move(20, 300);
+  await pointerApplied(page);
   await page.clock.fastForward(8500);
   await expect(failed).toBeHidden();
   await expect(strip).toContainText('2 waiting');
@@ -273,7 +287,10 @@ test('failed connector and history calls remain honest and recoverable', async (
   await page.goto('/?scene=agents&motion=1');
   const claude = page.locator('.conn').filter({ hasText: 'Claude Code' });
   await claude.getByRole('button', { name: /Claude Code.*Connect/ }).click();
-  await claude.getByRole('button', { name: 'Connect Claude', exact: true }).click();
+  const connect = claude.getByRole('button', { name: 'Connect Claude', exact: true });
+  // The row's details slide open; click once they are in place.
+  await settledBox(connect);
+  await connect.click();
   await expect(page.getByRole('alert')).toContainText('Connection unavailable');
   await expect(claude.getByRole('button', { name: 'Connect Claude', exact: true })).toBeEnabled();
   await expect(claude.locator('.conn-status')).toHaveCount(0);
