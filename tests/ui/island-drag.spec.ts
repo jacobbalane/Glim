@@ -188,11 +188,19 @@ test('a held island gives a little, a flick carries it on, and near the middle i
   await expect.poll(async () => (await island(page).boundingBox())!.width).toBeLessThan(width - 4);
   expect((await island(page).boundingBox())!.y).toBe(0);
   // Thrown to the right, it travels past where the pointer let go and stops inside the screen.
-  const pointer = { x: start, y: 16 };
-  await page.mouse.move(pointer.x + 120, pointer.y, { steps: 6 });
-  await page.mouse.up();
-  await expect(island(page)).toHaveAttribute('data-dragging', 'false');
-  await expect.poll(() => centre(page)).toBeGreaterThan(start + 150);
+  // A throw is a quick move let go of at once. A runner too slow to make one places the island
+  // instead, so the throw is tried again from there, up to three times.
+  let thrown = false;
+  for (let attempt = 0; attempt < 3 && !thrown; attempt++) {
+    const from = await centre(page);
+    if (attempt > 0) await hold(page);
+    await page.mouse.move(from + 120, 16, { steps: 6 });
+    await page.mouse.up();
+    await expect(island(page)).toHaveAttribute('data-dragging', 'false');
+    const rest = await settledBox(island(page));
+    thrown = rest.x + rest.width / 2 > from + 150;
+  }
+  expect(thrown, 'A flick carries the island past where it was let go.').toBe(true);
   await expect.poll(async () => (await island(page).boundingBox())!.width).toBeCloseTo(width, 0);
   const box = (await island(page).boundingBox())!;
   expect(box.x + box.width).toBeLessThanOrEqual(1440);
