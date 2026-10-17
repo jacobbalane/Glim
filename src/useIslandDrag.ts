@@ -136,9 +136,26 @@ export default function useIslandDrag({
   };
   useEffect(() => {
     const blur = () => cancel();
+    // Listened for on the window: WebKit does not focus a clicked button, so the island may not
+    // have focus while it is held.
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || !gesture.current) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      cancel();
+    };
+    // A release the island never heard, its capture lost without a lostpointercapture (WebKit
+    // sends none), still ends the hold. A release on the island has already ended it by now.
+    const release = (event: globalThis.PointerEvent) => {
+      if (gesture.current?.pointer === event.pointerId) cancel();
+    };
     window.addEventListener('blur', blur);
+    window.addEventListener('keydown', escape, true);
+    window.addEventListener('pointerup', release);
     return () => {
       window.removeEventListener('blur', blur);
+      window.removeEventListener('keydown', escape, true);
+      window.removeEventListener('pointerup', release);
       animation.current?.stop();
       const g = gesture.current;
       gesture.current = null;
@@ -285,11 +302,7 @@ export default function useIslandDrag({
         }
       },
       onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.key === 'Escape' && gesture.current) {
-          event.preventDefault();
-          event.stopPropagation();
-          cancel();
-        } else if (
+        if (
           (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) &&
           (event.target as Element).matches('[data-island-drag], [data-island-options]') &&
           options.current.onOptions
