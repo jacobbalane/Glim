@@ -80,11 +80,20 @@ async function until(fn, description, timeout = 20000) {
   }
   throw new Error(`Timed out: ${description}${lastError ? ` (${lastError.message})` : ''}`);
 }
-// The island's place on screen, in points from the main display's top left.
-const islandOnScreen = () =>
-  run(`
+// The island's place on screen, in points from the main display's top left. WebKit counts
+// window.screenY up from the bottom of the screen, so the window's place comes from Glim.
+async function islandOnScreen() {
+  const { origin, scale } = await invoke('test_pointer');
+  const r = await run(`
     const r = document.querySelector('[data-testid=island]').getBoundingClientRect();
-    return { x: window.screenX + r.left, y: window.screenY + r.top, width: r.width, height: r.height };`);
+    return { left: r.left, top: r.top, width: r.width, height: r.height };`);
+  return {
+    x: origin[0] / scale + r.left,
+    y: origin[1] / scale + r.top,
+    width: r.width,
+    height: r.height,
+  };
+}
 async function screenshot(name) {
   const island = await islandOnScreen();
   const region = [
