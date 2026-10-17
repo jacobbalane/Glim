@@ -39,6 +39,12 @@ const built = parts.map((part) => {
   return resolve(`src-tauri/target/${folder}${release ? 'release' : 'debug'}/glim-bridge${exe}`);
 });
 const sidecar = resolve(binaries, `glim-bridge-${target}${exe}`);
-if (built.length > 1) execFileSync('lipo', ['-create', '-output', sidecar, ...built]);
-else copyFileSync(built[0], sidecar);
+if (built.length > 1) {
+  execFileSync('lipo', ['-create', '-output', sidecar, ...built]);
+  // A universal Tauri build joins only Glim's own binary for both, yet bundles every binary of
+  // the crate from the universal folder, the helper included.
+  const universal = resolve(`src-tauri/target/${target}/${release ? 'release' : 'debug'}`);
+  mkdirSync(universal, { recursive: true });
+  copyFileSync(sidecar, resolve(universal, 'glim-bridge'));
+} else copyFileSync(built[0], sidecar);
 console.log(`Prepared Glim helper (${target}).`);
