@@ -37,7 +37,7 @@ import {
   type Group,
   type NotchView,
 } from './session-presentation';
-import { PROVIDERS } from './types';
+import { PROVIDERS, type Session } from './types';
 import { compactNumber, totalTokens } from './format';
 export function Compact({
   view,
@@ -431,6 +431,15 @@ function SaidPanel({
   );
 }
 
+// When a usage limit stops an agent: when the full limit resets, if it reported that, and what
+// to do then.
+function limitHint(s: Session, agent: string, now: number) {
+  const full = s.limits.find((limit) => limit.usedPercent >= 100 && limit.resetsAt > now);
+  return full
+    ? `${limitName(full.label)} resets in ${ago(full.resetsAt - now)}. Continue in ${agent} then.`
+    : `Continue in ${agent} once the limit resets.`;
+}
+
 function Hero({
   group,
   now,
@@ -474,7 +483,9 @@ function Hero({
       ? `Respond in ${agent} to keep it going.`
       : s.activity === 'error'
         ? `Open the ${agent} session to see what failed.`
-        : null;
+        : s.activity === 'limited'
+          ? limitHint(s, agent, now)
+          : null;
   return (
     <section className={`hero tone-${look.tone}`} aria-label={`${nameOf(group)}: ${look.label}`}>
       <div className="hero-head">
@@ -709,6 +720,7 @@ export function Glance({
   );
   const waiting = groups.filter((g) => g.look.tone === 'attention').length;
   const errors = groups.filter((g) => g.look.tone === 'error').length;
+  const limited = groups.filter((g) => g.look.tone === 'limit').length;
   return (
     <div className={`glance${paused ? ' is-paused' : ''}`}>
       <header className="bar">
@@ -729,6 +741,7 @@ export function Glance({
             </span>
           )}
           {errors > 0 && <span className="tone-error state-text">{plural(errors, 'error')}</span>}
+          {limited > 0 && <span className="tone-limit state-text">{limited} at limit</span>}
         </p>
         <div className="bar-actions">
           <IconButton label="Usage" onClick={onUsage}>

@@ -323,3 +323,27 @@ test('the glow slider sets how strongly the island lights up, down to off', asyn
   );
   expect(saved).toBe(100);
 });
+
+test('an agent stopped by a usage limit shows Limit reached, in its own color', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await page.goto('/?scene=compact&motion=1');
+  const island = page.getByTestId('island');
+  const trigger = island.getByRole('button', { name: /^Glim:/ });
+  await simulate(page, 'limited', 'demo-claude-2', 'Usage limit reached');
+  // It takes over the notch in violet, glowing, then waits with the other notices.
+  await expect(trigger).toContainText('Limit reached');
+  await expect(island).toHaveAttribute('data-tone', 'limit');
+  await expect(trigger).not.toContainText('Your turn');
+  await page.clock.fastForward(7500);
+  const limited = island.getByRole('button', { name: /design-system · Claude: Limit reached/ });
+  await expect(limited).toBeVisible();
+  await expect(limited.locator('.dot')).toHaveCSS('background-color', 'rgb(167, 139, 250)');
+  // Open, it says what to do about it.
+  await limited.click();
+  await expect(page.locator('.hero .chip').filter({ hasText: 'Limit reached' })).toBeVisible();
+  await expect(page.locator('.hero-hint')).toContainText('once the limit resets');
+  await expect(page.locator('.bar-title')).toContainText('1 at limit');
+});

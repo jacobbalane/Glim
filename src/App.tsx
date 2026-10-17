@@ -198,6 +198,7 @@ export default function App() {
           'idle',
           'interrupted',
           'error',
+          'limited',
           'stale',
           'reset',
         ].includes(event.data.status)

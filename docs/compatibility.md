@@ -20,7 +20,7 @@ These are parser reference versions, not a claim that every provider configurati
 - Context usage is the current context measurement, not cumulative session usage. Codex's value is derived from the latest usage event; it is shown as an estimate in session details.
 - Subscription limits are not derived from token counts. Optional windows disappear after their reset time until a fresh provider measurement arrives.
 - Reported steps describe the agent's current structured plan; there is no general estimated task-completion percentage.
-- A completed turn leaves the session idle. Session-end events mark a session ended. Quiet working sessions become stale after five minutes without a supported activity event.
+- A completed turn leaves the session idle. A turn a usage limit stopped reads **Limit reached** instead, never Your turn or Error: Claude Code's `StopFailure` hook with `error_type` `rate_limit` (or `billing_error`, a spend limit), or its short limit notice as the turn's last words; Codex's failed turn with `codex_error_info` `usage_limit_exceeded`. It stays until the agent works again. Session-end events mark a session ended. Quiet working sessions become stale after five minutes without a supported activity event.
 - Resumed sessions can include previously recorded usage. Duplicate request IDs and cumulative snapshots do not add usage twice. Each linked subagent transcript is counted once; parent-inclusive aggregate counters are not imported.
 - Pause stops live collection. Provider snapshots can catch up when monitoring resumes; pause is not a billing exclusion.
 

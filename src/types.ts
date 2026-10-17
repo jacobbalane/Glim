@@ -9,7 +9,7 @@ export const QUICK_OPTION_ORDER: QuickOptionId[] = [
   'quit',
 ];
 export type Activity =
-  'working' | 'waiting' | 'idle' | 'finished' | 'interrupted' | 'error' | 'stale';
+  'working' | 'waiting' | 'idle' | 'finished' | 'interrupted' | 'error' | 'limited' | 'stale';
 export interface Tokens {
   input: number;
   output: number;

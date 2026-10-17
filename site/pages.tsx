@@ -27,6 +27,11 @@ const STATES: [tone: string, name: string, meaning: string][] = [
   ['success', 'Your turn', 'The agent handed the turn back. It turns Ready once you have looked.'],
   ['calm', 'Ready', 'Nothing new since you last looked, or a session that has only just started.'],
   ['error', 'Error', 'The agent reported a failure. It stays until the agent moves on.'],
+  [
+    'limit',
+    'Limit reached',
+    'Claude Code or Codex stopped at a usage limit. It stays until the agent works again.',
+  ],
   ['calm', 'Interrupted', 'You stopped the turn, so there is nothing to chase.'],
   ['done', 'Done', 'The session ended, or its agent was closed. It leaves a few minutes later.'],
   ['off', 'Quiet', 'No activity for five minutes. Glim never guesses that a quiet agent is done.'],

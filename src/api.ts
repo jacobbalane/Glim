@@ -124,7 +124,9 @@ export const api = {
                   ? 'Running tests'
                   : kind === 'waiting'
                     ? 'Waiting for approval'
-                    : 'Turn finished'),
+                    : kind === 'limited'
+                      ? 'Usage limit reached'
+                      : 'Turn finished'),
               updatedAt: Date.now(),
             }
           : s,

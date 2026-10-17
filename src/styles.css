@@ -12,6 +12,7 @@
   --teal: #36d4c4;
   --amber: #ffc53d;
   --red: #ff6a5f;
+  --violet: #a78bfa;
   --green: #3ddc84;
   font-family: 'Manrope Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   font-optical-sizing: auto;
@@ -316,6 +317,9 @@ html:has(.native-stage) {
 .tone-error {
   --tone: var(--red);
 }
+.tone-limit {
+  --tone: var(--violet);
+}
 .tone-success {
   --tone: var(--teal);
 }
@@ -411,18 +415,23 @@ html:has(.native-stage) {
 .shell[data-tone='success'] {
   --glow: var(--teal);
 }
+.shell[data-tone='limit'] {
+  --glow: var(--violet);
+}
 /* Moving the Glow slider lights the island in its color, or in amber, to show the strength. */
 .island-shell:has(.glow-range:is(:active, :focus-visible)):not(
     [data-tone='attention'],
     [data-tone='error'],
-    [data-tone='success']
+    [data-tone='success'],
+    [data-tone='limit']
   ) {
   --glow: var(--amber);
 }
 .shell:not([data-glow='off'])[data-compact='true']:is(
     [data-tone='attention'],
     [data-tone='error'],
-    [data-tone='success']
+    [data-tone='success'],
+    [data-tone='limit']
   )::after,
 .island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible))::after {
   content: '';
@@ -444,7 +453,8 @@ html:has(.native-stage) {
 .shell:not([data-glow='off'])[data-compact='true']:is(
     [data-tone='attention'],
     [data-tone='error'],
-    [data-tone='success']
+    [data-tone='success'],
+    [data-tone='limit']
   )
   .island-body,
 .island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible)) .island-body {
