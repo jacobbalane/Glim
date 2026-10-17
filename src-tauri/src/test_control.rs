@@ -147,15 +147,17 @@ pub fn start(app: tauri::AppHandle) {
                 _ => r#"{"error":"The island is not open"}"#.into(),
             };
             let written = stream.write_all(answer.as_bytes());
-            // A slow answer says where the time went, for the smoke test's failure report.
-            if accepted.elapsed() > std::time::Duration::from_secs(2) {
-                eprintln!(
-                    "test control: script {id} took {:?} (read {read:?}, sent to the island {sent:?}, written {}): {}",
-                    accepted.elapsed(),
-                    written.is_ok(),
-                    script.trim().chars().take(80).collect::<String>(),
-                );
-            }
+            // Every script, stamped with the wall clock, for the smoke test's failure report.
+            eprintln!(
+                "test control: #{id} at {} took {:?} (read {read:?}, sent to the island {sent:?}, written {}): {}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|t| t.as_millis())
+                    .unwrap_or_default(),
+                accepted.elapsed(),
+                written.is_ok(),
+                script.trim().chars().take(60).collect::<String>(),
+            );
         }
     });
 }

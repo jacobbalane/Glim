@@ -22,9 +22,14 @@ export function control(data) {
   const run = (script) =>
     new Promise((done, fail) => {
       const connection = connect(socket);
+      const sent = Date.now();
       const timer = setTimeout(() => {
         connection.destroy();
-        fail(new Error(`No answer from Glim in 45 s to: ${script.trim().slice(0, 100)}`));
+        fail(
+          new Error(
+            `No answer from Glim in 45 s (asked at ${sent}) to: ${script.trim().slice(0, 100)}`,
+          ),
+        );
       }, 45000);
       let answer = '';
       connection.on('data', (chunk) => {

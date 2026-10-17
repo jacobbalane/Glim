@@ -476,6 +476,18 @@ try {
   console.log(`Screenshots: ${shots}`);
 } catch (error) {
   sampleGlim('The smoke failed');
+  console.log(`Glim said, last:\n${nativeError.split('\n').slice(-40).join('\n')}`);
+  // Every Glim running, and which process holds the test control's socket.
+  for (const [tool, args] of [
+    ['pgrep', ['-fl', 'glim']],
+    ['lsof', ['-U', '-a', '-c', 'glim']],
+  ]) {
+    try {
+      console.log(execFileSync(tool, args, { encoding: 'utf8', timeout: 10000 }));
+    } catch (failure) {
+      console.log(`${tool}: ${failure.message}`);
+    }
+  }
   throw error;
 } finally {
   // Reported, but never in place of the failure that brought the test here.
