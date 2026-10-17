@@ -453,15 +453,33 @@ try {
   launch({ GLIM_TEST_NOTCH: '200x32' });
   await until(() => stat(controlSocket).then(() => true), 'test control again');
   await until(() => has('.compact.notched'), 'notched island');
-  await delay(800);
-  const clear = await run(`
-    const island = document.querySelector('[data-testid=island]').getBoundingClientRect();
-    const middle = island.left + island.width / 2;
-    const parts = [...document.querySelectorAll('.compact.notched .wing > *')]
-      .map((el) => el.getBoundingClientRect())
-      .filter((r) => r.width > 0);
-    return parts.every((r) => r.right <= middle - 100 + 0.5 || r.left >= middle + 100 - 0.5);`);
-  assert.equal(clear, true, 'Nothing in the compact island crosses the camera.');
+  // Measured once the island has settled; what crosses the camera, if anything, is named.
+  let layout;
+  const clear = await until(
+    async () => {
+      layout = await run(`
+        const island = document.querySelector('[data-testid=island]').getBoundingClientRect();
+        const middle = island.left + island.width / 2;
+        const crossing = [...document.querySelectorAll('.compact.notched .wing > *')]
+          .map((el) => ({ el, r: el.getBoundingClientRect() }))
+          .filter(({ r }) => r.width > 0 && r.right > middle - 100 + 0.5 && r.left < middle + 100 - 0.5)
+          .map(({ el, r }) => ({
+            part: String(el.className || el.tagName),
+            text: el.textContent.slice(0, 40),
+            left: Math.round(r.left),
+            right: Math.round(r.right),
+          }));
+        return { middle, width: island.width, crossing };`);
+      return layout.crossing.length === 0;
+    },
+    'nothing in the compact island crossing the camera',
+    5000,
+  ).catch(() => false);
+  assert.equal(
+    clear,
+    true,
+    `Nothing in the compact island crosses the camera: ${JSON.stringify(layout)}`,
+  );
   await screenshot('notched-compact');
   await click(/^Glim:/);
   await until(() => has('.glance'), 'open notched island');
