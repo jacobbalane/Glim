@@ -74,6 +74,12 @@ function sampleGlim(reason) {
     console.log(`${reason}. Glim's main thread:`);
     console.log(threads.slice(main, main + 6000));
     console.log(`All of Glim's threads: ${file}`);
+    // Whether macOS was throttling Glim (App Nap lowers its priority) or the display slept.
+    for (const [tool, args] of [
+      ['ps', ['-o', 'pid,pri,nice,stat,time', '-p', String(app.pid)]],
+      ['pmset', ['-g']],
+    ])
+      console.log(execFileSync(tool, args, { encoding: 'utf8', timeout: 10000 }));
   } catch (error) {
     console.log(`${reason}. Could not sample Glim: ${error.message}`);
   }

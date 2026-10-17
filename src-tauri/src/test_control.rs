@@ -116,10 +116,12 @@ pub fn start(app: tauri::AppHandle) {
     std::thread::spawn(move || {
         let mut next = 0u64;
         for mut stream in listener.incoming().flatten() {
+            let accepted = std::time::Instant::now();
             let mut script = String::new();
             if stream.read_to_string(&mut script).is_err() {
                 continue;
             }
+            let read = accepted.elapsed();
             next += 1;
             let id = next;
             let (sender, receiver) = std::sync::mpsc::channel();
@@ -134,13 +136,26 @@ pub fn start(app: tauri::AppHandle) {
                  .then(result => window.__TAURI_INTERNALS__.invoke('test_report',\
                        {{ id: {id}, result: JSON.stringify(result) }}))"
             );
+            let mut sent = None;
             let answer = match crate::platform::island(&app) {
-                Some(island) if island.eval(&wrapped).is_ok() => receiver
-                    .recv_timeout(std::time::Duration::from_secs(30))
-                    .unwrap_or_else(|_| r#"{"error":"No answer from the island"}"#.into()),
+                Some(island) if island.eval(&wrapped).is_ok() => {
+                    sent = Some(accepted.elapsed());
+                    receiver
+                        .recv_timeout(std::time::Duration::from_secs(30))
+                        .unwrap_or_else(|_| r#"{"error":"No answer from the island"}"#.into())
+                }
                 _ => r#"{"error":"The island is not open"}"#.into(),
             };
-            let _ = stream.write_all(answer.as_bytes());
+            let written = stream.write_all(answer.as_bytes());
+            // A slow answer says where the time went, for the smoke test's failure report.
+            if accepted.elapsed() > std::time::Duration::from_secs(2) {
+                eprintln!(
+                    "test control: script {id} took {:?} (read {read:?}, sent to the island {sent:?}, written {}): {}",
+                    accepted.elapsed(),
+                    written.is_ok(),
+                    script.trim().chars().take(80).collect::<String>(),
+                );
+            }
         }
     });
 }
