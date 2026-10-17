@@ -227,7 +227,9 @@ test('the full message moves to the left when the notch sits at the right edge',
   await page.mouse.up();
   await compact(page).click();
   await expect(page.locator('.frame[aria-hidden]')).toHaveCount(0);
-  await page.getByRole('button', { name: /^design-system · Claude:/ }).click();
+  const row = page.getByRole('button', { name: /^design-system · Claude:/ });
+  await settledBox(row);
+  await row.click();
   await page.getByRole('button', { name: 'Read what Claude said' }).click();
   const panel = page.getByRole('complementary', { name: 'What Claude said' });
   await expect(page.locator('.island-side')).toHaveClass(/on-left/);
