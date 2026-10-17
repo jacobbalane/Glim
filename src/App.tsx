@@ -11,6 +11,7 @@ import BrandPreview from './BrandPreview';
 import { CharacterEnvironment } from './Character';
 import { groupSessions, isNotice } from './session-presentation';
 import useSessionPreview from './useSessionPreview';
+import useNoticeFold from './useNoticeFold';
 import useReducedMotion from './useReducedMotion';
 import './preview-embed.css';
 
@@ -34,7 +35,6 @@ export default function App() {
   // The open island as a list of every agent, kept until an agent is picked.
   const [listed, setListed] = useState(false);
   const [seenAt, setSeenAt] = useState(Date.now);
-  const [inboxHidden, setInboxHidden] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot>({
     sessions: [],
     preferences: DEFAULT_PREFERENCES,
@@ -63,6 +63,8 @@ export default function App() {
     ready: loaded,
     dwell: Math.max(6000, 2600 + (run / 40) * 1000),
   });
+  // The open island shows every notice, so the list waits while it is open.
+  const [folded, setFolded] = useNoticeFold(notch, held || focused || expanded);
   const hidden =
     !expanded &&
     snapshot.preferences.idleBehavior === 'hidden' &&
@@ -229,8 +231,8 @@ export default function App() {
     content = (
       <Compact
         view={notch}
-        inboxHidden={inboxHidden}
-        onInboxHiddenChange={setInboxHidden}
+        folded={folded}
+        onFoldedChange={setFolded}
         count={groups.length}
         paused={paused}
         now={now}

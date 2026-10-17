@@ -110,8 +110,8 @@ const SECTIONS: [id: string, title: string, body: ReactNode][] = [
       </dl>
       <p>
         With several agents, the working ones take turns in the island. An approval, a question, a
-        finished turn or an error interrupts once, then waits in the banner below the island until
-        you deal with it.
+        finished turn or an error interrupts once, then waits in a list below the island, which
+        folds into a strip of colored dots after a few seconds, until you deal with it.
       </p>
       <p>
         Click the island to open it. The agent you picked shows its current step, context use,

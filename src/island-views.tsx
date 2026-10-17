@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import {
   ArrowUpRight,
   ChartColumn,
+  ChevronDown,
   ChevronRight,
   ChevronUp,
   ListCollapse,
@@ -36,8 +37,8 @@ export function Compact({
   onOpen,
   onRun,
   count,
-  inboxHidden,
-  onInboxHiddenChange,
+  folded,
+  onFoldedChange,
 }: {
   view: NotchView;
   count: number;
@@ -45,13 +46,15 @@ export function Compact({
   now: number;
   onOpen?: (id?: string, picked?: boolean) => void;
   onRun?: (px: number) => void;
-  inboxHidden: boolean;
-  onInboxHiddenChange: (hidden: boolean) => void;
+  // Notices waiting under the island fold into a strip of colored dots.
+  folded: boolean;
+  onFoldedChange: (folded: boolean) => void;
 }) {
   const ink = useContext(Ink);
   const reduced = useReducedMotion();
   const opener = useRef<HTMLButtonElement>(null);
   const showNotices = useRef<HTMLButtonElement>(null);
+  const notices = useRef<HTMLUListElement>(null);
   const top = paused ? undefined : view.current;
   const s = top?.session;
   const tone: Tone = !top ? 'calm' : top.look.tone;
@@ -108,41 +111,103 @@ export function Compact({
           </motion.span>
         )}
       </button>
-      {inboxHidden && inbox.length > 0 && (
-        <motion.button
-          ref={showNotices}
-          className="inbox-show"
-          aria-label="Show notices"
-          aria-expanded={false}
-          style={{ opacity: ink?.settle ?? 1 }}
-          onClick={(event) => {
-            onInboxHiddenChange(false);
-            if (event.detail === 0) opener.current?.focus();
-          }}
-        >
-          Show
-        </motion.button>
-      )}
-      {/* Keep hiding separate from acknowledging or resolving a session. */}
+      {/* Keep folding separate from acknowledging or resolving a session. Between the list and
+          the strip, each agent's dot travels to its new place while the island changes height. */}
       <AnimatePresence initial={false} mode="popLayout">
-        {!inboxHidden && inbox.length > 0 && (
-          <Inbox
-            key="notices"
-            groups={inbox}
-            now={now}
-            reduced={reduced}
-            onOpen={onOpen}
-            onHide={(keyboard) => {
-              onInboxHiddenChange(true);
-              if (keyboard) requestAnimationFrame(() => showNotices.current?.focus());
-            }}
-          />
-        )}
+        {inbox.length > 0 &&
+          (folded ? (
+            <NoticeStrip
+              key="strip"
+              ref={showNotices}
+              groups={inbox}
+              reduced={reduced}
+              onShow={(keyboard) => {
+                onFoldedChange(false);
+                if (keyboard)
+                  requestAnimationFrame(() =>
+                    notices.current?.querySelector<HTMLButtonElement>('.inbox-row')?.focus(),
+                  );
+              }}
+            />
+          ) : (
+            <Inbox
+              key="notices"
+              ref={notices}
+              groups={inbox}
+              now={now}
+              reduced={reduced}
+              onOpen={onOpen}
+              onHide={(keyboard) => {
+                onFoldedChange(true);
+                if (keyboard) requestAnimationFrame(() => showNotices.current?.focus());
+              }}
+            />
+          ))}
       </AnimatePresence>
     </div>
   );
 }
 
+// Words in the list and the strip arrive just after the dots start moving, and leave quickly.
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+const textIn = (reduced: boolean, delay = 0.1) => ({
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: reduced ? 0 : 0.24, delay: reduced ? 0 : delay, ease: EASE_OUT },
+});
+
+// How the dots of waiting agents travel between the list and the strip.
+const DOT_LAYOUT = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 1 };
+const STRIP_DOTS = 6;
+
+// The folded notices: one dot per waiting agent in its state's color, then how many there are.
+const NoticeStrip = forwardRef<
+  HTMLButtonElement,
+  { groups: Group[]; reduced: boolean; onShow: (keyboard: boolean) => void }
+>(function NoticeStrip({ groups, reduced, onShow }, ref) {
+  const present = useIsPresent();
+  const labels = new Map<string, number>();
+  for (const g of groups) labels.set(g.look.label, (labels.get(g.look.label) ?? 0) + 1);
+  const summary = [...labels].map(([label, n]) => `${n} ${label}`).join(', ');
+  return (
+    <motion.button
+      ref={ref}
+      className="inbox-strip"
+      aria-label={`${summary}. Show notices.`}
+      aria-expanded={false}
+      aria-hidden={!present || undefined}
+      inert={!present}
+      onClick={(event) => onShow(event.detail === 0)}
+      initial={false}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.14, ease: EASE_OUT } }}
+    >
+      <span className="inbox-strip-dots" aria-hidden="true">
+        {groups.slice(0, STRIP_DOTS).map((g) => (
+          <motion.i
+            key={g.session.id}
+            layoutId={reduced ? undefined : `notice-dot-${g.session.id}`}
+            transition={DOT_LAYOUT}
+            className={`dot tone-${g.look.tone}`}
+          />
+        ))}
+        {groups.length > STRIP_DOTS && (
+          <motion.span className="num" {...textIn(reduced)}>
+            +{groups.length - STRIP_DOTS}
+          </motion.span>
+        )}
+      </span>
+      <motion.span className="inbox-strip-count num" aria-hidden="true" {...textIn(reduced)}>
+        {groups.length} waiting
+        <ChevronDown size={12} strokeWidth={2.4} />
+      </motion.span>
+    </motion.button>
+  );
+});
+
+// The notices as a list under the island, one row per agent. Its dots stay solid while the
+// rest of it fades, so they can travel to and from the strip.
 const Inbox = forwardRef<
   HTMLUListElement,
   {
@@ -161,39 +226,45 @@ const Inbox = forwardRef<
       aria-label="Waiting for you"
       aria-hidden={!present || undefined}
       inert={!present}
-      initial={{ opacity: 0, y: reduced ? 0 : -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: reduced ? 0 : -6 }}
-      transition={{ duration: reduced ? 0 : 0.16, ease: [0.23, 1, 0.32, 1] }}
+      initial={false}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.14, ease: EASE_OUT } }}
     >
-      <AnimatePresence initial={false}>
-        {groups.slice(0, 3).map((g) => (
+      <AnimatePresence>
+        {groups.slice(0, 3).map((g, index) => (
           <motion.li
             key={g.session.id}
-            initial={{ opacity: 0, y: reduced ? 0 : -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: reduced ? 0 : -6 }}
-            // Rows land once the island has had a moment to make room for them.
-            transition={{
-              duration: reduced ? 0 : 0.32,
-              delay: reduced ? 0 : 0.18,
-              ease: [0.23, 1, 0.32, 1],
-            }}
+            // A row that arrives while the list is open slides in under the ones above it.
+            initial={{ y: reduced ? 0 : -8 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.14 } }}
+            transition={{ duration: reduced ? 0 : 0.32, ease: EASE_OUT }}
           >
             <button
               className={`inbox-row tone-${g.look.tone}`}
               onClick={() => onOpen?.(g.session.id, true)}
               aria-label={`${nameOf(g)}: ${g.look.label}. Open.`}
             >
-              <i className="dot" aria-hidden="true" />
-              <span className="inbox-name">{nameOf(g)}</span>
-              <span className="state-text">{g.look.label}</span>
-              <span className="inbox-time num">{timeOf(g.session, now)}</span>
+              <motion.i
+                layoutId={reduced ? undefined : `notice-dot-${g.session.id}`}
+                transition={DOT_LAYOUT}
+                className="dot"
+                aria-hidden="true"
+              />
+              <motion.span className="inbox-name" {...textIn(reduced, 0.08 + index * 0.04)}>
+                {nameOf(g)}
+              </motion.span>
+              <motion.span className="state-text" {...textIn(reduced, 0.08 + index * 0.04)}>
+                {g.look.label}
+              </motion.span>
+              <motion.span className="inbox-time num" {...textIn(reduced, 0.08 + index * 0.04)}>
+                {timeOf(g.session, now)}
+              </motion.span>
             </button>
           </motion.li>
         ))}
       </AnimatePresence>
-      <li className="inbox-actions">
+      <motion.li className="inbox-actions" {...textIn(reduced, 0.2)}>
         {groups.length > 3 && (
           <button className="inbox-more" onClick={() => onOpen?.(groups[3].session.id, true)}>
             {groups.length - 3} more
@@ -206,7 +277,7 @@ const Inbox = forwardRef<
         >
           Hide
         </button>
-      </li>
+      </motion.li>
     </motion.ul>
   );
 });

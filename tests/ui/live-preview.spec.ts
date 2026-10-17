@@ -78,10 +78,18 @@ test('working agents rotate by project, notices present once then dock, and hove
     name: 'api-service · Codex: Needs an answer. Open.',
   });
   await expect(approval).toBeVisible();
-  for (let i = 0; i < 4; i++) {
+  // Docked, the notice waits as a row, then folds into the strip under the island.
+  await page.clock.fastForward(6500);
+  await expect(trigger).not.toHaveAttribute('data-session-id', 'demo-codex');
+  await expect(approval).toBeVisible();
+  await page.clock.fastForward(2500);
+  await expect(approval).toBeHidden();
+  const strip = island.getByRole('button', { name: /Show notices/ });
+  await expect(strip).toContainText('1 waiting');
+  for (let i = 0; i < 3; i++) {
     await page.clock.fastForward(6500);
     await expect(trigger).not.toHaveAttribute('data-session-id', 'demo-codex');
-    await expect(approval).toBeVisible();
+    await expect(strip).toBeVisible();
   }
   await simulate(page, 'idle', 'demo-claude-2', 'Turn finished');
   await expect(trigger).toHaveAttribute('data-session-id', 'demo-claude-2');
@@ -140,25 +148,34 @@ test('existing notices dock silently and disappear when their agent resumes', as
   const island = page.getByTestId('island');
   const trigger = island.getByRole('button', { name: /^Glim:/ });
   await expect(trigger).toHaveAttribute('data-session-id', 'demo-claude');
-  await expect(island.locator('.inbox-row')).toHaveCount(1);
-  await simulate(page, 'working', 'demo-codex', 'Running tests');
+  // Found at the start, it waits folded in the strip, not as a list.
+  const strip = island.getByRole('button', { name: /Show notices/ });
+  await expect(strip).toContainText('1 waiting');
   await expect(island.locator('.inbox-row')).toHaveCount(0);
+  await simulate(page, 'working', 'demo-codex', 'Running tests');
+  await expect(strip).toHaveCount(0);
   await expect(island).toHaveAttribute('data-expanded', 'false');
 });
 
-test('notices can stay tucked away without losing sessions or blocking updates', async ({
-  page,
-}) => {
+test('notices fold into a strip of colored dots and unfold on demand', async ({ page }) => {
   await page.goto('/');
   const island = page.getByTestId('island');
   const trigger = island.getByRole('button', { name: /^Glim:/ });
   const hide = island.getByRole('button', { name: 'Hide notices' });
-  const show = island.getByRole('button', { name: 'Show notices' });
+  const show = island.getByRole('button', { name: /Show notices/ });
+  // The strip names each kind of notice for assistive technology, and shows one dot each.
+  await expect(show).toHaveAccessibleName(/Needs approval.*Show notices/);
+  await expect(show.locator('.dot')).toHaveCount(5);
+  await expect(show.locator('.dot.tone-attention')).toHaveCount(3);
+  const folded = (await island.boundingBox())!.height;
+  expect(folded).toBeLessThan(70);
+  await show.click();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
   await expect(island.getByRole('button', { name: '2 more', exact: true })).toBeVisible();
+  await expect.poll(async () => (await island.boundingBox())!.height).toBeGreaterThan(folded + 60);
   await hide.click();
   await expect(island.locator('.inbox-row')).toHaveCount(0);
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
+  await expect.poll(async () => (await island.boundingBox())!.height).toBeCloseTo(folded, 0);
   await expect(show).toBeVisible();
   await expect(island).toHaveAttribute('data-expanded', 'false');
 
@@ -173,7 +190,7 @@ test('notices can stay tucked away without losing sessions or blocking updates',
   await expect(island.locator('.inbox-row')).toHaveCount(0);
   await page.getByRole('button', { name: 'Finished', exact: true }).click();
   await expect(trigger).toContainText('Done');
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
+  await expect(show).toBeVisible();
 
   await show.click();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
@@ -185,15 +202,41 @@ test('notices can stay tucked away without losing sessions or blocking updates',
   await hide.focus();
   await page.keyboard.press('Enter');
   await expect(show).toBeFocused();
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
+  await expect(island.locator('.inbox-row')).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBeTruthy();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.keyboard.press('Enter');
-  await expect(trigger).toBeFocused();
+  await expect(island.locator('.inbox-row').first()).toBeFocused();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
   await expect(island).toHaveAttribute('data-expanded', 'false');
+});
+
+test('a notice that arrives opens the list, which folds itself after a while unless held', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await page.goto('/?scene=compact&motion=1');
+  const island = page.getByTestId('island');
+  const strip = island.getByRole('button', { name: /Show notices/ });
+  await expect(strip).toContainText('1 waiting');
+  await simulate(page, 'error', 'demo-claude-2', 'Agent reported an error');
+  // It takes over the notch first, then docks in the list under it.
+  await page.clock.fastForward(7000);
+  const failed = island.getByRole('button', { name: /design-system · Claude: Error/ });
+  await expect(failed).toBeVisible();
+  // Held under the pointer, the list stays open.
+  await failed.hover();
+  await page.clock.fastForward(12000);
+  await expect(failed).toBeVisible();
+  // Left alone, it folds; the strip now counts both.
+  await page.mouse.move(20, 300);
+  await page.clock.fastForward(8500);
+  await expect(failed).toBeHidden();
+  await expect(strip).toContainText('2 waiting');
+  await expect(strip.locator('.dot.tone-error')).toHaveCount(1);
 });
 
 test('connector disclosure preserves connection until the named removal is confirmed', async ({

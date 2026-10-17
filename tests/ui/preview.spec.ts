@@ -76,7 +76,8 @@ test('interactive notch keeps one surface and animates working activity', async 
   await expect(island.getByRole('heading', { level: 3 })).toBeVisible();
   await island.evaluate((node) => node.setAttribute('data-persistence-check', 'same'));
   await controls.getByRole('button', { name: 'Collapse', exact: true }).click();
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(101, 0);
+  // The compact island, with its notices folded into the strip under it.
+  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(60, 0);
   const samples = frame.locator('html').evaluate(
     () =>
       new Promise<{ width: number; center: number }[]>((resolve) => {

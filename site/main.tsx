@@ -569,8 +569,8 @@ const StateCard = memo(function StateCard({
               <Compact
                 view={view}
                 count={groups.length}
-                inboxHidden={false}
-                onInboxHiddenChange={() => {}}
+                folded={false}
+                onFoldedChange={() => {}}
                 paused={!!state.paused}
                 now={T0}
               />

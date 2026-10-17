@@ -7,6 +7,7 @@ import { Compact, Glance } from '../src/island-views';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from '../src/panels';
 import { groupSessions } from '../src/session-presentation';
 import useSessionPreview from '../src/useSessionPreview';
+import useNoticeFold from '../src/useNoticeFold';
 import useReducedMotion from '../src/useReducedMotion';
 import type { Connector, Preferences, Session } from '../src/types';
 
@@ -44,7 +45,6 @@ export function AppIsland({
   const [listed, setListed] = useState(false);
   const [held, setHeld] = useState(false);
   const [run, setRun] = useState(0);
-  const [inboxHidden, setInboxHidden] = useState(false);
   const expanded = view !== 'compact';
   const groups = groupSessions(sessions, seenAt);
   const focus = groups.find((g) => g.session.id === focusId) ?? groups[0];
@@ -56,6 +56,7 @@ export function AppIsland({
     dwell: fast ? 1800 : Math.max(6000, 2600 + (run / 40) * 1000),
     pace: fast ? 0.35 : 1,
   });
+  const [folded, setFolded] = useNoticeFold(notch, held || expanded);
   const save = async (next: Preferences) => onPrefs(next);
 
   const collapse = useCallback(() => {
@@ -111,8 +112,8 @@ export function AppIsland({
     content = (
       <Compact
         view={notch}
-        inboxHidden={inboxHidden}
-        onInboxHiddenChange={setInboxHidden}
+        folded={folded}
+        onFoldedChange={setFolded}
         count={groups.length}
         paused={prefs.paused}
         now={now}
