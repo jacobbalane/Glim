@@ -2,7 +2,7 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
-## Unreleased
+## 0.2.0 (2026-10-17)
 
 Glim comes to the Mac.
 
