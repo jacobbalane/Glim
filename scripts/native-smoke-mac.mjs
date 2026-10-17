@@ -286,6 +286,9 @@ try {
   );
   await hook(codexHook, { ...codex, hook_event_name: 'PermissionRequest' });
   await until(async () => (await session('native-codex'))?.activity === 'waiting', 'approval');
+  // The notice in the compact island, glowing in its color, for review.
+  await delay(800);
+  await screenshot('approval-notice');
   await invoke('save_preferences', { preferences: { ...preferences, paused: true } });
   await hook(codexHook, { ...codex, hook_event_name: 'Stop' });
   await delay(1000);
