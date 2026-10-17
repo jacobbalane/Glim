@@ -317,6 +317,101 @@ body {
     0 2px 4px rgba(0, 0, 0, 0.22),
     0 20px 46px rgba(10, 8, 40, 0.5);
 }
+/* One download for the visitor's system, joined to a menu of both. The halves lift together. */
+.site-download {
+  position: relative;
+  z-index: 5;
+  display: inline-flex;
+}
+.site-download .site-download-main {
+  border-radius: 999px 0 0 999px;
+  padding-right: 24px;
+}
+.site-download .site-download-more {
+  margin-left: 1px;
+  padding: 0 20px 0 16px;
+  border: 0;
+  border-radius: 0 999px 999px 0;
+  font: inherit;
+  cursor: pointer;
+}
+.site-download .site-download-more::after {
+  display: none;
+}
+.site-download .site-download-more svg {
+  transition: transform 200ms var(--ease-out);
+}
+.site-download.is-open .site-download-more svg {
+  transform: rotate(180deg);
+}
+.site-download:hover .site-button,
+.site-download.is-open .site-button {
+  transform: translateY(-2px);
+}
+.site-download .site-button:hover {
+  transform: translateY(-2px);
+}
+.site-download-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 20px;
+  background: rgba(17, 17, 28, 0.94);
+  box-shadow:
+    inset 0 0 0 1px var(--site-line),
+    0 18px 44px rgba(0, 0, 0, 0.5);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  text-align: left;
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+  transform-origin: top center;
+  visibility: hidden;
+  transition:
+    opacity 160ms var(--ease-out),
+    transform 160ms var(--ease-out),
+    visibility 0s linear 160ms;
+}
+.site-download.is-open .site-download-menu {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+.site-download-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  color: var(--site-text);
+  text-decoration: none;
+  transition: background-color 150ms var(--ease-out);
+}
+.site-download-item:hover,
+.site-download-item:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+}
+.site-download-item svg {
+  flex-shrink: 0;
+  color: #a5b4fc;
+}
+.site-download-item span {
+  display: grid;
+  line-height: 1.3;
+}
+.site-download-item b {
+  font-size: 15px;
+  font-weight: 750;
+}
+.site-download-item small {
+  color: var(--site-text-2);
+  font-size: 12.5px;
+}
 /* Calmer in the navbar: indigo, no passing light. */
 .site-button-small {
   height: 40px;
@@ -595,10 +690,11 @@ body {
   background: radial-gradient(closest-side, var(--dot), transparent);
   opacity: 0.3;
 }
+/* Nine states, three by three. */
 .site-state-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
   width: 100%;
   margin: 52px 0 0;
   padding: 0;
@@ -613,9 +709,9 @@ body {
   position: relative;
   display: grid;
   align-content: start;
-  gap: 14px;
-  padding: 10px 10px 18px;
-  border-radius: 22px;
+  gap: 16px;
+  padding: 12px 12px 20px;
+  border-radius: 24px;
   background: color-mix(in srgb, var(--dot) 6%, rgba(255, 255, 255, 0.02));
   box-shadow: inset 0 0 0 1px var(--site-line);
   translate: 0 var(--lift);
@@ -679,7 +775,7 @@ body {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 760;
   letter-spacing: -0.01em;
 }
@@ -692,7 +788,7 @@ body {
 }
 .site-card p span {
   color: var(--site-text-2);
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1.5;
 }
 .site-card-hit {
@@ -2404,8 +2500,13 @@ body {
   .site-zs b:not(:first-child) {
     display: none;
   }
-  .site-button:hover {
-    transform: none;
+  .site-button:hover,
+  .site-download .site-button {
+    transform: none !important;
+  }
+  .site-download-menu,
+  .site-download .site-download-more svg {
+    transition: none;
   }
   .site-spill {
     animation: none;
@@ -2482,9 +2583,13 @@ body {
     padding-bottom: calc(var(--span, 390px) * 0.5 + 40px);
   }
   /* The two buttons, in the hero and the call to action, share one width. */
-  :is(.site-cta, .site-close-cta) > a {
+  :is(.site-cta, .site-close-cta) > a,
+  .site-download {
     justify-content: center;
     width: min(100%, 300px);
+  }
+  .site-download .site-download-main {
+    flex: 1;
   }
   /* The state cards in one row to swipe through, the next one peeking in, edge to edge. */
   .site-state-grid {

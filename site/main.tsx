@@ -15,7 +15,7 @@ import {
   type RefObject,
 } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArrowUpRight, Check, Cloud, Download, Monitor, X } from 'lucide-react';
+import { ArrowUpRight, Check, Cloud, Monitor, X } from 'lucide-react';
 import '@fontsource-variable/manrope';
 import '@fontsource-variable/unbounded';
 import '../preview-claude/style.css';
@@ -50,14 +50,13 @@ import FaultyTerminal from './react-bits/FaultyTerminal';
 import GradualBlur from './react-bits/GradualBlur';
 import {
   Brand,
-  DownloadLink,
+  DownloadMenu,
   GetLinks,
   NEEDS,
   PageLinks,
   REPO,
   SiteFoot,
   SYSTEM,
-  SYSTEMS,
   SystemSwitch,
   type System,
 } from './chrome';
@@ -1266,18 +1265,13 @@ function Site() {
               you can stay in your own work.
             </p>
             <div className="site-cta" style={at(2)}>
-              {SYSTEMS.map((os) => (
-                <DownloadLink key={os} system={os} className="site-button">
-                  <Download size={19} strokeWidth={2.4} aria-hidden="true" />
-                  Download for {os}
-                </DownloadLink>
-              ))}
+              <DownloadMenu />
               <a className="site-more" href={REPO} target="_blank" rel="noreferrer">
                 View on GitHub <ArrowUpRight size={17} aria-hidden="true" />
               </a>
             </div>
             <p className="site-meta" style={at(3)}>
-              {NEEDS.macOS} · {NEEDS.Windows} · Free and open source · No account
+              {NEEDS[SYSTEM]} · Free and open source · No account
             </p>
             <div className="site-try" style={at(4)} data-keep-open>
               <span id="site-try">Try it on the island above</span>
@@ -1641,19 +1635,12 @@ function Site() {
                 back to your work.
               </p>
               <div className="site-close-cta site-item" style={at(1)}>
-                {SYSTEMS.map((os) => (
-                  <DownloadLink key={os} system={os} className="site-button site-button-light">
-                    <Download size={19} strokeWidth={2.4} aria-hidden="true" />
-                    Download for {os}
-                  </DownloadLink>
-                ))}
+                <DownloadMenu light />
                 <a className="site-more" href={REPO} target="_blank" rel="noreferrer">
                   View on GitHub <ArrowUpRight size={17} aria-hidden="true" />
                 </a>
               </div>
-              <p className="site-meta">
-                {NEEDS.macOS} · {NEEDS.Windows} · MIT license
-              </p>
+              <p className="site-meta">{NEEDS[SYSTEM]} · MIT license</p>
             </div>
           </div>
         </section>

@@ -1,7 +1,14 @@
 // What every page of the site shares: the links in the top corners and the footer. `root` leads
 // from the page showing them back to the site's root: '' on the landing page, '../' below it.
-import { useEffect, useState, type ReactNode } from 'react';
-import { Download, Github } from 'lucide-react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type AnchorHTMLAttributes,
+  type ReactNode,
+} from 'react';
+import { ChevronDown, Download, Github } from 'lucide-react';
 import { Glim3D } from './Glim3D';
 
 export const REPO = 'https://github.com/jacobbalane/Glim';
@@ -10,8 +17,12 @@ export const DOWNLOAD = `${REPO}/releases/latest`;
 export type System = 'macOS' | 'Windows';
 // The visitor's system picks the download. Phones and tablets get their maker's computer.
 export const SYSTEM: System = /Mac|iPhone|iPad/.test(navigator.userAgent) ? 'macOS' : 'Windows';
-// Both downloads, in the same order for every visitor.
-export const SYSTEMS: System[] = ['macOS', 'Windows'];
+// Both downloads, the visitor's own system first.
+export const SYSTEMS: System[] = SYSTEM === 'macOS' ? ['macOS', 'Windows'] : ['Windows', 'macOS'];
+const DETAILS: Record<System, string> = {
+  macOS: 'macOS 13 or later · Apple silicon and Intel',
+  Windows: 'Windows 11, 64-bit',
+};
 export const NEEDS: Record<System, string> = {
   macOS: 'macOS 13 or later',
   Windows: 'Windows 11, 64-bit',
@@ -45,19 +56,78 @@ export function useDownload(system: System) {
 // A link to a system's installer. The release page opens in a new tab; a file just downloads.
 export function DownloadLink({
   system = SYSTEM,
-  className,
   children,
+  ...rest
 }: {
   system?: System;
-  className?: string;
   children: ReactNode;
-}) {
+} & AnchorHTMLAttributes<HTMLAnchorElement>) {
   const href = useDownload(system);
   const page = href === DOWNLOAD ? { target: '_blank', rel: 'noreferrer' } : {};
   return (
-    <a className={className} href={href} {...page}>
+    <a {...rest} href={href} {...page}>
       {children}
     </a>
+  );
+}
+// One download button, for the visitor's system, with both systems in a menu beside it.
+export function DownloadMenu({ light = false }: { light?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const toggle = useRef<HTMLButtonElement>(null);
+  const menu = useId();
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      toggle.current?.focus();
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [open]);
+  const tone = light ? ' site-button-light' : '';
+  return (
+    <div className={`site-download${open ? ' is-open' : ''}`} ref={root}>
+      <DownloadLink className={`site-button site-download-main${tone}`}>
+        <Download size={19} strokeWidth={2.4} aria-hidden="true" />
+        Download for {SYSTEM}
+      </DownloadLink>
+      <button
+        ref={toggle}
+        type="button"
+        className={`site-button site-download-more${tone}`}
+        aria-label="All downloads"
+        aria-expanded={open}
+        aria-controls={menu}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <ChevronDown size={19} strokeWidth={2.4} aria-hidden="true" />
+      </button>
+      <div id={menu} className="site-download-menu" inert={!open}>
+        {SYSTEMS.map((system) => (
+          <DownloadLink
+            key={system}
+            system={system}
+            className="site-download-item"
+            onClick={() => setOpen(false)}
+          >
+            <Download size={16} strokeWidth={2.4} aria-hidden="true" />
+            <span>
+              <b>{system}</b>
+              <small>{DETAILS[system]}</small>
+            </span>
+          </DownloadLink>
+        ))}
+      </div>
+    </div>
   );
 }
 
