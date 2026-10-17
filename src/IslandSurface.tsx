@@ -274,6 +274,7 @@ export default function IslandSurface({
   slotRef.current = slot;
   const [optionsSlot, setOptionsSlot] = useState<HTMLDivElement | null>(null);
   const optionsRef = useRef(optionsSlot);
+  const shellRef = useRef<HTMLDivElement>(null);
   optionsRef.current = optionsSlot;
   const showOptions =
     hasOptions && !drag.dragging && (optionsOpen || (!expanded && (hoverReady || focused)));
@@ -368,8 +369,26 @@ export default function IslandSurface({
       if (designScene)
         window.parent.postMessage({ type: 'glim:preview:size', height: h }, location.origin);
       if (!native) return;
-      const panel = slotRef.current?.firstElementChild?.getBoundingClientRect();
-      const floating = optionsRef.current?.getBoundingClientRect();
+      // Where the side panel or the options come to rest, not where an entrance has them now:
+      // a transform never reshapes the window again, so its pointer region must not follow one.
+      const resting = (el: Element | null | undefined) => {
+        if (!(el instanceof HTMLElement) || !shellRef.current) return el?.getBoundingClientRect();
+        let x = 0,
+          y = 0,
+          node: HTMLElement | null = el;
+        while (node && node !== shellRef.current) {
+          x += node.offsetLeft;
+          y += node.offsetTop;
+          node = node.offsetParent as HTMLElement | null;
+        }
+        if (!node) return el.getBoundingClientRect();
+        const shell = shellRef.current.getBoundingClientRect();
+        const left = shell.left + x,
+          top = shell.top + y;
+        return { left, top, right: left + el.offsetWidth, bottom: top + el.offsetHeight };
+      };
+      const panel = resting(slotRef.current?.firstElementChild);
+      const floating = resting(optionsRef.current);
       const bounds = panel ?? floating;
       const side = bounds
         ? {
@@ -411,6 +430,7 @@ export default function IslandSurface({
   );
   return (
     <motion.div
+      ref={shellRef}
       className="gl shell island-shell"
       data-tone={tone}
       data-compact={!expanded}
