@@ -53,11 +53,11 @@ import {
   DownloadLink,
   GetLinks,
   NEEDS,
-  OTHER,
   PageLinks,
   REPO,
   SiteFoot,
   SYSTEM,
+  SYSTEMS,
   SystemSwitch,
   type System,
 } from './chrome';
@@ -940,9 +940,6 @@ function Facts({ step, onPick }: { step: number; onPick?: (i: number) => void })
 
 const SEVERAL = groupSessions(onSite(SCENARIOS.several.build(T0), 'details'), SEEN);
 
-// A MacBook's camera notch, in points, for the island shown as on a Mac.
-const DEMO_NOTCH = { width: 200, height: 32 };
-
 function Site() {
   // Wide enough to open the island beside the copy without covering it.
   const wide = useMedia('(min-width: 1200px) and (min-height: 700px)');
@@ -1218,7 +1215,6 @@ function Site() {
           connectors={connectors}
           onConnectors={setConnectors}
           fast={shown === 'Several agents'}
-          notch={system === 'macOS' && !phone ? DEMO_NOTCH : null}
         />
       </div>
 
@@ -1270,20 +1266,18 @@ function Site() {
               you can stay in your own work.
             </p>
             <div className="site-cta" style={at(2)}>
-              <DownloadLink className="site-button">
-                <Download size={19} strokeWidth={2.4} aria-hidden="true" />
-                Download for {SYSTEM}
-              </DownloadLink>
+              {SYSTEMS.map((os) => (
+                <DownloadLink key={os} system={os} className="site-button">
+                  <Download size={19} strokeWidth={2.4} aria-hidden="true" />
+                  Download for {os}
+                </DownloadLink>
+              ))}
               <a className="site-more" href={REPO} target="_blank" rel="noreferrer">
                 View on GitHub <ArrowUpRight size={17} aria-hidden="true" />
               </a>
             </div>
             <p className="site-meta" style={at(3)}>
-              {NEEDS[SYSTEM]} ·{' '}
-              <DownloadLink system={OTHER} className="site-also">
-                Also for {OTHER}
-              </DownloadLink>{' '}
-              · Free and open source · No account
+              {NEEDS.macOS} · {NEEDS.Windows} · Free and open source · No account
             </p>
             <div className="site-try" style={at(4)} data-keep-open>
               <span id="site-try">Try it on the island above</span>
@@ -1315,12 +1309,6 @@ function Site() {
                 <button onClick={() => fire('work')}>Back to work</button>
               </div>
               <p>The agent on the island reacts. It runs on sample sessions.</p>
-              {!phone && (
-                <div className="site-try-system">
-                  <span aria-hidden="true">See it on</span>
-                  <SystemSwitch value={system} onChange={setSystem} label="See the island on" />
-                </div>
-              )}
             </div>
           </div>
           <div className="site-crowd" aria-hidden="true">
@@ -1653,20 +1641,18 @@ function Site() {
                 back to your work.
               </p>
               <div className="site-close-cta site-item" style={at(1)}>
-                <DownloadLink className="site-button site-button-light">
-                  <Download size={19} strokeWidth={2.4} aria-hidden="true" />
-                  Download for {SYSTEM}
-                </DownloadLink>
+                {SYSTEMS.map((os) => (
+                  <DownloadLink key={os} system={os} className="site-button site-button-light">
+                    <Download size={19} strokeWidth={2.4} aria-hidden="true" />
+                    Download for {os}
+                  </DownloadLink>
+                ))}
                 <a className="site-more" href={REPO} target="_blank" rel="noreferrer">
                   View on GitHub <ArrowUpRight size={17} aria-hidden="true" />
                 </a>
               </div>
               <p className="site-meta">
-                {NEEDS[SYSTEM]} ·{' '}
-                <DownloadLink system={OTHER} className="site-also">
-                  Also for {OTHER}
-                </DownloadLink>{' '}
-                · MIT license
+                {NEEDS.macOS} · {NEEDS.Windows} · MIT license
               </p>
             </div>
           </div>

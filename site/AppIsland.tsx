@@ -12,7 +12,6 @@ import useNoticeFold from '../src/useNoticeFold';
 import useReducedMotion from '../src/useReducedMotion';
 import { quickAction, selectedQuickOptions } from '../src/quick-options';
 import type { Connector, Preferences, Session } from '../src/types';
-import type { Notch } from '../src/api';
 
 export type IslandView = 'compact' | 'glance' | 'details' | 'settings' | 'usage' | 'setup';
 
@@ -27,7 +26,6 @@ export function AppIsland({
   connectors,
   onConnectors,
   fast = false,
-  notch = null,
 }: {
   sessions: Session[];
   seenAt: number;
@@ -40,8 +38,6 @@ export function AppIsland({
   onConnectors: (next: Connector[]) => void;
   // Several agents on show: the notch moves through them and their notices quickly.
   fast?: boolean;
-  // A Mac's camera notch to wrap, as the app does on a MacBook.
-  notch?: Notch | null;
 }) {
   const reduced = useReducedMotion();
   const anchor = useRef<HTMLDivElement>(null);
@@ -121,7 +117,6 @@ export function AppIsland({
     content = (
       <Compact
         view={preview}
-        notch={notch}
         folded={folded}
         onFoldedChange={setFolded}
         count={groups.length}
@@ -174,15 +169,13 @@ export function AppIsland({
     >
       <IslandSurface
         expanded={expanded}
-        notch={notch}
         viewKey={viewKey}
         tone={prefs.paused || !preview.current ? 'calm' : preview.current.look.tone}
         glow={prefs.glow ?? 50}
         reduced={reduced}
         onError={() => {}}
-        // Around a notch the island stays on it, as in the app.
-        position={notch ? 0.5 : position}
-        onPosition={notch ? undefined : async (next) => setPosition(next)}
+        position={position}
+        onPosition={async (next) => setPosition(next)}
         // The app's quick options, acting on this page; Quit has nothing to quit here.
         options={
           prefs.quickOptionsEnabled

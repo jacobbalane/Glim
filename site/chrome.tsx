@@ -10,7 +10,8 @@ export const DOWNLOAD = `${REPO}/releases/latest`;
 export type System = 'macOS' | 'Windows';
 // The visitor's system picks the download. Phones and tablets get their maker's computer.
 export const SYSTEM: System = /Mac|iPhone|iPad/.test(navigator.userAgent) ? 'macOS' : 'Windows';
-export const OTHER: System = SYSTEM === 'macOS' ? 'Windows' : 'macOS';
+// Both downloads, in the same order for every visitor.
+export const SYSTEMS: System[] = ['macOS', 'Windows'];
 export const NEEDS: Record<System, string> = {
   macOS: 'macOS 13 or later',
   Windows: 'Windows 11, 64-bit',

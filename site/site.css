@@ -292,14 +292,6 @@ body {
     0 18px 44px rgba(99, 102, 241, 0.55);
   transform: translateY(-2px);
 }
-.site-button:hover svg {
-  animation: site-nudge 650ms var(--ease-out);
-}
-@keyframes site-nudge {
-  45% {
-    transform: translateY(3px);
-  }
-}
 .site-button:active {
   transform: translateY(0);
 }
@@ -512,17 +504,7 @@ body {
   opacity: 0.4;
   cursor: default;
 }
-.site-meta .site-also {
-  color: inherit;
-  text-decoration: underline;
-  text-decoration-color: var(--site-line);
-  text-underline-offset: 3px;
-  transition: color 150ms var(--ease-out);
-}
-.site-meta .site-also:hover {
-  color: var(--site-text);
-}
-/* macOS or Windows: which system the island and the install steps are shown for. */
+/* macOS or Windows: which system the install steps are shown for. */
 .site-system {
   background: rgba(255, 255, 255, 0.06);
   box-shadow: inset 0 0 0 1px var(--site-line);
@@ -539,17 +521,6 @@ body {
 }
 #install .site-system {
   margin-top: 28px;
-}
-.site-try-system {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--site-text-2);
-  font-size: 13px;
-  font-weight: 650;
-}
-.site-try-system .pseg button {
-  padding: 6px 12px;
 }
 
 /* Glims peeking over the horizon. They are cut along the arc by a mask rather than hidden
@@ -2433,10 +2404,8 @@ body {
   .site-zs b:not(:first-child) {
     display: none;
   }
-  .site-button:hover,
-  .site-button:hover svg {
+  .site-button:hover {
     transform: none;
-    animation: none;
   }
   .site-spill {
     animation: none;
