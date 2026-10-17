@@ -4,6 +4,7 @@
 // test_control.rs). Screenshots land in the test folder for review.
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { once } from 'node:events';
 import { appendFile, mkdir, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
@@ -58,6 +59,31 @@ function launch(extra = {}) {
     nativeError += chunk.toString();
   });
 }
+// What each of Glim's threads is doing, for a failure or a hang: the main thread's stack goes to
+// the log, all of them to a file beside the screenshots.
+function sampleGlim(reason) {
+  if (!app || app.exitCode !== null || app.signalCode !== null) return;
+  const file = join(shots, 'glim-threads.txt');
+  try {
+    execFileSync('sample', [String(app.pid), '3', '-file', file], {
+      stdio: 'ignore',
+      timeout: 30000,
+    });
+    const threads = readFileSync(file, 'utf8');
+    const main = threads.indexOf('com.apple.main-thread');
+    console.log(`${reason}. Glim's main thread:`);
+    console.log(threads.slice(main, main + 6000));
+    console.log(`All of Glim's threads: ${file}`);
+  } catch (error) {
+    console.log(`${reason}. Could not sample Glim: ${error.message}`);
+  }
+}
+// A stall that the steps' own limits miss still ends, with Glim's threads on record.
+setTimeout(() => {
+  sampleGlim('The smoke has run for 10 minutes');
+  app?.kill('SIGKILL');
+  process.exit(1);
+}, 10 * 60000).unref();
 // Whether a process exits within `ms`.
 const exits = (child, ms) =>
   Promise.race([once(child, 'exit').then(() => true), delay(ms).then(() => false)]);
@@ -341,7 +367,8 @@ try {
   let pointerChecked = false;
   try {
     const island = await islandOnScreen();
-    const at = (x, y) => execFileSync('cliclick', [`m:${Math.round(x)},${Math.round(y)}`]);
+    const at = (x, y) =>
+      execFileSync('cliclick', [`m:${Math.round(x)},${Math.round(y)}`], { timeout: 20000 });
     at(island.x + island.width / 2, island.y + island.height / 2);
     // What Glim sees, for the log when the check fails: the pointer and window in physical
     // pixels, and the island's shape in the window.
@@ -430,6 +457,9 @@ try {
     `macOS native smoke passed: startup, onboarding, hooks with spaces, quarantine, socket, counters, replay protection, pause, limits, status-line relay through /bin/sh, agent process, message preview, ${pointerChecked ? 'click-through, ' : ''}history clearing, restoration, privacy, notch layout.`,
   );
   console.log(`Screenshots: ${shots}`);
+} catch (error) {
+  sampleGlim('The smoke failed');
+  throw error;
 } finally {
   // Reported, but never in place of the failure that brought the test here.
   await quit().catch((error) => console.log(error.message));

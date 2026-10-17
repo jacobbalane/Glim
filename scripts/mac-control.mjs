@@ -17,15 +17,25 @@ export const endpoint = (data, extension = 'sock') =>
 export function control(data) {
   const socket = endpoint(data, 'test');
   // Runs a script, the body of an async function, in the island; returns what it returns.
+  // Glim answers within 30 s, even when the island does not; a Glim that stops answering at all
+  // is reported, not waited on.
   const run = (script) =>
     new Promise((done, fail) => {
       const connection = connect(socket);
+      const timer = setTimeout(() => {
+        connection.destroy();
+        fail(new Error(`No answer from Glim in 45 s to: ${script.trim().slice(0, 100)}`));
+      }, 45000);
       let answer = '';
       connection.on('data', (chunk) => {
         answer += chunk;
       });
-      connection.on('error', fail);
+      connection.on('error', (error) => {
+        clearTimeout(timer);
+        fail(error);
+      });
       connection.on('end', () => {
+        clearTimeout(timer);
         try {
           const result = JSON.parse(answer);
           if (result.error) fail(new Error(result.error));
@@ -68,6 +78,7 @@ export function screencapture(file, region) {
   try {
     execFileSync('screencapture', ['-x', ...(region ? [`-R${region}`] : []), file], {
       stdio: 'pipe',
+      timeout: 20000,
     });
   } catch (error) {
     console.log(`No screenshot ${file}: ${error.message}`);
