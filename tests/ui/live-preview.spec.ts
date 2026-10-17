@@ -46,7 +46,8 @@ test('compact fits its text, loops only the status, and respects reduced motion'
     (await hasGpu(page)) ? '3d' : 'fallback',
   );
   await expect(character).toHaveAttribute('data-motion', 'false');
-  await expect(trigger).toHaveAttribute('title', `glim-desktop · Claude · ${long}`);
+  // No hover tooltip; the full status is in its accessible name.
+  expect(await trigger.getAttribute('aria-label')).toContain(`glim-desktop · Claude, ${long}`);
 });
 
 test('working agents rotate by project, notices present once then dock, and hover holds', async ({
@@ -207,7 +208,7 @@ test('connector disclosure preserves connection until the named removal is confi
   await claude.getByRole('button', { name: 'Keep', exact: true }).click();
   await claude.getByRole('button', { name: 'Disconnect…' }).click();
   await claude.getByRole('button', { name: 'Remove from settings.json' }).click();
-  await expect(page.getByRole('status')).toContainText('disconnected');
+  await expect(page.getByRole('status').filter({ hasText: 'disconnected' })).toBeVisible();
   await expect(claude.locator('.conn-status')).toHaveCount(0);
   await claude.getByRole('button', { name: /Claude Code.*Connect/ }).click();
   await claude.getByRole('button', { name: 'Connect Claude', exact: true }).click();
@@ -251,7 +252,7 @@ test('clearing history calls the API only after confirmation', async ({ page }) 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Clear…', exact: true }).click();
   await page.getByRole('button', { name: 'Clear history', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('History cleared.');
+  await expect(page.getByRole('status').filter({ hasText: 'History cleared.' })).toBeVisible();
   await page.getByRole('button', { name: 'View', exact: true }).click();
   await expect(page.getByText('Nothing recorded in this period.')).toBeVisible();
 });
