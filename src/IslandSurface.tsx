@@ -130,19 +130,33 @@ function FloatingOptions({
       aria-hidden={!present || undefined}
       style={{
         pointerEvents: present ? 'auto' : 'none',
+        originX: below ? 0.5 : left ? 1 : 0,
+        originY: below ? 0 : 0.5,
         ...(below ? { right: belowRight, top: belowTop } : {}),
       }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: reduced ? 0.06 : 0.15, ease: [0.23, 1, 0.32, 1] }}
+      // It buds from the island's edge and tucks back into it.
+      initial={{ opacity: 0, x: reduced ? 0 : left ? 10 : -10, scale: reduced ? 1 : 0.6 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: reduced ? 0 : left ? 10 : -10, scale: reduced ? 1 : 0.6 }}
+      transition={{
+        opacity: { duration: reduced ? 0.06 : 0.15, ease: [0.23, 1, 0.32, 1] },
+        default: { ...SURFACE_SPRING, stiffness: 520 },
+      }}
     >
       <motion.div
         className="island-options-pill"
         data-left={left}
         initial={false}
         animate={{ width: open ? openSize : 32, height: 26 }}
-        transition={reduced ? { duration: 0 } : SURFACE_SPRING}
+        // Opening follows the island's spring; closing is quicker, so the pill never lingers
+        // empty after its icons have gone.
+        transition={
+          reduced
+            ? { duration: 0 }
+            : open
+              ? SURFACE_SPRING
+              : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
+        }
       >
         <motion.button
           className="island-options-button"
@@ -380,7 +394,7 @@ export default function IslandSurface({
       data-testid="island"
       data-expanded={expanded}
       data-dragging={drag.dragging}
-      style={{ width: even, height, x: horizontal }}
+      style={{ width: even, height, x: horizontal, scale: drag.scale, originY: 0 }}
       {...drag.bindings}
       onPointerEnter={(event) => event.pointerType === 'mouse' && setHovered(true)}
       onPointerLeave={() => setHovered(false)}

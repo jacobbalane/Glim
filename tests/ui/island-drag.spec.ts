@@ -14,6 +14,13 @@ async function centre(page: Page) {
   const box = (await island(page).boundingBox())!;
   return box.x + box.width / 2;
 }
+// Carries the island to a spot and lets go once the pointer has stopped there, as someone placing
+// it would; letting go while still moving throws it.
+async function place(page: Page, x: number, y: number, steps = 8) {
+  await page.mouse.move(x, y, { steps });
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+}
 
 test('click opens; holding tracks horizontally and release never toggles the notch', async ({
   page,
@@ -28,15 +35,14 @@ test('click opens; holding tracks horizontally and release never toggles the not
   await page.mouse.move(pointer.x + 160, pointer.y + 90, { steps: 8 });
   await expect.poll(() => centre(page)).toBeCloseTo(start + 160, 0);
   expect((await island(page).boundingBox())!.y).toBe(0);
-  await page.mouse.up();
+  await place(page, pointer.x + 160, pointer.y + 90, 1);
   await expect(island(page)).toHaveAttribute('data-dragging', 'false');
   await expect(island(page)).toHaveAttribute('data-expanded', 'false');
   await compact(page).click();
   await expect(island(page)).toHaveAttribute('data-expanded', 'true');
   await expect.poll(() => centre(page)).toBeCloseTo(start + 160, 0);
   const header = await hold(page, '.bar-toggle');
-  await page.mouse.move(header.x - 80, header.y, { steps: 6 });
-  await page.mouse.up();
+  await place(page, header.x - 80, header.y, 6);
   await expect(island(page)).toHaveAttribute('data-expanded', 'true');
   await expect.poll(() => centre(page)).toBeCloseTo(start + 80, 0);
   await page.locator('.bar-toggle').click();
@@ -163,10 +169,43 @@ test('keyboard positioning works with reduced motion and header buttons keep the
   await page.mouse.up();
   await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
   const heading = await hold(page, '.sheet-head');
-  await page.mouse.move(heading.x - 48, heading.y, { steps: 4 });
-  await page.mouse.up();
+  await place(page, heading.x - 48, heading.y, 4);
   await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
   await expect.poll(() => centre(page)).toBeCloseTo(start - 24, 0);
+});
+
+test('a held island gives a little, a flick carries it on, and near the middle it centres', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await expect(compact(page)).toBeVisible();
+  const start = await centre(page);
+  const width = (await island(page).boundingBox())!.width;
+  // Held, it presses in from the top edge; let go, it springs back.
+  await hold(page);
+  await expect.poll(async () => (await island(page).boundingBox())!.width).toBeLessThan(width - 4);
+  expect((await island(page).boundingBox())!.y).toBe(0);
+  // Thrown to the right, it travels past where the pointer let go and stops inside the screen.
+  const pointer = { x: start, y: 16 };
+  await page.mouse.move(pointer.x + 120, pointer.y, { steps: 6 });
+  await page.mouse.up();
+  await expect(island(page)).toHaveAttribute('data-dragging', 'false');
+  await expect.poll(() => centre(page)).toBeGreaterThan(start + 150);
+  await expect.poll(async () => (await island(page).boundingBox())!.width).toBeCloseTo(width, 0);
+  const box = (await island(page).boundingBox())!;
+  expect(box.x + box.width).toBeLessThanOrEqual(1440);
+  // Placed a few pixels from the middle, it settles exactly in it.
+  const now = await centre(page);
+  const held = await hold(page);
+  await place(page, held.x - (now - start) - 10, held.y);
+  await expect.poll(() => centre(page)).toBeCloseTo(start, 0);
+  const prefs = await page.evaluate(
+    "import('/src/api.ts').then(({ api }) => api.snapshot()).then(s => s.preferences)",
+  );
+  expect(prefs.islandPosition).toBe(0.5);
+  // A quick click still just opens it.
+  await compact(page).click();
+  await expect(island(page)).toHaveAttribute('data-expanded', 'true');
 });
 
 test('the full message moves to the left when the notch sits at the right edge', async ({

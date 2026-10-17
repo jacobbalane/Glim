@@ -49,12 +49,21 @@ export default function IslandOptions({
       inert={!present}
       aria-hidden={!present || undefined}
       style={{ pointerEvents: present ? 'auto' : 'none' }}
-      initial={{ x: reduced ? 0 : left ? 8 : -8, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: reduced ? 0 : left ? 8 : -8, opacity: 0 }}
-      transition={{
-        duration: reduced ? 0.06 : 0.15,
-        ease: [0.23, 1, 0.32, 1],
+      // The icons follow the pill's edge out, one after another, and leave together.
+      initial="hidden"
+      animate="shown"
+      exit="gone"
+      variants={{
+        hidden: {},
+        shown: {
+          transition: {
+            staggerChildren: reduced ? 0 : 0.03,
+            // Nearest the button first, on either side of it.
+            staggerDirection: left ? -1 : 1,
+            delayChildren: 0.02,
+          },
+        },
+        gone: { opacity: 0, transition: { duration: reduced ? 0.06 : 0.1 } },
       }}
       onKeyDown={(event) => {
         if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
@@ -96,6 +105,15 @@ export default function IslandOptions({
           tabIndex={-1}
           disabled={busy || !run}
           onClick={() => run && void act(run)}
+          variants={{
+            hidden: { opacity: 0, x: reduced ? 0 : left ? 8 : -8, scale: reduced ? 1 : 0.7 },
+            shown: {
+              opacity: 1,
+              x: 0,
+              scale: 1,
+              transition: { duration: reduced ? 0.06 : 0.2, ease: [0.23, 1, 0.32, 1] },
+            },
+          }}
           whileTap={reduced ? undefined : { scale: 0.9 }}
         >
           <Icon size={12} />

@@ -6,7 +6,7 @@ What changed in each Glim release. Installers, checksums and build attestations 
 
 ### New
 
-- **Move the island.** Hold the preview or header for 350 ms, then drag left or right. It stays at the top of the display and remembers its position. Alt + Left/Right also moves a focused preview.
+- **Move the island.** Hold the preview or header for 350 ms, then drag left or right. It presses in slightly when picked up, carries on when thrown, and settles in the middle when let go near it. It stays at the top of the display and remembers its position. Alt + Left/Right also moves a focused preview.
 - **Quick options.** Hidden by default; enable them in Settings, choose shortcuts and drag them into order. Icons slide into a flat black, 26-pixel-high pill with extra horizontal space. It opens to the left near the right screen edge. Centre horizontally uses Google's Material alignment icon and smoothly glides back to the middle. Centre and Quit are also in Settings. Right click and Shift + F10 open enabled shortcuts. Hover labels no longer cover the collapsed preview.
 
 ## 0.1.3 (2026-10-12)

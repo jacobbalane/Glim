@@ -38,7 +38,9 @@ test('the options button reveals icons in the same pill without changing the not
   await expect(options(page).getByRole('menuitem', { name: 'Quit Glim' })).toBeDisabled();
   await expect(page.locator('.frame[aria-hidden]')).toHaveCount(0);
   const after = (await island(page).boundingBox())!;
-  expect(after.width).toBe(before.width);
+  // The island still fits its own text, which the sample sessions keep updating.
+  const text = (await page.locator('.frame:not([aria-hidden])').boundingBox())!;
+  expect(Math.abs(after.width - text.width)).toBeLessThanOrEqual(2);
   // The initial spring can still settle by a fraction of a screen pixel.
   expect(after.height).toBeCloseTo(before.height, 0);
   await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
@@ -255,6 +257,8 @@ test('double click no longer opens options, and the hover control stays hidden d
   await expect(island(page)).toHaveAttribute('data-dragging', 'true');
   await expect(trigger(page)).toHaveCount(0);
   await page.mouse.move(start.x + start.width / 2 + 100, 16, { steps: 5 });
+  // Let go once still, so it stays where it was placed rather than being thrown.
+  await page.waitForTimeout(120);
   await page.mouse.up();
   await expect(island(page)).toHaveAttribute('data-expanded', 'false');
   await expect.poll(() => centre(page)).toBeCloseTo(820, 0);
