@@ -58,10 +58,17 @@ function launch(extra = {}) {
     nativeError += chunk.toString();
   });
 }
+// Whether a process exits within `ms`.
+const exits = (child, ms) =>
+  Promise.race([once(child, 'exit').then(() => true), delay(ms).then(() => false)]);
 async function quit() {
   if (app && app.exitCode === null && app.signalCode === null) {
     app.kill();
-    await once(app, 'exit');
+    // A Glim that will not stop is a failure to report, not a reason to wait forever.
+    if (!(await exits(app, 10000))) {
+      app.kill('SIGKILL');
+      throw new Error(`Glim did not quit within 10 s. It said: ${nativeError.slice(-2000)}`);
+    }
   }
 }
 async function until(fn, description, timeout = 20000) {
@@ -78,7 +85,9 @@ async function until(fn, description, timeout = 20000) {
     }
     await delay(200);
   }
-  throw new Error(`Timed out: ${description}${lastError ? ` (${lastError.message})` : ''}`);
+  throw new Error(
+    `Timed out: ${description}${lastError ? ` (${lastError.message})` : ''}. Glim said: ${nativeError.slice(-2000)}`,
+  );
 }
 // The island's place on screen, in points from the main display's top left. WebKit counts
 // window.screenY up from the bottom of the screen, so the window's place comes from Glim.
@@ -123,12 +132,23 @@ async function screenshot(name, backdrop = true) {
 function hook(command, input, agent) {
   const child = spawn('/bin/sh', ['-c', command], { env, stdio: 'pipe' });
   let output = '';
+  let errors = '';
   child.stdout.on('data', (chunk) => {
     output += chunk;
   });
+  child.stderr.on('data', (chunk) => {
+    errors += chunk;
+  });
   child.stdin.end(typeof input === 'string' ? input : JSON.stringify(input));
-  return once(child, 'exit').then(([code]) => {
-    assert.equal(code, 0, `Hooks must always succeed${agent ? ` (${agent})` : ''}.`);
+  // A hook that hangs would hold up the agent; stop it and say so.
+  const timer = setTimeout(() => child.kill('SIGKILL'), 10000);
+  return once(child, 'exit').then(([code, signal]) => {
+    clearTimeout(timer);
+    assert.equal(
+      code,
+      0,
+      `Hooks must always succeed${agent ? ` (${agent})` : ''}${signal ? ', and this one hung' : ''}. Hook said: ${errors}. Glim said: ${nativeError.slice(-2000)}`,
+    );
     return output;
   });
 }
@@ -411,5 +431,6 @@ try {
   );
   console.log(`Screenshots: ${shots}`);
 } finally {
-  await quit();
+  // Reported, but never in place of the failure that brought the test here.
+  await quit().catch((error) => console.log(error.message));
 }

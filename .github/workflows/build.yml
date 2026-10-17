@@ -91,6 +91,7 @@ jobs:
         run: |
           cargo build --manifest-path src-tauri/Cargo.toml --bin glim --bin glim-bridge --features custom-protocol
           node scripts/native-smoke-mac.mjs
+        timeout-minutes: 25
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -112,6 +113,7 @@ jobs:
           for file in *; do shasum -a 256 "$file" > "$file.sha256"; done
       # Installed from the .dmg, then updated from Settings to the next version.
       - run: node scripts/install-smoke-mac.mjs out/*.dmg
+        timeout-minutes: 40
       - uses: actions/upload-artifact@v4
         if: always()
         with:
