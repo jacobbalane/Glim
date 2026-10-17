@@ -103,6 +103,8 @@ test('outside clicks collapse every view and compact stays black', async ({ page
 test('the full message opens right of the island without making it taller', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /^Glim:/ }).click();
+  // Pick the agent once the open island has settled, as someone reading it would.
+  await expect(page.locator('.frame[aria-hidden]')).toHaveCount(0);
   await page.getByRole('button', { name: /^design-system · Claude:/ }).click();
   const island = page.getByTestId('island');
   await page.waitForTimeout(800);
