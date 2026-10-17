@@ -14,7 +14,14 @@
   --red: #ff6a5f;
   --violet: #a78bfa;
   --green: #3ddc84;
-  font-family: 'Manrope Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-family:
+    'Manrope Variable',
+    -apple-system,
+    'SF Pro Text',
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -94,6 +101,8 @@ html:has(.native-stage) {
 }
 .island-shell [data-island-drag] {
   touch-action: none;
+  /* Safari, the Mac app's engine, still needs the prefix; without it a drag selects text. */
+  -webkit-user-select: none;
   user-select: none;
 }
 .island-shell[data-dragging='true'] [data-island-drag] {
@@ -688,6 +697,30 @@ html:has(.native-stage) {
   text-align: left;
   cursor: pointer;
   transition: background-color 150ms var(--ease-out);
+}
+/* Around a Mac's notch: as tall as the notch, the camera between two equal wings as wide as the
+   wider one needs, so the island stays centred on it. */
+.compact.notched {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--notch-w) minmax(0, 1fr);
+  gap: 0;
+  height: var(--notch-h);
+  padding: 0 14px 0 12px;
+}
+.compact.notched .wing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.compact.notched .wing:last-child {
+  padding-left: 12px;
+}
+.compact.notched .compact-title {
+  flex: 1 1 auto;
+  max-width: none;
+  min-width: 0;
+  margin-right: 0;
 }
 .compact:hover {
   background: rgba(255, 255, 255, 0.035);
@@ -1575,6 +1608,7 @@ html:has(.native-stage) {
   font-size: 13px;
   cursor: grab;
   touch-action: none;
+  -webkit-user-select: none;
   user-select: none;
 }
 .quick-option-row[data-grabbed='true'] {

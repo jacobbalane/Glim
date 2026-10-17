@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- A menu-bar app: no Dock icon and no menu bar of its own. -->
+  <key>LSUIElement</key>
+  <true/>
+  <!-- Shown once, when Go to Claude or Go to Codex first selects a Terminal or iTerm2 tab. -->
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Glim selects the tab your agent runs in when you click Go to Claude or Go to Codex.</string>
+</dict>
+</plist>

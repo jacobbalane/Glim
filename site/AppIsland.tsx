@@ -3,6 +3,7 @@
 // app's data and window plumbing (src/App.tsx) with the website's sample sessions and scenes.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import IslandSurface from '../src/IslandSurface';
+import useViewKey from '../src/useViewKey';
 import { Compact, Glance } from '../src/island-views';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from '../src/panels';
 import { groupSessions } from '../src/session-presentation';
@@ -11,6 +12,7 @@ import useNoticeFold from '../src/useNoticeFold';
 import useReducedMotion from '../src/useReducedMotion';
 import { quickAction, selectedQuickOptions } from '../src/quick-options';
 import type { Connector, Preferences, Session } from '../src/types';
+import type { Notch } from '../src/api';
 
 export type IslandView = 'compact' | 'glance' | 'details' | 'settings' | 'usage' | 'setup';
 
@@ -25,6 +27,7 @@ export function AppIsland({
   connectors,
   onConnectors,
   fast = false,
+  notch = null,
 }: {
   sessions: Session[];
   seenAt: number;
@@ -37,6 +40,8 @@ export function AppIsland({
   onConnectors: (next: Connector[]) => void;
   // Several agents on show: the notch moves through them and their notices quickly.
   fast?: boolean;
+  // A Mac's camera notch to wrap, as the app does on a MacBook.
+  notch?: Notch | null;
 }) {
   const reduced = useReducedMotion();
   const anchor = useRef<HTMLDivElement>(null);
@@ -49,17 +54,18 @@ export function AppIsland({
   const [position, setPosition] = useState(0.5);
   const [run, setRun] = useState(0);
   const expanded = view !== 'compact';
+  const viewKey = useViewKey(view, focusId ?? undefined);
   const groups = groupSessions(sessions, seenAt);
   const focus = groups.find((g) => g.session.id === focusId) ?? groups[0];
   // The same rotation and notices as the app, with the same timings.
-  const notch = useSessionPreview(groups, seenAt, {
+  const preview = useSessionPreview(groups, seenAt, {
     enabled: !expanded && !prefs.paused,
     held,
     ready: true,
     dwell: fast ? 1800 : Math.max(6000, 2600 + (run / 40) * 1000),
     pace: fast ? 0.35 : 1,
   });
-  const [folded, setFolded] = useNoticeFold(notch, held || expanded);
+  const [folded, setFolded] = useNoticeFold(preview, held || expanded);
   const save = async (next: Preferences) => onPrefs(next);
 
   const collapse = useCallback(() => {
@@ -114,7 +120,8 @@ export function AppIsland({
   if (view === 'compact')
     content = (
       <Compact
-        view={notch}
+        view={preview}
+        notch={notch}
         folded={folded}
         onFoldedChange={setFolded}
         count={groups.length}
@@ -167,13 +174,15 @@ export function AppIsland({
     >
       <IslandSurface
         expanded={expanded}
-        viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
-        tone={prefs.paused || !notch.current ? 'calm' : notch.current.look.tone}
+        notch={notch}
+        viewKey={viewKey}
+        tone={prefs.paused || !preview.current ? 'calm' : preview.current.look.tone}
         glow={prefs.glow ?? 50}
         reduced={reduced}
         onError={() => {}}
-        position={position}
-        onPosition={async (next) => setPosition(next)}
+        // Around a notch the island stays on it, as in the app.
+        position={notch ? 0.5 : position}
+        onPosition={notch ? undefined : async (next) => setPosition(next)}
         // The app's quick options, acting on this page; Quit has nothing to quit here.
         options={
           prefs.quickOptionsEnabled

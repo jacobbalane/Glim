@@ -10,8 +10,10 @@ npm run test:ui      # installed Chrome, island interaction tests
 npm run test:native  # built Windows app, isolated native integration test (Node 24+)
 npm run test:install # NSIS install, onboarding, restart, and uninstall (Node 24+)
 npm run desktop      # build helper, then launch Tauri
-npm run package      # build helper and unsigned NSIS installer
+npm run package      # build helper and an unsigned installer: NSIS on Windows, .app and .dmg on macOS
 ```
+
+On macOS, `npm run test:native` and `npm run test:install` are Windows-only; the Mac has its own [native tests](#macos).
 
 After preparing the helper once, run backend checks:
 
@@ -49,16 +51,33 @@ After `npm run package`, run `npm run test:install` on Windows with WebView2 ins
 
 The test does not cover downloading WebView2 on a fresh machine, SmartScreen/signing, upgrading from an older release, or authenticated provider sessions. Those require separate release acceptance checks.
 
+## macOS
+
+Build on macOS 13 or later with the Xcode Command Line Tools. The same `npm run desktop` and `npm run package` work; a universal build for Apple silicon and Intel is what CI ships:
+
+```sh
+rustup target add aarch64-apple-darwin x86_64-apple-darwin
+node scripts/prepare-bridge.mjs --release --target universal-apple-darwin
+npx tauri build --target universal-apple-darwin
+```
+
+WKWebView has no debugging port, so debug builds carry a test control instead (`src-tauri/src/test_control.rs`): with `GLIM_TEST_CONTROL` set, the test scripts run JavaScript in the island over a private socket. Release builds leave it out. `GLIM_TEST_NOTCH=200x32` draws the island around a notch on a screen without one.
+
+- `node scripts/native-smoke-mac.mjs` is the Mac's native smoke. Build first with `cargo build --manifest-path src-tauri/Cargo.toml --bin glim --bin glim-bridge --features custom-protocol`. It covers onboarding, hooks from a path with a space, the quarantine-free hooks helper, the socket, counters, replay protection, pause, limits, the status-line relay through `/bin/sh`, a closed agent's process, the notch layout and, with `brew install cliclick`, click-through. Screenshots land in `.cache/native-smoke-mac-*/screenshots/`.
+- `node scripts/install-smoke-mac.mjs <Glim .dmg>` installs Glim from the disk image and checks it: universal, ad-hoc signed, menu bar only. Then it builds two debug versions signed with a throwaway key, serves the newer one from the machine, and updates the older one from Settings. It needs no Apple account and leaves your own Glim alone, but quit it first: both use one single-instance lock.
+
+Both run in CI on a macOS runner for every push, and their screenshots are uploaded with the run.
+
 ## Release
 
-Before tagging, move the **Unreleased** entries in `CHANGELOG.md` under the new version and date; the website's changelog page reads that file. The CI workflow checks the frontend and Rust tests and builds a Windows installer. A `v*` tag creates a **draft** GitHub release containing the installer and SHA-256 checksums. Review and publish the draft to make the README download link work. No releases are published by local development commands.
+Before tagging, move the **Unreleased** entries in `CHANGELOG.md` under the new version and date; the website's changelog page reads that file. The CI workflow checks the frontend and Rust tests on both systems, and builds a Windows installer and a universal macOS app and disk image. A `v*` tag creates a **draft** GitHub release with both, their SHA-256 checksums, the signed update archives and `latest.json` for Windows, Apple silicon and Intel. Review and publish the draft to make the README download link work. No releases are published by local development commands.
 
-For signing, use an organization-owned Windows Authenticode certificate or a signing service in CI. The initial workflow deliberately produces unsigned artifacts when no signing setup exists. Stable release acceptance requires signing and clean-machine install/upgrade/uninstall checks, native DPI/fullscreen/focus tests, and live provider validation.
+The Mac app is ad-hoc signed, so it runs on Apple silicon, but it is not notarized: people choose Open Anyway once. Notarizing needs an Apple Developer ID; it can be added to the macOS job without other changes. For Windows signing, use an organization-owned Authenticode certificate or a signing service in CI. The initial workflow deliberately produces unsigned artifacts when no signing setup exists. Stable release acceptance requires signing and clean-machine install/upgrade/uninstall checks, native DPI/fullscreen/focus tests, and live provider validation.
 
 ## Layout
 
 - `src/`: React island, panels, typed native API, browser-only preview fixtures.
-- `src-tauri/src/`: provider normalization, connector merging, collector, SQLite, private IPC, Windows window/tray integration.
+- `src-tauri/src/`: provider normalization, connector merging, collector, SQLite, private IPC, Windows and macOS window/tray integration.
 - `src-tauri/src/bin/bridge.rs`: native advisory hook and status-line relay.
 - `src-tauri/tests/fixtures/`: sanitized provider usage examples.
 - `tests/ui/`: browser interaction and accessibility behavior checks.

@@ -16,7 +16,14 @@
   --red: #ff6a5f;
   --violet: #a78bfa;
   --green: #3ddc84;
-  font-family: 'Manrope Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-family:
+    'Manrope Variable',
+    -apple-system,
+    'SF Pro Text',
+    'Segoe UI Variable Text',
+    'Segoe UI',
+    system-ui,
+    sans-serif;
   font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;

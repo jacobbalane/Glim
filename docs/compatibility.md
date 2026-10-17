@@ -1,6 +1,6 @@
 # Provider compatibility
 
-Glim v0.1 targets Windows 11 x64 and **native Windows CLI sessions**, including terminals inside IDEs. WSL, dedicated IDE extensions, desktop agent apps, and remote sessions are outside this release's supported scope.
+Glim targets macOS 13 or later (Apple silicon and Intel) and Windows 11 x64, with agents in **native CLI sessions**, including terminals inside IDEs. WSL, dedicated IDE extensions, desktop agent apps, and remote sessions are outside this release's supported scope.
 
 | Capability             | Claude Code                                    | Codex CLI                                |
 | ---------------------- | ---------------------------------------------- | ---------------------------------------- |
@@ -9,7 +9,7 @@ Glim v0.1 targets Windows 11 x64 and **native Windows CLI sessions**, including 
 | Token usage            | Assistant request usage in JSONL               | Cumulative token events in JSONL         |
 | Context usage          | Status-line measurements                       | Latest reported request / context window |
 | Task steps             | TodoWrite plus TaskCreated/TaskCompleted hooks | Structured update_plan calls             |
-| Account limits         | Status-line fields when supplied               | Not collected in v0.1                    |
+| Account limits         | Status-line fields when supplied               | Not collected yet                        |
 | Authentication         | Existing Claude Code login                     | Existing Codex login                     |
 
 These are parser reference versions, not a claim that every provider configuration or future version works. Unit fixtures exercise known record shapes; live authenticated integration must be checked against the exact provider installation before a stable release.
@@ -30,7 +30,7 @@ Codex hooks added by Glim include a `statusMessage` such as **Glim - PreToolUse*
 
 Claude Code settings are merged in its configured user directory (`CLAUDE_CONFIG_DIR`, or `~/.claude`). Codex hooks are merged in `CODEX_HOME/hooks.json`, or `~/.codex/hooks.json`. Project configuration or managed policies can override or disable user integrations. Glim does not change managed policy or hook trust.
 
-Claude's existing status line is wrapped by the helper. Its command receives the original stdin, working directory, and environment. On Windows the relay uses the configured Git Bash executable, or the default Git Bash installation when available. If no previous command exists, a simple model label is printed.
+Claude's existing status line is wrapped by the helper. Its command receives the original stdin, working directory, and environment. On macOS the relay runs it with `/bin/sh`. On Windows the relay uses the configured Git Bash executable, or the default Git Bash installation when available. If no previous command exists, a simple model label is printed.
 
 Local transcript formats are not stable APIs. Unsupported or missing counters are displayed as unavailable. Existing paginated or ephemeral Codex sessions without a readable JSONL transcript may have activity support without token support.
 

@@ -143,6 +143,41 @@ test('the open agent folds into the list, which stays until an agent is picked',
   ).toBeVisible();
 });
 
+test('around a Mac notch, nothing sits where the camera is and the open view starts below it', async ({
+  page,
+}) => {
+  await page.goto('/?notch=200x32');
+  const island = page.getByTestId('island');
+  const button = page.locator('.compact.notched');
+  await expect(button).toBeVisible();
+  await page.waitForTimeout(600);
+  const shape = (await island.boundingBox())!;
+  const middle = shape.x + shape.width / 2;
+  // The camera: 200 pixels wide at the top centre of the screen, which the island is centred on.
+  const camera = { left: middle - 100, right: middle + 100 };
+  for (const part of await button.locator('.wing > *').all()) {
+    const box = await part.boundingBox();
+    if (!box || box.width === 0) continue;
+    expect(box.x + box.width <= camera.left + 0.5 || box.x >= camera.right - 0.5).toBe(true);
+  }
+  expect((await button.boundingBox())!.height).toBeCloseTo(32, 0);
+  // The wings are as wide as the agent's name needs, the same on both sides of the camera.
+  expect(
+    await button.locator('.compact-title').evaluate((el) => el.scrollWidth <= el.clientWidth),
+  ).toBe(true);
+  const [left, right] = await button
+    .locator('.wing')
+    .evaluateAll((wings) => wings.map((wing) => wing.getBoundingClientRect().width));
+  expect(left).toBeCloseTo(right, 0);
+  await button.click();
+  const bar = page.locator('.frame:not([aria-hidden]) .bar');
+  await expect(bar).toBeVisible();
+  expect((await bar.boundingBox())!.y).toBeGreaterThanOrEqual(32);
+  await page.waitForTimeout(600);
+  // Opening never narrows the island.
+  expect((await island.boundingBox())!.width).toBeGreaterThanOrEqual(shape.width - 0.5);
+});
+
 test('the open island keeps its header in reach while its agents scroll', async ({ page }) => {
   await page.setViewportSize({ width: 1000, height: 380 });
   await page.goto('/');

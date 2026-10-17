@@ -8,7 +8,10 @@ export default defineConfig({
   use: {
     baseURL: url,
     headless: true,
-    channel: process.env.GLIM_TEST_BROWSER === 'chromium' ? undefined : 'chrome',
+    // Installed Chrome by default; GLIM_TEST_BROWSER=chromium or webkit (Safari's engine, the one
+    // the macOS app's view runs on) picks Playwright's own.
+    browserName: process.env.GLIM_TEST_BROWSER === 'webkit' ? 'webkit' : 'chromium',
+    channel: process.env.GLIM_TEST_BROWSER ? undefined : 'chrome',
     viewport: { width: 1440, height: 900 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',

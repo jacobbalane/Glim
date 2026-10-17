@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settledBox, tap } from './settle';
 
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
 const trigger = (page: Page) => page.getByRole('button', { name: 'Glim options', exact: true });
@@ -6,7 +7,7 @@ const menu = (page: Page) => page.getByRole('menu', { name: 'Glim options' });
 async function settings(page: Page) {
   await page.goto('/');
   await compact(page).click();
-  await page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }).click();
+  await tap(page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }));
 }
 async function openOptions(page: Page) {
   await compact(page).hover();
@@ -30,7 +31,7 @@ test('quick options are hidden by default, including keyboard and context access
   await expect(trigger(page)).toHaveCount(0);
   await expect(menu(page)).toHaveCount(0);
   await compact(page).click();
-  await page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }).click();
+  await tap(page.getByTestId('island').getByRole('button', { name: 'Settings', exact: true }));
   await expect(page.getByRole('switch', { name: 'Quick options' })).toHaveAttribute(
     'aria-checked',
     'false',
@@ -51,13 +52,18 @@ test('settings select actions and save pointer and keyboard reordering', async (
   await page.getByRole('checkbox', { name: 'Quit Glim' }).click();
   const row = page.getByRole('listitem', { name: 'Reorder Pause monitoring' });
   await row.scrollIntoViewIfNeeded();
-  const from = (await row.boundingBox())!;
-  const to = (await page
-    .getByRole('listitem', { name: 'Reorder Centre horizontally' })
-    .boundingBox())!;
+  // The rows slide into place as options are picked; measure them once they rest.
+  const from = await settledBox(row);
+  const to = await settledBox(page.getByRole('listitem', { name: 'Reorder Centre horizontally' }));
   await page.mouse.move(from.x + 70, from.y + 22);
   await page.mouse.down();
-  await page.mouse.move(from.x + 70, to.y + 12, { steps: 12 });
+  // As a hand drags: over several frames, then a moment's rest before letting go. A fast runner
+  // otherwise presses, moves and releases within one frame, before the drag has begun.
+  for (let step = 1; step <= 6; step++) {
+    await page.mouse.move(from.x + 70, from.y + 22 + ((to.y + 12 - from.y - 22) * step) / 6);
+    await page.waitForTimeout(32);
+  }
+  await page.waitForTimeout(150);
   await page.mouse.up();
   await expect(list.getByRole('listitem').first()).toHaveAttribute(
     'aria-label',

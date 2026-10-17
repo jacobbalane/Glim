@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { hasGpu } from './gpu';
+import { settledBox, tap } from './settle';
 const scenes = JSON.parse(
   readFileSync(new URL('../../src/preview-scenes.json', import.meta.url), 'utf8'),
 ) as { id: string; width: number; height: number }[];
@@ -27,7 +28,7 @@ test('preview includes every view and logo, with isolated interactive scenes', a
   const welcome = page.frameLocator('iframe[title="Welcome"]');
   await expect(welcome.getByRole('button', { name: 'Get started' })).toBeVisible();
   await agents.getByRole('button', { name: /Claude Code.*Connect/ }).click();
-  await agents.getByRole('button', { name: 'Connect Claude', exact: true }).click();
+  await tap(agents.getByRole('button', { name: 'Connect Claude', exact: true }));
   await expect(agents.getByRole('status')).toContainText('connected');
   await expect(welcome.getByRole('button', { name: 'Get started' })).toBeVisible();
   expect(errors).toEqual([]);
@@ -65,6 +66,8 @@ test('screenshot gallery stays usable on a narrow screen', async ({ page }) => {
 });
 
 test('interactive notch keeps one surface and animates working activity', async ({ page }) => {
+  // A long walk through the island, which waits for each animation to settle.
+  test.setTimeout(60_000);
   await page.goto('/preview');
   await page
     .getByRole('navigation', { name: 'View groups' })
@@ -109,7 +112,10 @@ test('interactive notch keeps one surface and animates working activity', async 
     .toBeLessThan(2);
   await frame.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(frame.getByRole('progressbar', { name: 'Context' })).toBeVisible();
-  await frame.getByRole('button', { name: /^glim-desktop · Claude:/ }).click();
+  const row = frame.getByRole('button', { name: /^glim-desktop · Claude:/ });
+  // The row moves while the island grows; click it where it comes to rest.
+  await settledBox(row);
+  await row.click();
   await expect.poll(async () => (await island.boundingBox())?.height).toBeLessThan(400);
   const character = frame.locator('.glim-character[data-mood="scan"]').first();
   const gpu = await hasGpu(page);
@@ -125,10 +131,12 @@ test('interactive notch keeps one surface and animates working activity', async 
   await expect(frame.getByRole('button', { name: /^Glim:/ })).toBeVisible();
   await expect(island).toHaveAttribute('data-expanded', 'false');
   await controls.getByRole('button', { name: 'Expand', exact: true }).click();
-  await frame.getByRole('button', { name: /^glim-desktop · Claude:/ }).click();
+  await settledBox(row);
+  await row.click();
+  // The click opens that agent's card; its activity changes once the card shows it.
+  const hero = frame.locator('.frame:not([aria-hidden]) .glance-body > :not([aria-hidden]) .hero');
+  await expect(hero.getByRole('heading', { level: 3 })).toContainText('glim-desktop');
   await controls.getByLabel('Agent activity').selectOption('finished');
-  await expect(
-    frame.locator('.frame:not([aria-hidden]) .glance-body > :not([aria-hidden]) .hero .chip'),
-  ).toHaveText('Done');
+  await expect(hero.locator('.chip')).toHaveText('Done');
   await expect(island).toHaveAttribute('data-persistence-check', 'same');
 });

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { tap } from './settle';
 import { hasGpu } from './gpu';
 
 // The 3D checks need a GPU; without one, Glim must be flat.
@@ -48,7 +49,7 @@ test('3D Glim follows status changes and keeps its compact footprint', async ({ 
   const chip = page.locator('.hero .glim-character');
   await expect(chip).toHaveAttribute('data-renderer', '3d');
   await expect(chip).toHaveCSS('width', '24px');
-  await page.getByRole('button', { name: 'Details', exact: true }).click();
+  await tap(page.getByRole('button', { name: 'Details', exact: true }));
   await expect(page.locator('.sheet .glim-character')).toHaveAttribute('data-renderer', '3d');
   expect(errors).toEqual([]);
 });

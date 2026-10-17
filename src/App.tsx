@@ -2,11 +2,12 @@ import { quickAction, selectedQuickOptions } from './quick-options';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUpRight, X } from 'lucide-react';
-import { api, demo, native, designScene, designMotion } from './api';
+import { api, demo, native, designScene, designMotion, type ScreenShape } from './api';
 import { DEFAULT_PREFERENCES, type Snapshot } from './types';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from './panels';
 import { Compact, Glance } from './island-views';
 import IslandSurface from './IslandSurface';
+import useViewKey from './useViewKey';
 import BrandPreview from './BrandPreview';
 import { CharacterEnvironment } from './Character';
 import { groupSessions, isNotice } from './session-presentation';
@@ -34,6 +35,15 @@ export default function App() {
   );
   // The open island as a list of every agent, kept until an agent is picked.
   const [listed, setListed] = useState(false);
+  // On a Mac, the island wraps the screen's camera notch. Read again when the window moves to
+  // another display.
+  const [screen, setScreen] = useState<ScreenShape>({ notch: null, bar: 0 });
+  useEffect(() => {
+    const read = () => api.screenShape().then(setScreen, () => {});
+    read();
+    window.addEventListener('resize', read);
+    return () => window.removeEventListener('resize', read);
+  }, []);
   const [seenAt, setSeenAt] = useState(Date.now);
   const [snapshot, setSnapshot] = useState<Snapshot>({
     sessions: [],
@@ -51,6 +61,7 @@ export default function App() {
   const returnFocus = useRef(false);
   const reduced = useReducedMotion() || (!!designScene && !designMotion);
   const expanded = view !== 'compact';
+  const viewKey = useViewKey(view, focusId ?? undefined);
   const paused = snapshot.preferences.paused;
   const groups = useMemo(
     () => groupSessions(snapshot.sessions, seenAt),
@@ -237,6 +248,7 @@ export default function App() {
         count={groups.length}
         paused={paused}
         now={now}
+        notch={screen.notch}
         onRun={setRun}
         onOpen={(id, picked) => {
           setFocusId(id ?? null);
@@ -307,13 +319,14 @@ export default function App() {
       >
         <IslandSurface
           expanded={expanded}
-          viewKey={view === 'details' ? `details-${focus?.session.id}` : view}
+          viewKey={viewKey}
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
           glow={snapshot.preferences.glow ?? 50}
           reduced={reduced}
           onError={setError}
-          position={snapshot.preferences.islandPosition ?? 0.5}
-          onPosition={api.islandPosition}
+          notch={screen.notch}
+          position={screen.notch ? 0.5 : (snapshot.preferences.islandPosition ?? 0.5)}
+          onPosition={screen.notch ? undefined : api.islandPosition}
           options={
             snapshot.preferences.quickOptionsEnabled
               ? selectedQuickOptions(snapshot.preferences).map((id) =>

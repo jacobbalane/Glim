@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { settledBox } from './settle';
+import { settledBox, tap } from './settle';
 
 const island = (page: Page) => page.getByTestId('island');
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
@@ -8,6 +8,9 @@ const centre = async (page: Page) => {
   const box = (await island(page).boundingBox())!;
   return box.x + box.width / 2;
 };
+// WebKit on macOS moves focus to buttons with Option-Tab, as Safari does.
+const TAB =
+  process.platform === 'darwin' && process.env.GLIM_TEST_BROWSER === 'webkit' ? 'Alt+Tab' : 'Tab';
 const trigger = (page: Page) => page.getByRole('button', { name: 'Glim options', exact: true });
 async function gotoWithOptions(page: Page, url = '/') {
   await page.goto(url);
@@ -215,7 +218,7 @@ test('hover stays continuous across the gap, hides on leaving and supports keybo
   await page.mouse.move(40, 200);
   await expect(trigger(page)).toHaveCount(0);
   await page.mouse.click(40, 200);
-  await page.keyboard.press('Tab');
+  await page.keyboard.press(TAB);
   await expect(compact(page)).toBeFocused();
   await expect(trigger(page)).toBeVisible();
   // The notices have their own buttons, so focus the newly revealed action directly.
@@ -305,9 +308,9 @@ test('Settings centres horizontally without closing and exposes Quit beside the 
   await page.keyboard.press('Alt+ArrowRight');
   await expect.poll(() => centre(page)).toBeCloseTo(744, 0);
   await compact(page).click();
-  await island(page).getByRole('button', { name: 'Settings', exact: true }).click();
+  await tap(island(page).getByRole('button', { name: 'Settings', exact: true }));
   const action = island(page).getByRole('button', { name: 'Centre horizontally', exact: true });
-  await action.click();
+  await tap(action);
   await expect.poll(() => centre(page)).toBeCloseTo(720, 0);
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible();
   expect(
@@ -341,6 +344,6 @@ test('the icon options toggle, dismiss on focus loss, and keep a failed action u
   await expect(action).toBeEnabled();
   await page.keyboard.press('ArrowRight');
   await expect(action).toBeFocused();
-  await page.keyboard.press('Tab');
+  await page.keyboard.press(TAB);
   await expect(options(page)).toHaveCount(0);
 });

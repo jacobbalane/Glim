@@ -4,6 +4,18 @@ use tauri::{AppHandle, Manager, PhysicalPosition};
 #[cfg(windows)]
 pub mod windows_frame;
 
+/// The island's window, looked up once. On macOS each lookup clones the window's handles to the
+/// event loop, and tao (0.37.1) adds a run-loop source for every clone that it never removes:
+/// looked up 30 times a second, they piled up until the main thread stopped keeping up.
+pub fn island(app: &AppHandle) -> Option<&'static tauri::WebviewWindow> {
+    static ISLAND: std::sync::OnceLock<tauri::WebviewWindow> = std::sync::OnceLock::new();
+    if let Some(window) = ISLAND.get() {
+        return Some(window);
+    }
+    let window = app.get_webview_window("island")?;
+    Some(ISLAND.get_or_init(|| window))
+}
+
 #[derive(Default)]
 pub struct IslandShape(std::sync::Mutex<ShapeState>);
 
@@ -62,7 +74,8 @@ impl RegionGeometry {
         let px = |v: f64| (v * scale).round() as i32;
         let wide = (host_width as f64 / scale - 40.).clamp(204., 440.);
         let cap = 360_f64.min(wide - 60.);
-        let logical_width = (width as f64).clamp(144., wide);
+        // Around a Mac's notch the compact island can be wider than the open one.
+        let logical_width = (width as f64).clamp(144., (host_width as f64 / scale).max(144.));
         let travel = ((host_width as f64 / scale - wide) / 2. - 20.).max(0.);
         let offset = if offset.is_finite() {
             px(offset.clamp(-travel, travel))
@@ -79,6 +92,20 @@ impl RegionGeometry {
             shoulder: (8. * scale).round() as i32,
             side: side.map(|s| [px(s.x), px(s.y), px(s.width), px(s.height), px(14.)]),
         }
+    }
+    /// Whether a point, in the window's physical pixels, is on the island or its side panel.
+    #[cfg(any(target_os = "macos", test))]
+    fn contains(&self, x: f64, y: f64) -> bool {
+        let within = |left: i32, top: i32, width: i32, height: i32| {
+            x >= left as f64
+                && x < (left + width) as f64
+                && y >= top as f64
+                && y < (top + height) as f64
+        };
+        within(self.x, 0, self.width, self.height)
+            || self
+                .side
+                .is_some_and(|[left, top, width, height, _]| within(left, top, width, height))
     }
 }
 
@@ -200,9 +227,7 @@ fn monitor_id(m: &tauri::Monitor) -> String {
     )
 }
 pub fn position_island(app: &AppHandle, prefs: &Preferences) -> Result<(), String> {
-    let window = app
-        .get_webview_window("island")
-        .ok_or("Island window not found")?;
+    let window = island(app).ok_or("Island window not found")?;
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
     let monitor = prefs
         .monitor
@@ -276,59 +301,109 @@ pub fn shape(
     focus: Option<bool>,
     offset: f64,
 ) -> Result<(), String> {
-    let window = app
-        .get_webview_window("island")
-        .ok_or("Island window not found")?;
+    let window = island(app).ok_or("Island window not found")?;
+    let scale = window.scale_factor().map_err(|e| e.to_string())?;
+    let host_width = window.inner_size().map_err(|e| e.to_string())?.width;
+    let geometry = RegionGeometry::new(width, height, scale, host_width, side, offset);
+    let state = app.state::<IslandShape>();
+    let (changed, focusable) = {
+        let mut state = state.0.lock().map_err(|e| e.to_string())?;
+        state.width = width;
+        state.height = height;
+        state.side = side;
+        state.offset = offset;
+        if let Some(expanded) = focus {
+            state.expanded = expanded;
+        }
+        let changed = state.applied != Some(geometry);
+        // SetWindowRgn sends window-position events. Cache before applying so
+        // a resulting resize callback cannot recursively apply the same region.
+        state.applied = Some(geometry);
+        (changed, state.expanded || state.dragging)
+    };
+    // On Windows the shape is the window's region. macOS has no regions: follow_pointer lets
+    // the pointer through wherever the shape is not.
     #[cfg(windows)]
-    {
+    if changed {
         use windows_sys::Win32::Graphics::Gdi::SetWindowRgn;
         let hwnd = window.hwnd().map_err(|e| e.to_string())?.0;
-        let scale = window.scale_factor().map_err(|e| e.to_string())?;
-        let host_width = window.inner_size().map_err(|e| e.to_string())?.width;
-        let geometry = RegionGeometry::new(width, height, scale, host_width, side, offset);
-        let state = app.state::<IslandShape>();
-        let (changed, focusable) = {
-            let mut state = state.0.lock().map_err(|e| e.to_string())?;
-            state.width = width;
-            state.height = height;
-            state.side = side;
-            state.offset = offset;
-            if let Some(expanded) = focus {
-                state.expanded = expanded;
+        let apply = || -> Result<(), String> {
+            let region = region::create(geometry)?;
+            if unsafe { SetWindowRgn(hwnd as _, region.0, 1) } == 0 {
+                return Err(std::io::Error::last_os_error().to_string());
             }
-            let changed = state.applied != Some(geometry);
-            // SetWindowRgn sends window-position events. Cache before applying so
-            // a resulting resize callback cannot recursively apply the same region.
-            state.applied = Some(geometry);
-            (changed, state.expanded || state.dragging)
+            region.transfer(); // Windows now owns it.
+            Ok(())
         };
-        if changed {
-            let apply = || -> Result<(), String> {
-                let region = region::create(geometry)?;
-                if unsafe { SetWindowRgn(hwnd as _, region.0, 1) } == 0 {
-                    return Err(std::io::Error::last_os_error().to_string());
-                }
-                region.transfer(); // Windows now owns it.
-                Ok(())
-            };
-            if let Err(error) = apply() {
-                state.0.lock().map_err(|e| e.to_string())?.applied = None;
-                return Err(error);
-            }
+        if let Err(error) = apply() {
+            state.0.lock().map_err(|e| e.to_string())?.applied = None;
+            return Err(error);
         }
-        if focus.is_some() {
-            window.set_focusable(focusable).map_err(|e| e.to_string())?;
-            if focusable {
-                window.set_focus().map_err(|e| e.to_string())?;
-            }
+    }
+    #[cfg(not(windows))]
+    let _ = changed;
+    if focus.is_some() {
+        window.set_focusable(focusable).map_err(|e| e.to_string())?;
+        if focusable {
+            window.set_focus().map_err(|e| e.to_string())?;
         }
     }
     Ok(())
 }
+
+/// Whether the pointer last passed through the island's window: 0 not yet known, 1 through,
+/// 2 caught by the island. Read by the macOS native smoke test.
+#[cfg(target_os = "macos")]
+pub static POINTER: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// The island's left, width and height in the window's physical pixels, for the test control.
+#[cfg(all(debug_assertions, target_os = "macos"))]
+pub fn shape_box(app: &AppHandle) -> Option<[i32; 3]> {
+    let state = app.state::<IslandShape>();
+    let applied = state.0.lock().ok()?.applied?;
+    Some([applied.x, applied.width, applied.height])
+}
+
+/// macOS: lets the pointer through the island's window everywhere but the island and its side
+/// panel, checking 30 times a second where the pointer is.
+#[cfg(target_os = "macos")]
+pub fn follow_pointer(app: AppHandle) {
+    std::thread::spawn(move || {
+        let mut passing = None;
+        loop {
+            std::thread::sleep(std::time::Duration::from_millis(33));
+            let Some(window) = island(&app) else {
+                continue;
+            };
+            let (Ok(pointer), Ok(origin)) = (app.cursor_position(), window.outer_position()) else {
+                continue;
+            };
+            let Some((shape, dragging)) = app
+                .state::<IslandShape>()
+                .0
+                .lock()
+                .ok()
+                .map(|state| (state.applied, state.dragging))
+            else {
+                continue;
+            };
+            // While the island is dragged the whole window keeps the pointer, as on Windows.
+            let over = dragging
+                || shape.is_some_and(|g| {
+                    g.contains(pointer.x - origin.x as f64, pointer.y - origin.y as f64)
+                });
+            if passing != Some(!over) && window.set_ignore_cursor_events(!over).is_ok() {
+                passing = Some(!over);
+                POINTER.store(
+                    if over { 2 } else { 1 },
+                    std::sync::atomic::Ordering::Relaxed,
+                );
+            }
+        }
+    });
+}
 pub fn dragging(app: &AppHandle, active: bool) -> Result<(), String> {
-    let window = app
-        .get_webview_window("island")
-        .ok_or("Island window not found")?;
+    let window = island(app).ok_or("Island window not found")?;
     let focusable = {
         let state = app.state::<IslandShape>();
         let mut state = state.0.lock().map_err(|e| e.to_string())?;
@@ -352,6 +427,9 @@ pub fn refresh_shape(app: &AppHandle) -> Result<(), String> {
     shape(app, width, height, side, None, offset)
 }
 pub fn fullscreen_over_island(app: &AppHandle) -> bool {
+    // macOS keeps the island off full-screen Spaces through its collection behaviour instead.
+    #[cfg(not(windows))]
+    let _ = app;
     #[cfg(windows)]
     unsafe {
         use windows_sys::Win32::{
@@ -386,7 +464,7 @@ pub fn fullscreen_over_island(app: &AppHandle) -> bool {
             return false;
         }
         let monitor = MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST);
-        let Some(island) = app.get_webview_window("island").and_then(|w| w.hwnd().ok()) else {
+        let Some(island) = island(app).and_then(|w| w.hwnd().ok()) else {
             return false;
         };
         if MonitorFromWindow(island.0 as _, MONITOR_DEFAULTTONEAREST) != monitor {
@@ -403,7 +481,22 @@ pub fn fullscreen_over_island(app: &AppHandle) -> bool {
     }
     false
 }
-pub fn autostart(enabled: bool) -> Result<(), String> {
+/// Opens Glim at login: a LaunchAgent on macOS.
+#[cfg(target_os = "macos")]
+pub fn autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let launch = app.autolaunch();
+    if enabled {
+        launch.enable()
+    } else {
+        launch.disable()
+    }
+    .map_err(|e| e.to_string())
+}
+/// Opens Glim at login: the Run key on Windows.
+#[cfg(not(target_os = "macos"))]
+pub fn autostart(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let _ = app;
     #[cfg(windows)]
     unsafe {
         use windows_sys::Win32::System::Registry::{
@@ -453,6 +546,146 @@ pub fn autostart(enabled: bool) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The screen the island hangs from: its camera notch, if it has one, and its menu bar's height,
+/// in points (the island's CSS pixels).
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct ScreenShape {
+    pub notch: Option<Notch>,
+    pub bar: f64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize)]
+pub struct Notch {
+    pub width: f64,
+    pub height: f64,
+}
+
+/// The notch from the two strips of menu bar either side of it, as NSScreen reports them
+/// (left edge and width of each), and the screen's top safe-area inset. A screen without a notch
+/// reports no inset.
+#[cfg(any(target_os = "macos", test))]
+pub fn notch_of(left: (f64, f64), right: (f64, f64), top_inset: f64) -> Option<Notch> {
+    let width = right.0 - (left.0 + left.1);
+    (top_inset > 0. && width > 0.).then_some(Notch {
+        width,
+        height: top_inset,
+    })
+}
+
+/// A notch for screens that have none, in debug builds: `GLIM_TEST_NOTCH=200x32`. CI's virtual
+/// displays draw the notched island this way.
+#[cfg(all(debug_assertions, target_os = "macos"))]
+fn test_notch() -> Option<Notch> {
+    let value = std::env::var("GLIM_TEST_NOTCH").ok()?;
+    let (width, height) = value.split_once('x')?;
+    Some(Notch {
+        width: width.parse().ok()?,
+        height: height.parse().ok()?,
+    })
+}
+
+#[cfg(target_os = "macos")]
+pub fn screen_shape(app: &AppHandle) -> ScreenShape {
+    use objc2_app_kit::NSWindow;
+    #[cfg(debug_assertions)]
+    if let Some(notch) = test_notch() {
+        return ScreenShape {
+            notch: Some(notch),
+            bar: notch.height,
+        };
+    }
+    let none = ScreenShape {
+        notch: None,
+        bar: 24.,
+    };
+    let Some(pointer) = island(app).and_then(|w| w.ns_window().ok()) else {
+        return none;
+    };
+    // Tauri hands out the island's own NSWindow; this runs on the main thread (a sync command).
+    let window: &NSWindow = unsafe { &*pointer.cast() };
+    let Some(screen) = window.screen() else {
+        return none;
+    };
+    let (frame, visible) = (screen.frame(), screen.visibleFrame());
+    let (left, right) = (
+        screen.auxiliaryTopLeftArea(),
+        screen.auxiliaryTopRightArea(),
+    );
+    let bar = (frame.origin.y + frame.size.height) - (visible.origin.y + visible.size.height);
+    ScreenShape {
+        notch: notch_of(
+            (left.origin.x - frame.origin.x, left.size.width),
+            (right.origin.x - frame.origin.x, right.size.width),
+            screen.safeAreaInsets().top,
+        ),
+        // A hidden menu bar leaves no strip; the island still keeps a menu bar's height.
+        bar: if bar > 0. { bar } else { 24. },
+    }
+}
+#[cfg(not(target_os = "macos"))]
+pub fn screen_shape(_: &AppHandle) -> ScreenShape {
+    ScreenShape {
+        notch: None,
+        bar: 0.,
+    }
+}
+
+/// macOS: the island floats over the menu bar, on every Space, and on full-screen apps' Spaces
+/// unless the person asked to hide it there. Runs on the main thread.
+#[cfg(target_os = "macos")]
+pub fn float_over_menu_bar(app: &AppHandle, over_fullscreen: bool) {
+    use objc2_app_kit::{NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior};
+    let Some(pointer) = island(app).and_then(|w| w.ns_window().ok()) else {
+        return;
+    };
+    let window: &NSWindow = unsafe { &*pointer.cast() };
+    window.setLevel(NSStatusWindowLevel);
+    let mut behavior = NSWindowCollectionBehavior::CanJoinAllSpaces
+        | NSWindowCollectionBehavior::Stationary
+        | NSWindowCollectionBehavior::IgnoresCycle;
+    if over_fullscreen {
+        behavior |= NSWindowCollectionBehavior::FullScreenAuxiliary;
+    }
+    window.setCollectionBehavior(behavior);
+}
+
+#[cfg(test)]
+mod shape_tests {
+    use super::*;
+    #[test]
+    fn a_notch_is_the_gap_between_the_menu_bar_strips() {
+        // A 1512-point-wide screen with a 200-point notch, 32 points deep, in the middle.
+        let notch = notch_of((0., 656.), (856., 656.), 32.).unwrap();
+        assert_eq!(
+            notch,
+            Notch {
+                width: 200.,
+                height: 32.
+            }
+        );
+        // No inset or no gap: no notch.
+        assert_eq!(notch_of((0., 1512.), (1512., 0.), 0.), None);
+        assert_eq!(notch_of((0., 756.), (756., 756.), 24.), None);
+    }
+    #[test]
+    fn the_pointer_is_over_the_island_or_its_side_panel_only() {
+        let side = Side {
+            x: 834.,
+            y: 14.,
+            width: 300.,
+            height: 200.,
+        };
+        let g = RegionGeometry::new(440, 400, 2., 2400, Some(side), 0.);
+        // The island spans x 760..1640 and y 0..800 in physical pixels at scale 2.
+        assert!(g.contains(1200., 10.));
+        assert!(!g.contains(1200., 801.));
+        assert!(!g.contains(700., 10.));
+        // The side panel: x 1668..2268, y 28..428.
+        assert!(g.contains(1700., 100.));
+        assert!(!g.contains(1700., 500.));
+        assert!(!g.contains(1650., 100.));
+    }
 }
 
 #[cfg(all(test, windows))]

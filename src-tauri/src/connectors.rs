@@ -307,10 +307,77 @@ pub fn set_connector_at(
     }
     Ok(())
 }
-pub fn set_connector(provider: Provider, enabled: bool) -> Result<(), String> {
-    let binary = std::env::current_exe()
+/// The helper as Glim ships it: beside Glim's own program (inside Glim.app on macOS).
+fn bundled_bridge() -> Result<PathBuf, String> {
+    let name = if cfg!(windows) {
+        "glim-bridge.exe"
+    } else {
+        "glim-bridge"
+    };
+    Ok(std::env::current_exe()
         .map_err(|e| e.to_string())?
-        .with_file_name("glim-bridge.exe");
+        .with_file_name(name))
+}
+
+/// The helper agents' hooks call. On macOS, a copy in Glim's data folder: Glim.app can be
+/// moved, or replaced by an update, without breaking the hooks.
+fn hook_bridge() -> Result<PathBuf, String> {
+    #[cfg(target_os = "macos")]
+    {
+        refresh_bridge();
+        Ok(data_dir().join("bin").join("glim-bridge"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    bundled_bridge()
+}
+
+/// Copies the bundled helper into Glim's data folder when it is missing or out of date. The copy
+/// loses the download's quarantine mark, so running it from a hook never stops at Gatekeeper.
+#[cfg(target_os = "macos")]
+pub fn refresh_bridge() {
+    use std::os::unix::fs::PermissionsExt;
+    let Ok(source) = bundled_bridge() else {
+        return;
+    };
+    let target = data_dir().join("bin").join("glim-bridge");
+    let same = match (fs::read(&source), fs::read(&target)) {
+        (Ok(a), Ok(b)) => a == b,
+        (Err(_), _) => return,
+        _ => false,
+    };
+    if same {
+        return;
+    }
+    let Some(folder) = target.parent() else {
+        return;
+    };
+    let staged = folder.join(format!(".glim-bridge-{}", uuid::Uuid::new_v4()));
+    let installed = fs::create_dir_all(folder)
+        .and_then(|_| fs::copy(&source, &staged))
+        .and_then(|_| fs::set_permissions(&staged, fs::Permissions::from_mode(0o755)))
+        .and_then(|_| {
+            remove_quarantine(&staged);
+            // Replacing by rename leaves any hook already running the old copy undisturbed.
+            fs::rename(&staged, &target)
+        });
+    if installed.is_err() {
+        let _ = fs::remove_file(&staged);
+    }
+}
+#[cfg(target_os = "macos")]
+fn remove_quarantine(path: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+    let (Ok(path), Ok(name)) = (
+        std::ffi::CString::new(path.as_os_str().as_bytes()),
+        std::ffi::CString::new("com.apple.quarantine"),
+    ) else {
+        return;
+    };
+    unsafe { libc::removexattr(path.as_ptr(), name.as_ptr(), 0) };
+}
+
+pub fn set_connector(provider: Provider, enabled: bool) -> Result<(), String> {
+    let binary = hook_bridge()?;
     if enabled && !binary.exists() {
         return Err("The Glim helper is missing. Reinstall Glim or run npm run desktop.".into());
     }
@@ -328,11 +395,34 @@ fn executable(provider: Provider) -> Option<PathBuf> {
     } else {
         "codex"
     };
-    std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .flat_map(|p| ["exe", "cmd", "ps1"].map(|ext| p.join(format!("{name}.{ext}"))))
-            .find(|p| p.is_file())
-    })
+    let names: Vec<String> = if cfg!(windows) {
+        ["exe", "cmd", "ps1"]
+            .iter()
+            .map(|ext| format!("{name}.{ext}"))
+            .collect()
+    } else {
+        vec![name.to_string()]
+    };
+    // Apps opened from the Dock or Finder get a short PATH on macOS, so also look where Claude
+    // Code's and Codex's installers, Homebrew and npm put them.
+    let mut folders: Vec<PathBuf> = std::env::var_os("PATH")
+        .map(|path| std::env::split_paths(&path).collect())
+        .unwrap_or_default();
+    if !cfg!(windows) {
+        let home = agent_home();
+        folders.extend([
+            home.join(".local/bin"),
+            home.join(".claude/local"),
+            home.join(".npm-global/bin"),
+            home.join(".bun/bin"),
+            PathBuf::from("/opt/homebrew/bin"),
+            PathBuf::from("/usr/local/bin"),
+        ]);
+    }
+    folders
+        .iter()
+        .flat_map(|folder| names.iter().map(move |n| folder.join(n)))
+        .find(|p| p.is_file())
 }
 pub fn detect(provider: Provider) -> Connector {
     let path = config_path(provider);

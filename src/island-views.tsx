@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
@@ -39,6 +40,7 @@ import {
 } from './session-presentation';
 import { PROVIDERS, type Session } from './types';
 import { compactNumber, totalTokens } from './format';
+import type { Notch } from './api';
 export function Compact({
   view,
   paused,
@@ -48,6 +50,7 @@ export function Compact({
   count,
   folded,
   onFoldedChange,
+  notch = null,
 }: {
   view: NotchView;
   count: number;
@@ -58,6 +61,7 @@ export function Compact({
   // Notices waiting under the island fold into a strip of colored dots.
   folded: boolean;
   onFoldedChange: (folded: boolean) => void;
+  notch?: Notch | null;
 }) {
   const ink = useContext(Ink);
   const reduced = useReducedMotion();
@@ -98,26 +102,61 @@ export function Compact({
     <div className="compact-wrap">
       <button
         ref={opener}
-        className={`compact tone-${tone}`}
+        className={`compact tone-${tone}${notch ? ' notched' : ''}`}
         data-island-drag
         data-island-options
-        aria-description="Click to open. Hold to move horizontally. Use Alt and the arrow keys to move, or Shift and F10 for options."
+        // Around a notch the island stays on it, so it is not moved.
+        aria-description={
+          notch
+            ? 'Click to open. Use Shift and F10 for options.'
+            : 'Click to open. Hold to move horizontally. Use Alt and the arrow keys to move, or Shift and F10 for options.'
+        }
         onClick={() => onOpen?.(s?.id)}
         data-session-id={s?.id}
         aria-expanded={false}
         aria-label={`Glim: ${title}${status ? `, ${status}` : ''}. ${plural(agents, 'agent')}. Open.`}
+        style={
+          notch
+            ? ({
+                '--notch-w': `${notch.width}px`,
+                '--notch-h': `${notch.height}px`,
+              } as CSSProperties)
+            : undefined
+        }
       >
-        <Eyes mood={mood} tone={tone} size={28} />
-        {/* The old text fades out while the island changes width; the new one follows. */}
-        <AnimatePresence initial={false} mode="popLayout">
-          <Ticker key={`${s?.id}|${title}|${status}`} title={title} onRun={onRun}>
-            {status && <span className="state-text">{status}</span>}
-          </Ticker>
-        </AnimatePresence>
-        {end && (
-          <motion.span className="compact-end" style={{ opacity: ink?.settle ?? 1 }}>
-            {end}
-          </motion.span>
+        {notch ? (
+          // Around a Mac's notch: the eyes and the agent on its left, what the agent is doing on
+          // its right, and nothing where the camera is.
+          <>
+            <span className="wing">
+              <Eyes mood={mood} tone={tone} size={26} />
+              <b className="compact-title">{title}</b>
+            </span>
+            <span className="notch-gap" aria-hidden="true" />
+            <span className="wing">
+              <AnimatePresence initial={false} mode="popLayout">
+                <Ticker key={`${s?.id}|${status}`} title={null} onRun={onRun}>
+                  {status && <span className="state-text">{status}</span>}
+                </Ticker>
+              </AnimatePresence>
+              {end && <span className="compact-end">{end}</span>}
+            </span>
+          </>
+        ) : (
+          <>
+            <Eyes mood={mood} tone={tone} size={28} />
+            {/* The old text fades out while the island changes width; the new one follows. */}
+            <AnimatePresence initial={false} mode="popLayout">
+              <Ticker key={`${s?.id}|${title}|${status}`} title={title} onRun={onRun}>
+                {status && <span className="state-text">{status}</span>}
+              </Ticker>
+            </AnimatePresence>
+            {end && (
+              <motion.span className="compact-end" style={{ opacity: ink?.settle ?? 1 }}>
+                {end}
+              </motion.span>
+            )}
+          </>
         )}
       </button>
       {/* Keep folding separate from acknowledging or resolving a session. Between the list and

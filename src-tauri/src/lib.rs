@@ -6,6 +6,7 @@ pub mod normalize;
 mod platform;
 pub mod process;
 mod storage;
+mod test_control;
 
 use collector::Collector;
 use model::*;
@@ -55,7 +56,11 @@ fn save_preferences(
     }
     let mut c = lock(&state)?;
     if preferences.start_at_login != c.preferences.start_at_login {
-        platform::autostart(preferences.start_at_login)?;
+        platform::autostart(&app, preferences.start_at_login)?;
+    }
+    #[cfg(target_os = "macos")]
+    if preferences.hide_fullscreen != c.preferences.hide_fullscreen {
+        platform::float_over_menu_bar(&app, !preferences.hide_fullscreen);
     }
     platform::position_island(&app, &preferences)?;
     c.store.save_preferences(&preferences)?;
@@ -146,7 +151,7 @@ async fn open_panel(view: String, app: tauri::AppHandle) -> Result<(), String> {
     if !["settings", "history", "setup"].contains(&view.as_str()) {
         return Err("Unknown view".into());
     }
-    if let Some(window) = app.get_webview_window("island") {
+    if let Some(window) = platform::island(&app) {
         window.show().map_err(|e| e.to_string())?;
     }
     app.emit_to("island", "glim:view", view)
@@ -169,29 +174,54 @@ fn show_agent(id: String, state: tauri::State<Shared>) -> Result<bool, String> {
         process::is_open(agent) && process::show(agent.0, &project)
     }))
 }
+/// Opens the version an update just installed. On Windows, Setup has already closed Glim and
+/// opened the new one; on macOS the update replaces Glim.app, and Glim starts it here. A requested
+/// restart exits through the event loop first, so the single-instance lock is gone before the new
+/// Glim looks for it.
+#[tauri::command]
+fn relaunch(app: tauri::AppHandle) {
+    app.request_restart();
+}
+/// The screen the island hangs from: its notch on a Mac, if any, and the menu bar's height.
+#[tauri::command]
+fn screen_shape(app: tauri::AppHandle) -> platform::ScreenShape {
+    platform::screen_shape(&app)
+}
 #[tauri::command]
 fn open_releases() -> Result<(), String> {
-    let mut command = std::process::Command::new("rundll32.exe");
-    command.args([
-        "url.dll,FileProtocolHandler",
-        "https://github.com/jacobbalane/Glim/releases",
-    ]);
+    const RELEASES: &str = "https://github.com/jacobbalane/Glim/releases";
     #[cfg(windows)]
-    {
+    let mut command = {
         use std::os::windows::process::CommandExt;
+        let mut command = std::process::Command::new("rundll32.exe");
+        command.args(["url.dll,FileProtocolHandler", RELEASES]);
         command.creation_flags(0x08000000);
-    }
+        command
+    };
+    #[cfg(not(windows))]
+    let mut command = {
+        let mut command = std::process::Command::new("open");
+        command.arg(RELEASES);
+        command
+    };
     command.spawn().map_err(|e| e.to_string())?;
     Ok(())
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             queue_panel("settings".into(), app.clone());
         }))
         // Checks GitHub for a signed newer release, only when asked from Settings.
-        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_updater::Builder::new().build());
+    // Open at login on macOS is a LaunchAgent; Windows uses its Run key (platform::autostart).
+    #[cfg(target_os = "macos")]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None,
+    ));
+    builder
         .invoke_handler(tauri::generate_handler![
             snapshot,
             history,
@@ -205,11 +235,22 @@ pub fn run() {
             island_shape,
             open_panel,
             show_agent,
-            open_releases
+            screen_shape,
+            relaunch,
+            open_releases,
+            test_control::test_report,
+            test_control::test_pointer,
+            test_control::test_run_loop_sources
         ])
         .setup(|app| {
+            // A menu-bar app on macOS: no Dock icon, and the menu bar stays the agent's.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let root = connectors::data_dir();
             std::fs::create_dir_all(&root)?;
+            // Hooks call a copy of the helper that stays put when Glim.app moves or updates.
+            #[cfg(target_os = "macos")]
+            connectors::refresh_bridge();
             let store =
                 storage::Store::open(&root.join("usage.sqlite3")).map_err(std::io::Error::other)?;
             let connectors = [Provider::Claude, Provider::Codex]
@@ -226,7 +267,12 @@ pub fn run() {
             platform::position_island(app.handle(), &preferences).map_err(std::io::Error::other)?;
             platform::shape(app.handle(), 300, 34, None, Some(false), 0.0)
                 .map_err(std::io::Error::other)?;
-            if let Some(window) = app.get_webview_window("island") {
+            #[cfg(target_os = "macos")]
+            {
+                platform::float_over_menu_bar(app.handle(), !preferences.hide_fullscreen);
+                platform::follow_pointer(app.handle().clone());
+            }
+            if let Some(window) = platform::island(app.handle()) {
                 // The CSS surface owns every visible edge, including when the window loses focus.
                 #[cfg(windows)]
                 platform::windows_frame::install(window.hwnd()?.0 as _)
@@ -252,7 +298,6 @@ pub fn run() {
             }
             create_tray(app.handle())?;
             let (sender, receiver) = std::sync::mpsc::channel::<AgentEvent>();
-            #[cfg(windows)]
             {
                 let shared = shared.clone();
                 let handle = app.handle().clone();
@@ -269,6 +314,8 @@ pub fn run() {
                 });
             }
             start_collector(shared, receiver, app.handle().clone());
+            #[cfg(all(debug_assertions, unix))]
+            test_control::start(app.handle().clone());
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -298,7 +345,7 @@ fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
             "show" => {
-                if let Some(w) = app.get_webview_window("island") {
+                if let Some(w) = platform::island(app) {
                     let _ = w.show();
                 }
                 let _ = app.emit("glim:expand", ());
@@ -328,6 +375,15 @@ fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
                 queue_panel("settings".into(), tray.app_handle().clone());
             }
         });
+    #[cfg(target_os = "macos")]
+    {
+        tray = tray
+            .icon(tauri::image::Image::from_bytes(include_bytes!(
+                "../icons/tray-template.png"
+            ))?)
+            .icon_as_template(true);
+    }
+    #[cfg(not(target_os = "macos"))]
     if let Some(icon) = app.default_window_icon() {
         tray = tray.icon(icon.clone());
     }
@@ -381,7 +437,7 @@ fn start_collector(
                 let _ = platform::position_island(&app, &preferences);
                 let hidden = (preferences.idle_behavior == "hidden" && !active && !expanded)
                     || (preferences.hide_fullscreen && platform::fullscreen_over_island(&app));
-                if let Some(w) = app.get_webview_window("island") {
+                if let Some(w) = platform::island(&app) {
                     if hidden {
                         let _ = w.hide();
                     } else if !w.is_visible().unwrap_or(false) {

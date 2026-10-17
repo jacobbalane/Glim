@@ -30,6 +30,11 @@ jobs:
       - run: npm run test:ui
         env:
           GLIM_TEST_BROWSER: chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-results-windows
+          path: test-results/
       - run: node scripts/prepare-bridge.mjs
       - run: cargo test --manifest-path src-tauri/Cargo.toml
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
@@ -47,9 +52,81 @@ jobs:
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/nsis/*.sha256
+  # The Mac build runs on Apple Silicon and makes one app for Apple Silicon and Intel.
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npx playwright install chromium webkit
+      - run: npm run test:ui
+        env:
+          GLIM_TEST_BROWSER: chromium
+      - run: npm run test:ui
+        env:
+          GLIM_TEST_BROWSER: webkit
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ui-test-results-macos
+          path: test-results/
+      - run: node scripts/prepare-bridge.mjs
+      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      # The real app on a real Mac, driven through its debug-only test control.
+      - run: brew install cliclick
+      - name: macOS native smoke
+        run: |
+          cargo build --manifest-path src-tauri/Cargo.toml --bin glim --bin glim-bridge --features custom-protocol
+          node scripts/native-smoke-mac.mjs
+        timeout-minutes: 25
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-native-smoke
+          path: .cache/native-smoke-mac-*/screenshots/
+          # .cache is a hidden folder, which the upload skips by default.
+          include-hidden-files: true
+      - run: node scripts/prepare-bridge.mjs --release --target universal-apple-darwin
+      - run: npx tauri build --target universal-apple-darwin
+      # The updater installs the app from a tarball of Glim.app; people install from the .dmg.
+      - name: Updater archive and checksums
+        run: |
+          version=$(jq -r .version src-tauri/tauri.conf.json)
+          bundle=src-tauri/target/universal-apple-darwin/release/bundle
+          mkdir -p out
+          cp "$bundle"/dmg/*.dmg out/
+          tar -czf "out/Glim_${version}_universal.app.tar.gz" -C "$bundle/macos" Glim.app
+          cd out
+          for file in *; do shasum -a 256 "$file" > "$file.sha256"; done
+      # Installed from the .dmg, then updated from Settings to the next version.
+      - run: node scripts/install-smoke-mac.mjs out/*.dmg
+        timeout-minutes: 40
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-install-smoke
+          path: .cache/install-smoke-mac-*/screenshots/
+          include-hidden-files: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Glim-macos-universal
+          path: out/*
   draft-release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: windows
+    needs: [windows, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -57,10 +134,12 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      # The installers only, not the test screenshots.
       - uses: actions/download-artifact@v4
         with:
-          name: Glim-windows-x64
           path: artifacts
+          pattern: Glim-*
+          merge-multiple: true
       # Signs the installer for the in-app updater. The key is used only here, never in the job
       # that installs and runs the build's dependencies; without it the release stops.
       - name: Sign the update
@@ -68,20 +147,31 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          for exe in artifacts/*.exe; do npx --yes @tauri-apps/cli@2.12.1 signer sign "$exe"; done
+          for file in artifacts/*.exe artifacts/*.app.tar.gz; do
+            npx --yes @tauri-apps/cli@2.12.1 signer sign "$file"
+          done
       # What the updater reads from the latest release: the version, its installer and signature.
+      # Both Mac architectures install the same universal app.
       - name: Update manifest
         run: |
           exe=$(cd artifacts && ls *.exe)
+          app=$(cd artifacts && ls *.app.tar.gz)
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
           jq -n --arg version "${GITHUB_REF_NAME#v}" \
             --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg signature "$(cat "artifacts/$exe.sig")" \
-            --arg url "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/$exe" \
-            '{version: $version, pub_date: $date, platforms: {"windows-x86_64": {signature: $signature, url: $url}}}' \
+            --arg windows "$base/$exe" --arg windowsSignature "$(cat "artifacts/$exe.sig")" \
+            --arg mac "$base/$app" --arg macSignature "$(cat "artifacts/$app.sig")" \
+            '{version: $version, pub_date: $date, platforms: {
+              "windows-x86_64": {signature: $windowsSignature, url: $windows},
+              "darwin-aarch64": {signature: $macSignature, url: $mac},
+              "darwin-x86_64": {signature: $macSignature, url: $mac}}}' \
             > artifacts/latest.json
       - uses: actions/attest-build-provenance@v4
         with:
-          subject-path: artifacts/*.exe
+          subject-path: |
+            artifacts/*.exe
+            artifacts/*.dmg
+            artifacts/*.app.tar.gz
       - uses: softprops/action-gh-release@v2
         with:
           draft: true

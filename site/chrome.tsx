@@ -1,10 +1,90 @@
 // What every page of the site shares: the links in the top corners and the footer. `root` leads
 // from the page showing them back to the site's root: '' on the landing page, '../' below it.
+import { useEffect, useState, type ReactNode } from 'react';
 import { Download, Github } from 'lucide-react';
 import { Glim3D } from './Glim3D';
 
 export const REPO = 'https://github.com/jacobbalane/Glim';
 export const DOWNLOAD = `${REPO}/releases/latest`;
+
+export type System = 'macOS' | 'Windows';
+// The visitor's system picks the download. Phones and tablets get their maker's computer.
+export const SYSTEM: System = /Mac|iPhone|iPad/.test(navigator.userAgent) ? 'macOS' : 'Windows';
+export const OTHER: System = SYSTEM === 'macOS' ? 'Windows' : 'macOS';
+export const NEEDS: Record<System, string> = {
+  macOS: 'macOS 13 or later',
+  Windows: 'Windows 11, 64-bit',
+};
+const FILES: Record<System, RegExp> = { macOS: /_universal\.dmg$/, Windows: /_x64-setup\.exe$/ };
+let latest: Promise<{ name: string; browser_download_url: string }[]> | undefined;
+
+// The latest release's installer for a system, so Download starts the download. Until GitHub
+// answers, or if it can't, the link opens the release page.
+export function useDownload(system: System) {
+  const [href, setHref] = useState(DOWNLOAD);
+  useEffect(() => {
+    let live = true;
+    latest ??= fetch('https://api.github.com/repos/jacobbalane/Glim/releases/latest')
+      .then((response) => response.json())
+      .then((release) => release.assets ?? []);
+    latest.then(
+      (assets) => {
+        const file = assets.find((asset) => FILES[system].test(asset.name));
+        if (live && file) setHref(file.browser_download_url);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [system]);
+  return href;
+}
+
+// A link to a system's installer. The release page opens in a new tab; a file just downloads.
+export function DownloadLink({
+  system = SYSTEM,
+  className,
+  children,
+}: {
+  system?: System;
+  className?: string;
+  children: ReactNode;
+}) {
+  const href = useDownload(system);
+  const page = href === DOWNLOAD ? { target: '_blank', rel: 'noreferrer' } : {};
+  return (
+    <a className={className} href={href} {...page}>
+      {children}
+    </a>
+  );
+}
+
+// Picks the system a page shows its island or its steps for.
+export function SystemSwitch({
+  value,
+  onChange,
+  label,
+}: {
+  value: System;
+  onChange: (system: System) => void;
+  label: string;
+}) {
+  return (
+    <div className="pseg site-system" role="group" aria-label={label}>
+      {(['macOS', 'Windows'] as const).map((system) => (
+        <button
+          key={system}
+          type="button"
+          aria-pressed={value === system}
+          onClick={() => onChange(system)}
+        >
+          {system}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Brand({ root, className = '' }: { root: string; className?: string }) {
   return (
@@ -44,10 +124,10 @@ export function GetLinks() {
         <Github size={18} aria-hidden="true" />
         <span>GitHub</span>
       </a>
-      <a className="site-button site-button-small" href={DOWNLOAD} target="_blank" rel="noreferrer">
+      <DownloadLink className="site-button site-button-small">
         <Download size={16} strokeWidth={2.4} aria-hidden="true" />
         <span>Download</span>
-      </a>
+      </DownloadLink>
     </>
   );
 }
@@ -65,9 +145,8 @@ export function SiteFoot({ root }: { root: string }) {
         </div>
         <nav aria-label="Product">
           <b>Product</b>
-          <a href={DOWNLOAD} target="_blank" rel="noreferrer">
-            Download
-          </a>
+          <DownloadLink system="macOS">Download for macOS</DownloadLink>
+          <DownloadLink system="Windows">Download for Windows</DownloadLink>
           <a href={`${root}docs/`}>Docs</a>
           <a href={`${root}changelog/`}>Changelog</a>
           <a href={`${root}docs/#compatibility`}>Compatibility</a>

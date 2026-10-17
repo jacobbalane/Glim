@@ -2,11 +2,18 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
-## Unreleased
+## 0.2.0 (2026-10-17)
+
+Glim comes to the Mac.
 
 ### New
 
-- **Move the island.** Hold the preview or header for 350 ms, then drag left or right. It presses in slightly when picked up, carries on when thrown, and settles in the middle when let go near it. It stays at the top of the display and remembers its position. Alt + Left/Right also moves a focused preview.
+- **Glim for macOS.** macOS 13 or later, on Apple silicon and Intel. Open the disk image and drag Glim to Applications. It lives in the menu bar and stays out of the Dock. Apple has not notarized Glim yet, so the first time, open System Settings, Privacy & Security, and click Open Anyway.
+- **Around the notch.** On a MacBook, the island grows out of the notch: the agent on the left, its step and state on the right, and nothing where the camera is. The open island starts below the notch. On other screens it hangs from the top of the menu bar.
+- **Go to the agent, on a Mac.** The button brings the agent's app to the front, and in Terminal and iTerm2 it selects the agent's own tab. macOS asks once whether Glim may control them.
+- **Open at login**, **Hide over fullscreen apps** and updates from Settings work on the Mac as they do on Windows.
+- **The website** offers the download for your system, with the other one a click away, and shows the island around a notch for Mac visitors. The docs cover both systems.
+- **Move the island.** Hold the preview or header for 350 ms, then drag left or right. It presses in slightly when picked up, carries on when thrown, and settles in the middle when let go near it. It stays at the top of the display and remembers its position. On a MacBook with a notch it stays on the notch. Alt + Left/Right also moves a focused preview.
 - **Quick options.** Hidden by default; enable them in Settings, choose shortcuts and drag them into order. A small black circle buds from the island; click it and its icons slide out into one pill, each in its own circle. It opens to the left near the right screen edge. Centre horizontally glides the island back to the middle. Centre and Quit are also in Settings. Right click and Shift + F10 open enabled shortcuts. Hover labels no longer cover the collapsed preview.
 - **Notices fold away.** What waits for you no longer grows a long list under the island. A new notice shows as a row under the notch for a few seconds, then folds into a slim strip with one dot per waiting agent in its state's color. Click the strip to see the list again; Hide folds it at once.
 - **Limit reached.** When Claude Code or Codex stops at a usage limit, the agent says Limit reached in its own violet, instead of Your turn or Error. It interrupts once like any notice, says when the limit resets if the agent reported it, and stays until the agent works again.
@@ -20,6 +27,7 @@ What changed in each Glim release. Installers, checksums and build attestations 
 
 ### Fixed
 
+- A view opened again while it was still closing no longer comes back with what it had loaded before: Usage could show history from before it was cleared.
 - The island's corners no longer show a pale frame after you click another window.
 
 ## 0.1.3 (2026-10-12)

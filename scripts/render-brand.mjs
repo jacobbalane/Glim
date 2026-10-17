@@ -13,7 +13,7 @@ try {
     reducedMotion: 'reduce',
   });
   await page.goto(baseURL);
-  const sizes = [16, 24, 30, 32, 44, 48, 64, 71, 89, 107, 128, 142, 150, 256, 284, 310, 512];
+  const sizes = [16, 24, 30, 32, 44, 48, 64, 71, 89, 107, 128, 142, 150, 256, 284, 310, 512, 1024];
   const encoded = await page.evaluate(async (sizes) => {
     // Centering the canvas also centers the website's overhead light.
     document.body.replaceChildren();
@@ -92,7 +92,32 @@ try {
     'src-tauri/icons/icon.ico',
     Buffer.concat([header, ...frames.map((frame) => frame.bytes)]),
   );
-  console.log('Rendered the favicon, Windows PNG icons and seven-size ICO.');
+  // macOS ICNS: each size as PNG, under the type code Finder reads for it (the @2x codes reuse
+  // the larger renders).
+  const mac = [
+    ['icp4', 16],
+    ['icp5', 32],
+    ['ic11', 32],
+    ['icp6', 64],
+    ['ic12', 64],
+    ['ic07', 128],
+    ['ic08', 256],
+    ['ic13', 256],
+    ['ic09', 512],
+    ['ic14', 512],
+    ['ic10', 1024],
+  ].map(([type, size]) => {
+    const bytes = png(size);
+    const head = Buffer.alloc(8);
+    head.write(type, 0, 'ascii');
+    head.writeUInt32BE(bytes.length + 8, 4);
+    return Buffer.concat([head, bytes]);
+  });
+  const icnsHead = Buffer.alloc(8);
+  icnsHead.write('icns', 0, 'ascii');
+  icnsHead.writeUInt32BE(8 + mac.reduce((n, entry) => n + entry.length, 0), 4);
+  await writeFile('src-tauri/icons/icon.icns', Buffer.concat([icnsHead, ...mac]));
+  console.log('Rendered the favicon, Windows PNG icons, seven-size ICO and macOS ICNS.');
 } finally {
   await browser.close();
 }

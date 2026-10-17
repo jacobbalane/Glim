@@ -20,7 +20,7 @@ import {
   type MotionStyle,
   type MotionValue,
 } from 'motion/react';
-import { api, native, designScene } from './api';
+import { api, native, designScene, type Notch } from './api';
 import { Ellipsis, X } from 'lucide-react';
 import type { Tone } from './Character';
 import useIslandDrag from './useIslandDrag';
@@ -42,13 +42,20 @@ export const SideSlot = createContext<HTMLElement | null>(null);
 // An exiting view keeps its own layout; only the incoming view measures the surface.
 function ViewFrame({
   width,
-  compact,
+  least,
+  fit,
+  inset,
   reduced,
   onSize,
   children,
 }: {
   width: number;
-  compact: boolean;
+  // The least width of a view sized about the centre.
+  least: number;
+  // How the view is sized: by its content from the left edge, by its content about the centre
+  // (around a notch), or at the open island's width.
+  fit: 'start' | 'centre' | 'open';
+  inset: number;
   reduced: boolean;
   onSize: (width: number, height: number) => void;
   children: ReactNode;
@@ -58,23 +65,34 @@ function ViewFrame({
   const ref = useRef<HTMLDivElement>(null);
   const report = useRef(onSize);
   report.current = onSize;
+  const [own, setOwn] = useState(0);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!present || !el) return;
-    const send = () => report.current(el.offsetWidth, el.offsetHeight);
+    const send = () => {
+      setOwn(el.offsetWidth);
+      report.current(el.offsetWidth, el.offsetHeight + inset);
+    };
     send();
     const observer = new ResizeObserver(send);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [present]);
+  }, [present, inset]);
   return (
     <motion.div
       ref={ref}
       className="frame"
       style={
-        compact
+        fit === 'start'
           ? { width: 'max-content', minWidth: 144, maxWidth: width, left: 0 }
-          : { width, marginLeft: -width / 2 }
+          : fit === 'centre'
+            ? {
+                width: 'max-content',
+                minWidth: least,
+                maxWidth: width,
+                marginLeft: -Math.ceil(own / 2),
+              }
+            : { width, marginLeft: -width / 2, top: inset }
       }
       inert={!present}
       aria-hidden={!present || undefined}
@@ -92,7 +110,7 @@ function ViewFrame({
         transition: { duration: reduced ? 0.06 : 0.18, ease: [0.23, 1, 0.32, 1] },
       }}
     >
-      <motion.div style={{ opacity: ink ? (compact ? ink.compact : ink.expanded) : 1 }}>
+      <motion.div style={{ opacity: ink ? (fit === 'start' ? ink.compact : ink.expanded) : 1 }}>
         {children}
       </motion.div>
     </motion.div>
@@ -201,6 +219,7 @@ export default function IslandSurface({
   reduced,
   children,
   onError,
+  notch = null,
   position = 0.5,
   onPosition,
   options,
@@ -212,6 +231,9 @@ export default function IslandSurface({
   reduced: boolean;
   children: ReactNode;
   onError: (error: string) => void;
+  // A Mac's camera notch: the island takes its height when compact and keeps the open island's
+  // width, the camera between its two wings; open views start below it.
+  notch?: Notch | null;
   position?: number;
   onPosition?: (position: number) => Promise<void>;
   options?: QuickAction[];
@@ -233,7 +255,13 @@ export default function IslandSurface({
   optionsSizeRef.current = openOptionsSize;
   const menuId = useId();
   const glowId = `island-glow-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
-  const wide = Math.max(204, Math.min(440, viewportWidth - 40));
+  // Around a notch, each wing beside the camera is as wide as the wider of the two needs, from
+  // 96 to 220 pixels; the open island is at least 160 pixels either side, and never narrower.
+  const widest = notch ? Math.min(notch.width + 440, viewportWidth - 40) : 0;
+  const narrowest = notch ? Math.min(notch.width + 192, widest) : 0;
+  const winged = Math.min(widest, Math.max(narrowest, Math.ceil(fitted / 2) * 2));
+  const room = notch ? Math.max(440, notch.width + 320, winged) : 440;
+  const wide = Math.max(204, Math.min(room, viewportWidth - 40));
   const drag = useIslandDrag({
     position,
     limit: Math.max(0, (viewportWidth - wide) / 2 - 20),
@@ -246,16 +274,26 @@ export default function IslandSurface({
   const horizontal = useTransform(drag.x, (value) => Math.round(value));
   const [sideLeft, setSideLeft] = useState(false);
   const cap = Math.min(360, wide - 60);
-  const targetWidth = expanded ? wide : Math.max(144, Math.min(cap, fitted));
+  const targetWidth = expanded ? wide : notch ? winged : Math.max(144, Math.min(cap, fitted));
+  const floor = notch && !expanded ? notch.height : 34;
+  const inset = notch && expanded ? notch.height : 0;
   const width = useSpring(targetWidth, SURFACE_SPRING);
-  const height = useSpring(34, SURFACE_SPRING);
+  const height = useSpring(floor, SURFACE_SPRING);
   const target = useMotionValue(targetWidth);
   // Drawn in whole, even pixels: the surface stays centred on the same pixel as it resizes, so the
   // views inside never shift by a fraction, which made their icons jitter between two pixels.
   const even = useTransform(width, (v) => Math.round(v / 2) * 2);
-  const radius = useTransform(width, [cap, wide], [17, 24]);
-  const compactInk = useTransform(width, [cap, cap + 26], [1, 0]);
-  const expandedInk = useTransform(width, [wide - 30, wide], [0, 1]);
+  // Without a notch the island widens as it opens, and its corners and content follow the width.
+  // Around a notch only its height changes, so the corners follow that and both views stay inked.
+  const widthRadius = useTransform(width, [cap, wide], [17, 24]);
+  const notchHeight = notch?.height ?? 34;
+  const heightRadius = useTransform(height, [notchHeight, notchHeight + 80], [12, 24]);
+  const radius = notch ? heightRadius : widthRadius;
+  const widthCompact = useTransform(width, [cap, cap + 26], [1, 0]);
+  const widthExpanded = useTransform(width, [wide - 30, wide], [0, 1]);
+  const solid = useMotionValue(1);
+  const compactInk = notch ? solid : widthCompact;
+  const expandedInk = notch ? solid : widthExpanded;
   const settle = useTransform(() =>
     Math.max(0, Math.min(1, 1 - (Math.abs(width.get() - target.get()) - 3) / 16)),
   );
@@ -332,8 +370,8 @@ export default function IslandSurface({
   }, [targetWidth, reduced, width, target]);
   const onSize = (w: number, h: number) => {
     if (!expanded) setFitted(Math.ceil(w));
-    if (reduced) height.jump(Math.max(34, h));
-    else height.set(Math.max(34, h));
+    if (reduced) height.jump(Math.max(floor, h));
+    else height.set(Math.max(floor, h));
   };
   const synchronize = () => {
     if (scheduled.current !== null) return;
@@ -499,8 +537,10 @@ export default function IslandSurface({
               <AnimatePresence initial={false}>
                 <ViewFrame
                   key={viewKey}
-                  width={expanded ? wide : cap}
-                  compact={!expanded}
+                  width={expanded ? wide : notch ? widest : cap}
+                  least={narrowest}
+                  fit={expanded ? 'open' : notch ? 'centre' : 'start'}
+                  inset={inset}
                   reduced={reduced}
                   onSize={onSize}
                 >
