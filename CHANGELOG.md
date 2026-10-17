@@ -12,6 +12,16 @@ What changed in each Glim release. Installers, checksums and build attestations 
 - **Limit reached.** When Claude Code or Codex stops at a usage limit, the agent says Limit reached in its own violet, instead of Your turn or Error. It interrupts once like any notice, says when the limit resets if the agent reported it, and stays until the agent works again.
 - **A brighter glow, your way.** A waiting, finished or failed agent lights the island itself, so the glow shows on Windows too. Settings > Island > Glow sets it from Off to 100%.
 
+### Improved
+
+- **The full message** slides out beside the island, shows its own scrollbar and fades where there is more to read. Esc closes it before the island.
+- **The header stays put** while a long list of agents scrolls, so Usage and Settings are always in reach.
+- **Codex setup says what it did.** Glim offers to add Codex hooks, then shows Hooks added with the steps left to do in Codex, since only Codex can trust them. Each Glim hook is labeled "Glim - <event>" in Codex's `/hooks`.
+
+### Fixed
+
+- The island's corners no longer show a pale frame after you click another window.
+
 ## 0.1.3 (2026-10-12)
 
 Glim now shows only the agents you have open, one project per row.

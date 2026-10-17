@@ -53,7 +53,13 @@ import { Brand, DOWNLOAD, GetLinks, PageLinks, REPO, SiteFoot } from './chrome';
 // Public files, relative to wherever the site is served from.
 const ASSETS = import.meta.env.BASE_URL;
 const SEEN = T0 - 60_000;
-const PREFS: Preferences = { ...DEFAULT_PREFERENCES, onboardingComplete: true };
+// The site's island has quick options on, so a visitor can find them on hover.
+const PREFS: Preferences = {
+  ...DEFAULT_PREFERENCES,
+  onboardingComplete: true,
+  quickOptionsEnabled: true,
+  quickOptions: ['centre', 'pause', 'settings', 'usage'],
+};
 const motionOk = () => !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // A refresh starts at the top, not where the page was left; a link to a section still goes there.
@@ -269,7 +275,7 @@ const STATES: State[] = [
     title: 'Needs approval',
     tone: 'attention',
     mood: 'wide',
-    note: 'Amber, with light under the island. It counts how long it has waited.',
+    note: 'Amber, and the island glows. It counts how long it has waited.',
     build: (t) => [sample('demo-codex', t, { updatedAt: t - 128_000 })],
   },
   {
@@ -289,6 +295,19 @@ const STATES: State[] = [
         activity: 'error',
         detail: 'Agent reported an error',
         updatedAt: t - 14_000,
+      }),
+    ],
+  },
+  {
+    title: 'Limit reached',
+    tone: 'limit',
+    mood: 'half',
+    note: 'Violet when a usage limit stops the agent. It stays until the agent works again.',
+    build: (t) => [
+      sample('demo-claude', t, {
+        activity: 'limited',
+        detail: 'Usage limit reached',
+        updatedAt: t - 22_000,
       }),
     ],
   },
@@ -332,7 +351,7 @@ const STATES: State[] = [
     tone: 'brand',
     mood: 'scan',
     spectrum: true,
-    note: 'Working agents take turns, one dot each. What needs you waits below.',
+    note: 'Working agents take turns, one dot each. What needs you folds into a strip of dots below.',
     build: mixed,
   },
 ];
@@ -358,6 +377,8 @@ const FLOW: [number, Partial<Session> | 'work'][] = [
   [3600, 'work'],
   [4000, { activity: 'error', detail: 'Agent reported an error' }],
   [3600, 'work'],
+  [4000, { activity: 'limited', detail: 'Usage limit reached' }],
+  [3600, 'work'],
   [3600, { activity: 'interrupted', detail: 'Turn interrupted' }],
   [3600, 'work'],
   [4800, { activity: 'finished', detail: 'Session ended' }],
@@ -375,6 +396,7 @@ type SceneId =
   | 'details-glance'
   | 'details-details'
   | 'details-usage'
+  | 'details-settings'
   | 'privacy'
   | 'install'
   | 'close';
@@ -392,6 +414,7 @@ const SCENES: Record<SceneId, Scene> = {
   'details-glance': { group: 'details', build: detailed, view: 'glance' },
   'details-details': { group: 'details', build: detailed, view: 'details' },
   'details-usage': { group: 'details', build: detailed, view: 'usage' },
+  'details-settings': { group: 'details', build: detailed, view: 'settings' },
   privacy: { group: 'privacy', build: working },
   install: { group: 'install', build: () => [] },
   // A turn on a loop, as in the hero, so the notch keeps changing and the hello Glim with it.
@@ -413,6 +436,11 @@ const FACTS: { scene: SceneId; title: string; text: string }[] = [
     scene: 'details-usage',
     title: 'Thirty days of history',
     text: 'Daily charts by agent and project, kept on this PC.',
+  },
+  {
+    scene: 'details-settings',
+    title: 'Yours to place',
+    text: 'Hold the island to slide it along the top of the screen. Quick options are a hover away, and the glow goes from off to bright.',
   },
 ];
 
@@ -1255,6 +1283,12 @@ function Site() {
                   onClick={() => fire({ activity: 'error', detail: 'Agent reported an error' })}
                 >
                   Hit an error
+                </button>
+                <button
+                  disabled={!canFire}
+                  onClick={() => fire({ activity: 'limited', detail: 'Usage limit reached' })}
+                >
+                  Hit a limit
                 </button>
                 <button onClick={() => fire('work')}>Back to work</button>
               </div>

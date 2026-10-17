@@ -742,6 +742,16 @@ body {
   .site-pipe-ping,
   .site-pipe-packet,
   .site-pipe-leak
+)[data-tone='limit'] {
+  --dot: #a78bfa;
+}
+:is(
+  .site-card,
+  .site-states-glim,
+  .site-pipe-caption,
+  .site-pipe-ping,
+  .site-pipe-packet,
+  .site-pipe-leak
 )[data-tone='done'] {
   --dot: #3ddc84;
 }

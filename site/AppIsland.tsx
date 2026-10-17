@@ -9,6 +9,7 @@ import { groupSessions } from '../src/session-presentation';
 import useSessionPreview from '../src/useSessionPreview';
 import useNoticeFold from '../src/useNoticeFold';
 import useReducedMotion from '../src/useReducedMotion';
+import { quickAction, selectedQuickOptions } from '../src/quick-options';
 import type { Connector, Preferences, Session } from '../src/types';
 
 export type IslandView = 'compact' | 'glance' | 'details' | 'settings' | 'usage' | 'setup';
@@ -44,6 +45,8 @@ export function AppIsland({
   const [focusId, setFocusId] = useState<string | null>(null);
   const [listed, setListed] = useState(false);
   const [held, setHeld] = useState(false);
+  // Where along the top the visitor has moved the island; the page forgets it on reload.
+  const [position, setPosition] = useState(0.5);
   const [run, setRun] = useState(0);
   const expanded = view !== 'compact';
   const groups = groupSessions(sessions, seenAt);
@@ -169,6 +172,27 @@ export function AppIsland({
         glow={prefs.glow ?? 50}
         reduced={reduced}
         onError={() => {}}
+        position={position}
+        onPosition={async (next) => setPosition(next)}
+        // The app's quick options, acting on this page; Quit has nothing to quit here.
+        options={
+          prefs.quickOptionsEnabled
+            ? selectedQuickOptions(prefs).map((id) =>
+                quickAction(
+                  id,
+                  {
+                    centre: async () => setPosition(0.5),
+                    pause: async () => onPrefs({ ...prefs, paused: !prefs.paused }),
+                    settings: async () => onView('settings'),
+                    usage: async () => onView('usage'),
+                    setup: async () => onView('setup'),
+                    quit: undefined,
+                  }[id],
+                  prefs.paused,
+                ),
+              )
+            : undefined
+        }
       >
         {content}
       </IslandSurface>
