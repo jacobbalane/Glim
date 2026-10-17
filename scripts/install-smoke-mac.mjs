@@ -54,23 +54,6 @@ const launch = (app, env) =>
     env,
     stdio: ['ignore', output(), output()],
   });
-// Glim's windows as the window server sees them: where, how opaque, whether on screen. Read with
-// JavaScript for Automation, which needs no permission for this.
-function glimWindows() {
-  const script = `ObjC.import('CoreGraphics');
-    const all = ObjC.deepUnwrap($.CGWindowListCopyWindowInfo($.kCGWindowListOptionAll, 0)) || [];
-    JSON.stringify(all.filter((w) => /glim/i.test(w.kCGWindowOwnerName || '')).map((w) => ({
-      owner: w.kCGWindowOwnerName, pid: w.kCGWindowOwnerPID, layer: w.kCGWindowLayer,
-      alpha: w.kCGWindowAlpha, onscreen: w.kCGWindowIsOnscreen, bounds: w.kCGWindowBounds })));`;
-  try {
-    return execFileSync('osascript', ['-l', 'JavaScript', '-e', script], {
-      encoding: 'utf8',
-      timeout: 20000,
-    }).trim();
-  } catch (error) {
-    return `unavailable: ${error.message}`;
-  }
-}
 // Runs a hook the way an agent would: through the shell, with the command Glim installed.
 function hook(command, input, env) {
   const result = spawnSync('/bin/sh', ['-c', command], { env, input: JSON.stringify(input) });
@@ -138,10 +121,9 @@ try {
     readFileSync(helper).equals(readFileSync(join(app, 'Contents', 'MacOS', 'glim-bridge'))),
     "Hooks call the installed Glim's own helper.",
   );
-  // What the installed Glim shows on its first start, before any agent: onboarding.
+  // What the installed Glim shows on its first start, before any agent.
   await delay(3000);
   screencapture(join(shots, 'installed-start.png'));
-  console.log(`The installed Glim's windows: ${glimWindows()}`);
   const installedHook = JSON.parse(readFileSync(join(installed.home, '.claude', 'settings.json')))
     .hooks.Stop.flatMap((group) => group.hooks)
     .find((h) => h.command.includes('hook claude')).command;
@@ -160,8 +142,6 @@ try {
   }, 'an agent event through the installed helper');
   await delay(1000);
   screencapture(join(shots, 'installed.png'));
-  console.log(`The installed Glim's windows, with an agent: ${glimWindows()}`);
-  console.log(`Its output:\n${readFileSync(log, 'utf8').slice(-3000)}`);
   release.kill();
   console.log('The installed Glim runs and hears its agents through its own helper.');
 
@@ -305,7 +285,6 @@ try {
   );
   await delay(1000);
   screencapture(join(shots, 'updated.png'));
-  console.log(`The updated Glim's windows: ${glimWindows()}`);
   server.close();
   console.log('Glim 9.9.0 updated itself from Settings to 9.9.1 and kept its data.');
   console.log(`macOS install and update test passed. Screenshots: ${shots}`);
