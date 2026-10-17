@@ -32,13 +32,12 @@ pub fn test_pointer(app: tauri::AppHandle) -> serde_json::Value {
 }
 #[cfg(all(debug_assertions, target_os = "macos"))]
 fn pointer_state(app: &tauri::AppHandle) -> serde_json::Value {
-    use tauri::Manager;
     let passes = match crate::platform::POINTER.load(std::sync::atomic::Ordering::Relaxed) {
         1 => Some(true),
         2 => Some(false),
         _ => None,
     };
-    let window = app.get_webview_window("island");
+    let window = crate::platform::island(app);
     serde_json::json!({
         "passes": passes,
         "pointer": app.cursor_position().ok().map(|p| [p.x, p.y]),
@@ -53,11 +52,58 @@ fn pointer_state(app: &tauri::AppHandle) -> serde_json::Value {
     serde_json::json!({ "passes": null })
 }
 
+/// How many sources the main run loop holds (macOS debug builds). Each clone of a window's
+/// handle adds one that tao never removes (see platform::island); the smoke test checks that an
+/// idle Glim no longer adds them.
+#[tauri::command]
+pub fn test_run_loop_sources() -> Option<usize> {
+    run_loop_sources()
+}
+#[cfg(all(debug_assertions, target_os = "macos"))]
+fn run_loop_sources() -> Option<usize> {
+    use std::ffi::{c_char, c_void, CStr};
+    #[link(name = "CoreFoundation", kind = "framework")]
+    extern "C" {
+        fn CFRunLoopGetMain() -> *const c_void;
+        fn CFCopyDescription(cf: *const c_void) -> *const c_void;
+        fn CFStringGetLength(string: *const c_void) -> isize;
+        fn CFStringGetMaximumSizeForEncoding(length: isize, encoding: u32) -> isize;
+        fn CFStringGetCString(
+            string: *const c_void,
+            buffer: *mut c_char,
+            size: isize,
+            encoding: u32,
+        ) -> bool;
+        fn CFRelease(cf: *const c_void);
+    }
+    const UTF8: u32 = 0x0800_0100;
+    // The run loop's own description lists every source in each of its modes.
+    unsafe {
+        let description = CFCopyDescription(CFRunLoopGetMain());
+        if description.is_null() {
+            return None;
+        }
+        let size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(description), UTF8) + 1;
+        let mut buffer = vec![0 as c_char; size as usize];
+        let copied = CFStringGetCString(description, buffer.as_mut_ptr(), size, UTF8);
+        CFRelease(description);
+        copied.then(|| {
+            CStr::from_ptr(buffer.as_ptr())
+                .to_string_lossy()
+                .matches("<CFRunLoopSource ")
+                .count()
+        })
+    }
+}
+#[cfg(not(all(debug_assertions, target_os = "macos")))]
+fn run_loop_sources() -> Option<usize> {
+    None
+}
+
 #[cfg(all(debug_assertions, unix))]
 pub fn start(app: tauri::AppHandle) {
     use std::io::{Read, Write};
     use std::os::unix::fs::PermissionsExt;
-    use tauri::Manager;
     if std::env::var_os("GLIM_TEST_CONTROL").is_none() {
         return;
     }
@@ -88,7 +134,7 @@ pub fn start(app: tauri::AppHandle) {
                  .then(result => window.__TAURI_INTERNALS__.invoke('test_report',\
                        {{ id: {id}, result: JSON.stringify(result) }}))"
             );
-            let answer = match app.get_webview_window("island") {
+            let answer = match crate::platform::island(&app) {
                 Some(island) if island.eval(&wrapped).is_ok() => receiver
                     .recv_timeout(std::time::Duration::from_secs(30))
                     .unwrap_or_else(|_| r#"{"error":"No answer from the island"}"#.into()),

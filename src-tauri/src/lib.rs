@@ -151,7 +151,7 @@ async fn open_panel(view: String, app: tauri::AppHandle) -> Result<(), String> {
     if !["settings", "history", "setup"].contains(&view.as_str()) {
         return Err("Unknown view".into());
     }
-    if let Some(window) = app.get_webview_window("island") {
+    if let Some(window) = platform::island(&app) {
         window.show().map_err(|e| e.to_string())?;
     }
     app.emit_to("island", "glim:view", view)
@@ -239,7 +239,8 @@ pub fn run() {
             relaunch,
             open_releases,
             test_control::test_report,
-            test_control::test_pointer
+            test_control::test_pointer,
+            test_control::test_run_loop_sources
         ])
         .setup(|app| {
             // A menu-bar app on macOS: no Dock icon, and the menu bar stays the agent's.
@@ -271,7 +272,7 @@ pub fn run() {
                 platform::float_over_menu_bar(app.handle(), !preferences.hide_fullscreen);
                 platform::follow_pointer(app.handle().clone());
             }
-            if let Some(window) = app.get_webview_window("island") {
+            if let Some(window) = platform::island(app.handle()) {
                 // The CSS surface owns every visible edge, including when the window loses focus.
                 #[cfg(windows)]
                 platform::windows_frame::install(window.hwnd()?.0 as _)
@@ -344,7 +345,7 @@ fn create_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
             "show" => {
-                if let Some(w) = app.get_webview_window("island") {
+                if let Some(w) = platform::island(app) {
                     let _ = w.show();
                 }
                 let _ = app.emit("glim:expand", ());
@@ -436,7 +437,7 @@ fn start_collector(
                 let _ = platform::position_island(&app, &preferences);
                 let hidden = (preferences.idle_behavior == "hidden" && !active && !expanded)
                     || (preferences.hide_fullscreen && platform::fullscreen_over_island(&app));
-                if let Some(w) = app.get_webview_window("island") {
+                if let Some(w) = platform::island(&app) {
                     if hidden {
                         let _ = w.hide();
                     } else if !w.is_visible().unwrap_or(false) {

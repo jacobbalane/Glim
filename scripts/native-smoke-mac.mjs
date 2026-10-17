@@ -389,6 +389,17 @@ try {
     console.log(`Click-through not checked here: ${error.message}`);
   }
 
+  // An idle Glim adds no run-loop sources. Each clone of a window's handle used to add one that
+  // was never removed, 60 a second, until the main thread fell behind and stopped answering.
+  const sourcesBefore = await invoke('test_run_loop_sources');
+  await delay(10000);
+  const sourcesAfter = await invoke('test_run_loop_sources');
+  assert.ok(
+    sourcesAfter - sourcesBefore < 30,
+    `An idle Glim adds run-loop sources: ${sourcesBefore} became ${sourcesAfter} in 10 s.`,
+  );
+  console.log(`Run-loop sources steady while idle: ${sourcesBefore}, then ${sourcesAfter}.`);
+
   // The terminal closes without a goodbye: the session ends.
   agent.kill('SIGKILL');
   await until(

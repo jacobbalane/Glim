@@ -4,6 +4,18 @@ use tauri::{AppHandle, Manager, PhysicalPosition};
 #[cfg(windows)]
 pub mod windows_frame;
 
+/// The island's window, looked up once. On macOS each lookup clones the window's handles to the
+/// event loop, and tao (0.37.1) adds a run-loop source for every clone that it never removes:
+/// looked up 30 times a second, they piled up until the main thread stopped keeping up.
+pub fn island(app: &AppHandle) -> Option<&'static tauri::WebviewWindow> {
+    static ISLAND: std::sync::OnceLock<tauri::WebviewWindow> = std::sync::OnceLock::new();
+    if let Some(window) = ISLAND.get() {
+        return Some(window);
+    }
+    let window = app.get_webview_window("island")?;
+    Some(ISLAND.get_or_init(|| window))
+}
+
 #[derive(Default)]
 pub struct IslandShape(std::sync::Mutex<ShapeState>);
 
@@ -215,9 +227,7 @@ fn monitor_id(m: &tauri::Monitor) -> String {
     )
 }
 pub fn position_island(app: &AppHandle, prefs: &Preferences) -> Result<(), String> {
-    let window = app
-        .get_webview_window("island")
-        .ok_or("Island window not found")?;
+    let window = island(app).ok_or("Island window not found")?;
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
     let monitor = prefs
         .monitor
@@ -291,9 +301,7 @@ pub fn shape(
     focus: Option<bool>,
     offset: f64,
 ) -> Result<(), String> {
-    let window = app
-        .get_webview_window("island")
-        .ok_or("Island window not found")?;
+    let window = island(app).ok_or("Island window not found")?;
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
     let host_width = window.inner_size().map_err(|e| e.to_string())?.width;
     let geometry = RegionGeometry::new(width, height, scale, host_width, side, offset);
@@ -364,7 +372,7 @@ pub fn follow_pointer(app: AppHandle) {
         let mut passing = None;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(33));
-            let Some(window) = app.get_webview_window("island") else {
+            let Some(window) = island(&app) else {
                 continue;
             };
             let (Ok(pointer), Ok(origin)) = (app.cursor_position(), window.outer_position()) else {
@@ -395,9 +403,7 @@ pub fn follow_pointer(app: AppHandle) {
     });
 }
 pub fn dragging(app: &AppHandle, active: bool) -> Result<(), String> {
-    let window = app
-        .get_webview_window("island")
-        .ok_or("Island window not found")?;
+    let window = island(app).ok_or("Island window not found")?;
     let focusable = {
         let state = app.state::<IslandShape>();
         let mut state = state.0.lock().map_err(|e| e.to_string())?;
@@ -458,7 +464,7 @@ pub fn fullscreen_over_island(app: &AppHandle) -> bool {
             return false;
         }
         let monitor = MonitorFromWindow(foreground, MONITOR_DEFAULTTONEAREST);
-        let Some(island) = app.get_webview_window("island").and_then(|w| w.hwnd().ok()) else {
+        let Some(island) = island(app).and_then(|w| w.hwnd().ok()) else {
             return false;
         };
         if MonitorFromWindow(island.0 as _, MONITOR_DEFAULTTONEAREST) != monitor {
@@ -593,10 +599,7 @@ pub fn screen_shape(app: &AppHandle) -> ScreenShape {
         notch: None,
         bar: 24.,
     };
-    let Some(pointer) = app
-        .get_webview_window("island")
-        .and_then(|w| w.ns_window().ok())
-    else {
+    let Some(pointer) = island(app).and_then(|w| w.ns_window().ok()) else {
         return none;
     };
     // Tauri hands out the island's own NSWindow; this runs on the main thread (a sync command).
@@ -633,10 +636,7 @@ pub fn screen_shape(_: &AppHandle) -> ScreenShape {
 #[cfg(target_os = "macos")]
 pub fn float_over_menu_bar(app: &AppHandle, over_fullscreen: bool) {
     use objc2_app_kit::{NSStatusWindowLevel, NSWindow, NSWindowCollectionBehavior};
-    let Some(pointer) = app
-        .get_webview_window("island")
-        .and_then(|w| w.ns_window().ok())
-    else {
+    let Some(pointer) = island(app).and_then(|w| w.ns_window().ok()) else {
         return;
     };
     let window: &NSWindow = unsafe { &*pointer.cast() };
