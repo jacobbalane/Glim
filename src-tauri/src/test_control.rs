@@ -115,15 +115,29 @@ pub fn start(app: tauri::AppHandle) {
     let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
     std::thread::spawn(move || {
         let mut next = 0u64;
+        // Each step as it happens, stamped with the wall clock, for the smoke test's report.
+        let log = |step: String| {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|t| t.as_millis())
+                .unwrap_or_default();
+            eprintln!("test control: {now} {step}");
+        };
         for mut stream in listener.incoming().flatten() {
             let accepted = std::time::Instant::now();
+            log(format!("accepted #{}", next + 1));
             let mut script = String::new();
-            if stream.read_to_string(&mut script).is_err() {
+            if let Err(error) = stream.read_to_string(&mut script) {
+                log(format!("could not read #{}: {error}", next + 1));
                 continue;
             }
             let read = accepted.elapsed();
             next += 1;
             let id = next;
+            log(format!(
+                "read #{id} in {read:?}: {}",
+                script.trim().chars().take(60).collect::<String>()
+            ));
             let (sender, receiver) = std::sync::mpsc::channel();
             if let Ok(mut waiting) = pending().lock() {
                 waiting.insert(id, sender);
@@ -140,6 +154,7 @@ pub fn start(app: tauri::AppHandle) {
             let answer = match crate::platform::island(&app) {
                 Some(island) if island.eval(&wrapped).is_ok() => {
                     sent = Some(accepted.elapsed());
+                    log(format!("sent #{id} to the island"));
                     receiver
                         .recv_timeout(std::time::Duration::from_secs(30))
                         .unwrap_or_else(|_| r#"{"error":"No answer from the island"}"#.into())
@@ -147,17 +162,11 @@ pub fn start(app: tauri::AppHandle) {
                 _ => r#"{"error":"The island is not open"}"#.into(),
             };
             let written = stream.write_all(answer.as_bytes());
-            // Every script, stamped with the wall clock, for the smoke test's failure report.
-            eprintln!(
-                "test control: #{id} at {} took {:?} (read {read:?}, sent to the island {sent:?}, written {}): {}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|t| t.as_millis())
-                    .unwrap_or_default(),
+            log(format!(
+                "answered #{id} in {:?} (sent to the island {sent:?}, written {})",
                 accepted.elapsed(),
                 written.is_ok(),
-                script.trim().chars().take(60).collect::<String>(),
-            );
+            ));
         }
     });
 }

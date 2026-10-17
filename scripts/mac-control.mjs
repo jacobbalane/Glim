@@ -23,11 +23,16 @@ export function control(data) {
     new Promise((done, fail) => {
       const connection = connect(socket);
       const sent = Date.now();
+      // Whether the connection was made and the script fully sent, for a report of a stall.
+      let connected = 0;
+      let flushed = 0;
+      connection.on('connect', () => (connected = Date.now()));
+      connection.on('finish', () => (flushed = Date.now()));
       const timer = setTimeout(() => {
         connection.destroy();
         fail(
           new Error(
-            `No answer from Glim in 45 s (asked at ${sent}) to: ${script.trim().slice(0, 100)}`,
+            `No answer from Glim in 45 s (asked at ${sent}, connected at ${connected}, sent at ${flushed}) to: ${script.trim().slice(0, 100)}`,
           ),
         );
       }, 45000);
