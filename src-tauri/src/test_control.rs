@@ -102,7 +102,7 @@ fn run_loop_sources() -> Option<usize> {
 
 #[cfg(all(debug_assertions, unix))]
 pub fn start(app: tauri::AppHandle) {
-    use std::io::{Read, Write};
+    use std::io::{BufRead, Write};
     use std::os::unix::fs::PermissionsExt;
     if std::env::var_os("GLIM_TEST_CONTROL").is_none() {
         return;
@@ -126,11 +126,18 @@ pub fn start(app: tauri::AppHandle) {
         for mut stream in listener.incoming().flatten() {
             let accepted = std::time::Instant::now();
             log(format!("accepted #{}", next + 1));
-            let mut script = String::new();
-            if let Err(error) = stream.read_to_string(&mut script) {
+            // Each script ends with a NUL byte. Ending it by half-closing the connection does not
+            // hold on macOS: an end of stream sent just as Glim accepts can arrive only when the
+            // connection closes, which left Glim waiting on a script it already had.
+            let mut bytes = Vec::new();
+            if let Err(error) = std::io::BufReader::new(&stream).read_until(0, &mut bytes) {
                 log(format!("could not read #{}: {error}", next + 1));
                 continue;
             }
+            if bytes.last() == Some(&0) {
+                bytes.pop();
+            }
+            let script = String::from_utf8_lossy(&bytes).into_owned();
             let read = accepted.elapsed();
             next += 1;
             let id = next;

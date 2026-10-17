@@ -27,7 +27,6 @@ export function control(data) {
       let connected = 0;
       let flushed = 0;
       connection.on('connect', () => (connected = Date.now()));
-      connection.on('finish', () => (flushed = Date.now()));
       const timer = setTimeout(() => {
         connection.destroy();
         fail(
@@ -54,7 +53,9 @@ export function control(data) {
           fail(error);
         }
       });
-      connection.end(script);
+      // A NUL byte ends the script; the connection stays open for the answer (see
+      // test_control.rs on why half-closing it does not do).
+      connection.write(`${script}\0`, () => (flushed = Date.now()));
     });
   const invoke = (command, args = {}) =>
     run(
