@@ -4,7 +4,7 @@ import { useIsPresent } from 'motion/react';
 import useReducedMotion from './useReducedMotion';
 import type { Handle, Options } from './mascot-renderer';
 
-export type Tone = 'active' | 'attention' | 'error' | 'success' | 'done' | 'calm' | 'off';
+export type Tone = 'active' | 'attention' | 'error' | 'limit' | 'success' | 'done' | 'calm' | 'off';
 export type Mood = 'scan' | 'wide' | 'happy' | 'open' | 'cross' | 'half' | 'closed';
 
 /**

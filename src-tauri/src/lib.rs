@@ -50,6 +50,9 @@ fn save_preferences(
     {
         return Err("Invalid island position".into());
     }
+    if preferences.glow > 100 {
+        return Err("Invalid glow".into());
+    }
     let mut c = lock(&state)?;
     if preferences.start_at_login != c.preferences.start_at_login {
         platform::autostart(preferences.start_at_login)?;

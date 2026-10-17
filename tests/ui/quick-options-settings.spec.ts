@@ -116,8 +116,8 @@ test('empty selection hides the pill and six actions stay inside narrow previews
   );
   await page.setViewportSize({ width: 320, height: 800 });
   await openOptions(page);
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '248px');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '208px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const box = (await page.locator('.island-options-pill').boundingBox())!;
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(320);

@@ -25,6 +25,7 @@ export function rankSessions(sessions: Session[]) {
   const weight = {
     waiting: 0,
     error: 1,
+    limited: 1,
     working: 2,
     interrupted: 3,
     idle: 4,

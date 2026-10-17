@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { useReducedMotion } from 'motion/react';
 
-export type Tone = 'active' | 'attention' | 'error' | 'success' | 'done' | 'calm' | 'off';
+export type Tone = 'active' | 'attention' | 'error' | 'limit' | 'success' | 'done' | 'calm' | 'off';
 export type Mood = 'scan' | 'wide' | 'happy' | 'open' | 'cross' | 'half' | 'closed';
 
 /**
@@ -294,6 +294,7 @@ const MOODS: [string, Mood, Tone | 'brand'][] = [
   ['Needs you', 'wide', 'attention'],
   ['Your turn', 'happy', 'success'],
   ['Error', 'cross', 'error'],
+  ['Limit reached', 'half', 'limit'],
   ['Interrupted', 'half', 'calm'],
   ['Paused', 'closed', 'calm'],
 ];

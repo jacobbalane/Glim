@@ -17,10 +17,11 @@ import {
   useMotionValueEvent,
   useSpring,
   useTransform,
+  type MotionStyle,
   type MotionValue,
 } from 'motion/react';
 import { api, native, designScene } from './api';
-import { Ellipsis } from 'lucide-react';
+import { Ellipsis, X } from 'lucide-react';
 import type { Tone } from './Character';
 import useIslandDrag from './useIslandDrag';
 import IslandOptions from './IslandOptions';
@@ -28,6 +29,8 @@ import type { QuickAction } from './quick-options';
 
 export const SURFACE_SPRING = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 1 };
 const OPTIONS_HOVER_MS = 500;
+// Each control in the options pill is a circle this wide, two pixels from the next.
+const OPTION_SIZE = 28;
 export const SurfaceInk = createContext<{
   compact: MotionValue<number>;
   expanded: MotionValue<number>;
@@ -130,19 +133,33 @@ function FloatingOptions({
       aria-hidden={!present || undefined}
       style={{
         pointerEvents: present ? 'auto' : 'none',
+        originX: below ? 0.5 : left ? 1 : 0,
+        originY: below ? 0 : 0.5,
         ...(below ? { right: belowRight, top: belowTop } : {}),
       }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: reduced ? 0.06 : 0.15, ease: [0.23, 1, 0.32, 1] }}
+      // It buds from the island's edge and tucks back into it.
+      initial={{ opacity: 0, x: reduced ? 0 : left ? 10 : -10, scale: reduced ? 1 : 0.6 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: reduced ? 0 : left ? 10 : -10, scale: reduced ? 1 : 0.6 }}
+      transition={{
+        opacity: { duration: reduced ? 0.06 : 0.15, ease: [0.23, 1, 0.32, 1] },
+        default: { ...SURFACE_SPRING, stiffness: 520 },
+      }}
     >
       <motion.div
         className="island-options-pill"
         data-left={left}
         initial={false}
-        animate={{ width: open ? openSize : 32, height: 26 }}
-        transition={reduced ? { duration: 0 } : SURFACE_SPRING}
+        animate={{ width: open ? openSize : OPTION_SIZE, height: OPTION_SIZE }}
+        // Opening follows the island's spring; closing is quicker, so the pill never lingers
+        // empty after its icons have gone.
+        transition={
+          reduced
+            ? { duration: 0 }
+            : open
+              ? SURFACE_SPRING
+              : { duration: 0.2, ease: [0.23, 1, 0.32, 1] }
+        }
       >
         <motion.button
           className="island-options-button"
@@ -151,9 +168,25 @@ function FloatingOptions({
           aria-expanded={open}
           aria-controls={open ? menuId : undefined}
           onClick={onOpen}
-          whileTap={reduced ? undefined : { scale: 0.94 }}
+          whileTap={reduced ? undefined : { scale: 0.92 }}
         >
-          <Ellipsis size={14} aria-hidden="true" />
+          {/* Open, the dots turn into a close mark. */}
+          <AnimatePresence initial={false} mode="popLayout">
+            <motion.span
+              key={open ? 'close' : 'more'}
+              className="island-options-glyph"
+              initial={{ opacity: 0, rotate: reduced ? 0 : open ? -90 : 90, scale: 0.6 }}
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: reduced ? 0 : open ? 90 : -90, scale: 0.6 }}
+              transition={{ duration: reduced ? 0.06 : 0.18, ease: [0.23, 1, 0.32, 1] }}
+            >
+              {open ? (
+                <X size={14} aria-hidden="true" />
+              ) : (
+                <Ellipsis size={14} aria-hidden="true" />
+              )}
+            </motion.span>
+          </AnimatePresence>
         </motion.button>
         {children}
       </motion.div>
@@ -171,6 +204,7 @@ export default function IslandSurface({
   position = 0.5,
   onPosition,
   options,
+  glow = 50,
 }: {
   expanded: boolean;
   viewKey: string;
@@ -181,6 +215,8 @@ export default function IslandSurface({
   position?: number;
   onPosition?: (position: number) => Promise<void>;
   options?: QuickAction[];
+  // The Glow setting, 0 (none) to 100.
+  glow?: number;
 }) {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const [fitted, setFitted] = useState(300);
@@ -192,10 +228,11 @@ export default function IslandSurface({
   const [belowRight, setBelowRight] = useState(0);
   const [belowTop, setBelowTop] = useState(0);
   const hasOptions = !!options?.length;
-  const openOptionsSize = 32 + (options?.length ?? 0) * 36;
+  const openOptionsSize = OPTION_SIZE + (options?.length ?? 0) * (OPTION_SIZE + 2);
   const optionsSizeRef = useRef(openOptionsSize);
   optionsSizeRef.current = openOptionsSize;
   const menuId = useId();
+  const glowId = `island-glow-${useId().replace(/[^a-zA-Z0-9-]/g, '')}`;
   const wide = Math.max(204, Math.min(440, viewportWidth - 40));
   const drag = useIslandDrag({
     position,
@@ -237,6 +274,7 @@ export default function IslandSurface({
   slotRef.current = slot;
   const [optionsSlot, setOptionsSlot] = useState<HTMLDivElement | null>(null);
   const optionsRef = useRef(optionsSlot);
+  const shellRef = useRef<HTMLDivElement>(null);
   optionsRef.current = optionsSlot;
   const showOptions =
     hasOptions && !drag.dragging && (optionsOpen || (!expanded && (hoverReady || focused)));
@@ -331,8 +369,26 @@ export default function IslandSurface({
       if (designScene)
         window.parent.postMessage({ type: 'glim:preview:size', height: h }, location.origin);
       if (!native) return;
-      const panel = slotRef.current?.firstElementChild?.getBoundingClientRect();
-      const floating = optionsRef.current?.getBoundingClientRect();
+      // Where the side panel or the options come to rest, not where an entrance has them now:
+      // a transform never reshapes the window again, so its pointer region must not follow one.
+      const resting = (el: Element | null | undefined) => {
+        if (!(el instanceof HTMLElement) || !shellRef.current) return el?.getBoundingClientRect();
+        let x = 0,
+          y = 0,
+          node: HTMLElement | null = el;
+        while (node && node !== shellRef.current) {
+          x += node.offsetLeft;
+          y += node.offsetTop;
+          node = node.offsetParent as HTMLElement | null;
+        }
+        if (!node) return el.getBoundingClientRect();
+        const shell = shellRef.current.getBoundingClientRect();
+        const left = shell.left + x,
+          top = shell.top + y;
+        return { left, top, right: left + el.offsetWidth, bottom: top + el.offsetHeight };
+      };
+      const panel = resting(slotRef.current?.firstElementChild);
+      const floating = resting(optionsRef.current);
       const bounds = panel ?? floating;
       const side = bounds
         ? {
@@ -374,13 +430,25 @@ export default function IslandSurface({
   );
   return (
     <motion.div
+      ref={shellRef}
       className="gl shell island-shell"
       data-tone={tone}
       data-compact={!expanded}
       data-testid="island"
       data-expanded={expanded}
       data-dragging={drag.dragging}
-      style={{ width: even, height, x: horizontal }}
+      data-glow={glow === 0 ? 'off' : undefined}
+      style={
+        {
+          width: even,
+          height,
+          x: horizontal,
+          scale: drag.scale,
+          originY: 0,
+          '--glow-level': glow / 100,
+          '--glow-filter': `url(#${glowId})`,
+        } as MotionStyle
+      }
       {...drag.bindings}
       onPointerEnter={(event) => event.pointerType === 'mouse' && setHovered(true)}
       onPointerLeave={() => setHovered(false)}
@@ -391,6 +459,33 @@ export default function IslandSurface({
         if (!event.currentTarget.contains(event.relatedTarget as Node)) setFocused(false);
       }}
     >
+      {/* The light inside the island follows its whole outline as one shape, the shoulders'
+          curves included: everything outside it, blurred inwards and kept inside it, then added
+          to the island like light. The screen edge above counts as inside, so it never lights. */}
+      <svg className="island-glow-defs" aria-hidden="true" focusable="false" width="0" height="0">
+        <filter
+          id={glowId}
+          x="-20%"
+          y="-20%"
+          width="140%"
+          height="160%"
+          colorInterpolationFilters="sRGB"
+        >
+          <feFlood x="-4000" y="-4000" width="8000" height="4000" result="screen-edge" />
+          <feMerge result="solid">
+            <feMergeNode in="SourceAlpha" />
+            <feMergeNode in="screen-edge" />
+          </feMerge>
+          <feComponentTransfer in="solid" result="outside">
+            <feFuncA type="table" tableValues="1 0" />
+          </feComponentTransfer>
+          <feGaussianBlur in="outside" stdDeviation={2 + (glow / 100) * 8} result="soft" />
+          <feFlood className="island-glow-light" result="light" />
+          <feComposite in="light" in2="soft" operator="in" result="rim" />
+          <feComposite in="rim" in2="SourceAlpha" operator="in" result="inside" />
+          <feBlend in="inside" in2="SourceGraphic" mode="screen" />
+        </filter>
+      </svg>
       <div className="island-body">
         <span className="shoulder l" aria-hidden="true" />
         <span className="shoulder r" aria-hidden="true" />

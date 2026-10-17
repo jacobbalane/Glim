@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { settledBox } from './settle';
 
 const island = (page: Page) => page.getByTestId('island');
 const compact = (page: Page) => page.getByRole('button', { name: /^Glim:/ });
@@ -29,7 +30,7 @@ test('the options button reveals icons in the same pill without changing the not
   await gotoWithOptions(page);
   await expect(compact(page)).toBeVisible();
   await expect(page.locator('.frame:not([aria-hidden])')).toHaveCSS('opacity', '1');
-  const before = (await island(page).boundingBox())!;
+  const before = await settledBox(island(page));
   await openOptions(page);
   await expect(trigger(page)).toHaveAttribute('aria-expanded', 'true');
   await expect(island(page)).toHaveAttribute('data-expanded', 'false');
@@ -38,11 +39,13 @@ test('the options button reveals icons in the same pill without changing the not
   await expect(options(page).getByRole('menuitem', { name: 'Quit Glim' })).toBeDisabled();
   await expect(page.locator('.frame[aria-hidden]')).toHaveCount(0);
   const after = (await island(page).boundingBox())!;
-  expect(after.width).toBe(before.width);
+  // The island still fits its own text, which the sample sessions keep updating.
+  const text = (await page.locator('.frame:not([aria-hidden])').boundingBox())!;
+  expect(Math.abs(after.width - text.width)).toBeLessThanOrEqual(2);
   // The initial spring can still settle by a fraction of a screen pixel.
   expect(after.height).toBeCloseTo(before.height, 0);
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '88px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const button = (await trigger(page).boundingBox())!;
   const menu = (await options(page).boundingBox())!;
   expect(menu.y).toBeCloseTo(button.y, 0);
@@ -119,7 +122,7 @@ test('a single click during centring still opens and lets the return to centre f
   await page.evaluate("import('/src/api.ts').then(({ api }) => api.islandPosition(0.9))");
   await expect.poll(() => centre(page)).toBeCloseTo(1104, 0);
   await compact(page).click({ button: 'right' });
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '88px');
   await page.clock.pauseAt(new Date(Date.now() + 100));
   const action = (await options(page)
     .getByRole('menuitem', { name: 'Centre horizontally' })
@@ -146,7 +149,7 @@ test('a long press interrupts centring and release keeps the newly dragged posit
   await page.evaluate("import('/src/api.ts').then(({ api }) => api.islandPosition(0.9))");
   await expect.poll(() => centre(page)).toBeCloseTo(1104, 0);
   await compact(page).click({ button: 'right' });
-  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '104px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('width', '88px');
   await page.clock.pauseAt(new Date(Date.now() + 100));
   const action = (await options(page)
     .getByRole('menuitem', { name: 'Centre horizontally' })
@@ -191,7 +194,7 @@ test('hover stays continuous across the gap, hides on leaving and supports keybo
   await gotoWithOptions(page);
   await expect(trigger(page)).toHaveCount(0);
   await compact(page).hover();
-  const before = (await island(page).boundingBox())!;
+  const before = await settledBox(island(page));
   await expect(trigger(page)).toBeVisible();
   await expect
     .poll(async () => {
@@ -201,8 +204,10 @@ test('hover stays continuous across the gap, hides on leaving and supports keybo
     })
     .toBeCloseTo(4, 0);
   const settled = (await trigger(page).boundingBox())!;
-  expect(settled.y).toBeCloseTo(4, 0);
-  expect(settled.y + settled.height).toBeLessThanOrEqual(30.5);
+  // A 28-pixel circle centred on the 34-pixel island.
+  expect(settled.y).toBeCloseTo(3, 0);
+  expect(settled.width).toBeCloseTo(settled.height, 0);
+  expect(settled.y + settled.height).toBeLessThanOrEqual(31.5);
   expect((await island(page).boundingBox())!.width).toBe(before.width);
   await page.mouse.move(before.x + before.width - 8, 17);
   await page.mouse.move(settled.x + settled.width / 2, 17, { steps: 12 });
@@ -255,6 +260,8 @@ test('double click no longer opens options, and the hover control stays hidden d
   await expect(island(page)).toHaveAttribute('data-dragging', 'true');
   await expect(trigger(page)).toHaveCount(0);
   await page.mouse.move(start.x + start.width / 2 + 100, 16, { steps: 5 });
+  // Let go once still, so it stays where it was placed rather than being thrown.
+  await page.waitForTimeout(120);
   await page.mouse.up();
   await expect(island(page)).toHaveAttribute('data-expanded', 'false');
   await expect.poll(() => centre(page)).toBeCloseTo(820, 0);
@@ -272,7 +279,7 @@ test('the floating button stays on screen at the right edge and in a narrow prev
   expect(button.x + button.width).toBeLessThanOrEqual(1440);
   await trigger(page).click();
   await expect(options(page)).toHaveAttribute('aria-orientation', 'horizontal');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const edge = (await options(page).boundingBox())!;
   expect(edge.x + edge.width).toBeLessThanOrEqual(1440);
   await page.keyboard.press('Escape');
@@ -284,7 +291,7 @@ test('the floating button stays on screen at the right edge and in a narrow prev
   await trigger(page).click();
   await expect(options(page)).toBeVisible();
   await expect(options(page)).toHaveAttribute('aria-orientation', 'horizontal');
-  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '26px');
+  await expect(page.locator('.island-options-pill')).toHaveCSS('height', '28px');
   const menu = (await options(page).boundingBox())!;
   expect(menu.x).toBeGreaterThanOrEqual(0);
   expect(menu.x + menu.width).toBeLessThanOrEqual(320);

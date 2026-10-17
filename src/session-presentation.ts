@@ -36,6 +36,9 @@ export function lookOf(s: Session, seenAt: number): Look {
       };
     case 'error':
       return { label: 'Error', tone: 'error', mood: 'cross', rank: 1 };
+    // A usage limit stopped it: not an error, and not the person's turn either.
+    case 'limited':
+      return { label: 'Limit reached', tone: 'limit', mood: 'half', rank: 1.5 };
     case 'idle':
       // A handed-back turn stays teal until the island is opened, then settles.
       return s.updatedAt > seenAt && s.detail !== FRESH
@@ -126,13 +129,13 @@ export const PREVIEW_INTERVAL = 6000;
 const DONE_WINDOW = 10 * 60 * 1000;
 // Blocked and failed agents hold the notch longest; a stopped turn barely interrupts.
 export function holdOf(s: Session) {
-  if (s.activity === 'waiting' || s.activity === 'error') return 7000;
+  if (s.activity === 'waiting' || s.activity === 'error' || s.activity === 'limited') return 7000;
   return s.activity === 'interrupted' ? 3500 : 5000;
 }
 // Anything that is not working and worth knowing. Finished turns stop being news once seen.
 export function isNotice(g: Group, seenAt: number, now: number) {
   const s = g.session;
-  if (s.activity === 'waiting' || s.activity === 'error') return true;
+  if (s.activity === 'waiting' || s.activity === 'error' || s.activity === 'limited') return true;
   return attentionKind(s, now, seenAt) !== null;
 }
 
@@ -182,7 +185,8 @@ export function plural(n: number, word: string) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-export type Attention = 'approval' | 'answer' | 'attention' | 'done' | 'error' | 'interrupted';
+export type Attention =
+  'approval' | 'answer' | 'attention' | 'done' | 'error' | 'limit' | 'interrupted';
 export function attentionKind(s: Session, now: number, seenAt = -Infinity): Attention | null {
   if (s.activity === 'waiting')
     return /answer|question|input/i.test(s.detail)
@@ -191,6 +195,7 @@ export function attentionKind(s: Session, now: number, seenAt = -Infinity): Atte
         ? 'attention'
         : 'approval';
   if (s.activity === 'error') return 'error';
+  if (s.activity === 'limited') return 'limit';
   if (s.updatedAt <= seenAt) return null;
   if (s.activity === 'interrupted') return 'interrupted';
   if (s.activity === 'idle' && s.detail === FRESH) return null;

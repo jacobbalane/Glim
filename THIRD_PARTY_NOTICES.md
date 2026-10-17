@@ -10,10 +10,6 @@ The local 3D Glim renderer uses Three.js, copyright 2010–2026 three.js authors
 
 The interface uses the locally bundled [Manrope](https://github.com/sharanda/manrope) variable font by Mikhail Sharanda. The font is licensed under the SIL Open Font License 1.1. Its license is included in `public/fonts/Manrope-LICENSE.txt` and ships in the Windows package under `licenses/manrope.txt`.
 
-## Google Material icon
-
-The horizontal centring icon in `src/HorizontalCentreIcon.tsx` uses Google's unmodified [Align Horizontal Center](https://github.com/google/material-design-icons/blob/master/src/editor/align_horizontal_center/materialicons/24px.svg) artwork from Material Design Icons, under the Apache License 2.0. The license is included in `public/licenses/material-icons.txt` and ships under `licenses/material-icons.txt`.
-
 ## Tauri installer template
 
 The Windows installer template `src-tauri/installer/installer.nsi` and its strings `src-tauri/installer/english.nsh` are adapted from the NSIS template and English strings in [tauri-bundler](https://github.com/tauri-apps/tauri/tree/tauri-cli-v2.12.1/crates/tauri-bundler/src/bundle/windows/nsis), copyright Tauri Apps Contributors, under the MIT license in `src-tauri/installer/LICENSE.tauri`. Glim's changes are marked `; Glim:` in the template.

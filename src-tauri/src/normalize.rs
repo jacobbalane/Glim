@@ -64,6 +64,17 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
         _ => None,
     }
     .map(|text| preview(&text));
+    // A turn a usage limit stopped is its own state, not a handed-back turn or an error. Claude
+    // Code names the failure in StopFailure, or says so as the turn's last words.
+    let event = match event {
+        "StopFailure" => match str_field(&value, "error_type") {
+            Some("rate_limit") => "LimitReached",
+            Some("billing_error") => "SpendLimitReached",
+            _ => event,
+        },
+        "Stop" if message.as_deref().is_some_and(is_limit_notice) => "LimitReached",
+        _ => event,
+    };
     let status_data = statusline.then(|| {
         let mut limits = serde_json::Map::new();
         for key in ["five_hour", "seven_day", "spend_limit"] { if let Some(v) = value.get("rate_limits").and_then(|v| v.get(key)) { limits.insert(key.into(), json!({ "used_percentage": v.get("used_percentage"), "resets_at": v.get("resets_at") })); } }
@@ -191,6 +202,14 @@ pub fn apply_hook(s: &mut Session, e: &AgentEvent) {
             s.activity = "error".into();
             s.detail = "Agent reported an error".into();
         }
+        "LimitReached" => {
+            s.activity = "limited".into();
+            s.detail = "Usage limit reached".into();
+        }
+        "SpendLimitReached" => {
+            s.activity = "limited".into();
+            s.detail = "Spend limit reached".into();
+        }
         "PreCompact" => {
             s.activity = "working".into();
             s.detail = "Compacting context".into();
@@ -213,6 +232,24 @@ pub fn apply_hook(s: &mut Session, e: &AgentEvent) {
             s.tasks.push(task.clone());
         }
     }
+}
+/// How a failed Codex turn reads: Limit reached when its usage limit stopped it, else an error.
+fn codex_failure(error: &Value) -> (String, String) {
+    if str_field(error, "codex_error_info") == Some("usage_limit_exceeded") {
+        ("limited".into(), "Usage limit reached".into())
+    } else {
+        ("error".into(), "Agent reported an error".into())
+    }
+}
+/// Claude Code's own words when a usage limit ends a turn: "You've hit your limit · resets 3pm",
+/// "5-hour limit reached ∙ resets 3pm", "Claude usage limit reached". Only short messages count,
+/// so an agent's long reply that mentions a limit never reads as one.
+fn is_limit_notice(text: &str) -> bool {
+    let text = text.to_lowercase();
+    text.len() <= 240
+        && ["limit reached", "hit your limit", "hit your usage limit"]
+            .iter()
+            .any(|phrase| text.contains(phrase))
 }
 fn tool_category(tool: &str) -> String {
     let t = tool.to_lowercase();
@@ -318,21 +355,16 @@ pub fn parse_record(provider: Provider, v: &Value) -> ParsedRecord {
                     result.activity = Some(("working".into(), "Thinking".into()))
                 }
                 (Some("event_msg"), Some("task_complete")) => {
-                    // A turn that failed (a usage limit, a network error) ends with an error, not a
-                    // handed-back turn. Only the error kind is read, never its message.
+                    // A turn that failed ends with an error, or with Limit reached when the usage
+                    // limit stopped it, never as a handed-back turn. Only the error kind is read,
+                    // never its message.
                     result.activity = Some(match payload.get("error").filter(|e| !e.is_null()) {
-                        Some(error) => (
-                            "error".into(),
-                            if str_field(error, "codex_error_info") == Some("usage_limit_exceeded")
-                            {
-                                "Usage limit reached"
-                            } else {
-                                "Agent reported an error"
-                            }
-                            .into(),
-                        ),
+                        Some(error) => codex_failure(error),
                         None => ("idle".into(), "Turn finished".into()),
                     })
+                }
+                (Some("event_msg"), Some("error")) => {
+                    result.activity = Some(codex_failure(payload));
                 }
                 (Some("event_msg"), Some("turn_aborted")) => {
                     result.activity = Some(("interrupted".into(), "Turn interrupted".into()))
@@ -480,8 +512,67 @@ mod tests {
         let limit = done(
             json!({"message":"You've hit your usage limit.","codex_error_info":"usage_limit_exceeded"}),
         );
-        assert_eq!(limit, ("error".into(), "Usage limit reached".into()));
+        assert_eq!(limit, ("limited".into(), "Usage limit reached".into()));
         assert_eq!(done(json!({"message":"stream disconnected"})).0, "error");
+        // The same failure as an error event of its own.
+        let event = parse_record(
+            Provider::Codex,
+            &json!({"type":"event_msg","payload":{"type":"error","message":"You've hit your usage limit.","codex_error_info":"usage_limit_exceeded"}}),
+        )
+        .activity
+        .unwrap();
+        assert_eq!(event, ("limited".into(), "Usage limit reached".into()));
+    }
+    #[test]
+    fn a_claude_turn_stopped_by_a_limit_reads_limit_reached_not_your_turn() {
+        let after = |payload: Value| {
+            let mut session = Session::new(Provider::Claude, "limit".into());
+            let mut input = json!({"session_id":"limit"});
+            input
+                .as_object_mut()
+                .unwrap()
+                .extend(payload.as_object().unwrap().clone());
+            apply_hook(
+                &mut session,
+                &hook_event(Provider::Claude, input, false).unwrap(),
+            );
+            (session.activity, session.detail)
+        };
+        let limited = ("limited".to_string(), "Usage limit reached".to_string());
+        assert_eq!(
+            after(json!({"hook_event_name":"StopFailure","error_type":"rate_limit"})),
+            limited
+        );
+        assert_eq!(
+            after(json!({"hook_event_name":"StopFailure","error_type":"billing_error"})),
+            ("limited".to_string(), "Spend limit reached".to_string())
+        );
+        assert_eq!(
+            after(json!({"hook_event_name":"StopFailure","error_type":"overloaded"})).0,
+            "error"
+        );
+        for words in [
+            "You've hit your limit · resets 3pm (Europe/London)",
+            "5-hour limit reached ∙ resets 3pm",
+            "Claude usage limit reached. Your limit will reset at 5pm.",
+        ] {
+            assert_eq!(
+                after(json!({"hook_event_name":"Stop","last_assistant_message":words})),
+                limited,
+                "{words}"
+            );
+        }
+        // An ordinary reply, even one about limits, is still the person's turn.
+        let long = format!(
+            "I added a guard for when the rate limit reached zero. {}",
+            "More. ".repeat(40)
+        );
+        for words in ["Done. The tests pass.", long.as_str()] {
+            assert_eq!(
+                after(json!({"hook_event_name":"Stop","last_assistant_message":words})).0,
+                "idle"
+            );
+        }
     }
     #[test]
     fn questions_wait_for_an_answer_then_resume() {

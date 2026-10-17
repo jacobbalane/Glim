@@ -6,8 +6,21 @@ What changed in each Glim release. Installers, checksums and build attestations 
 
 ### New
 
-- **Move the island.** Hold the preview or header for 350 ms, then drag left or right. It stays at the top of the display and remembers its position. Alt + Left/Right also moves a focused preview.
-- **Quick options.** Hidden by default; enable them in Settings, choose shortcuts and drag them into order. Icons slide into a flat black, 26-pixel-high pill with extra horizontal space. It opens to the left near the right screen edge. Centre horizontally uses Google's Material alignment icon and smoothly glides back to the middle. Centre and Quit are also in Settings. Right click and Shift + F10 open enabled shortcuts. Hover labels no longer cover the collapsed preview.
+- **Move the island.** Hold the preview or header for 350 ms, then drag left or right. It presses in slightly when picked up, carries on when thrown, and settles in the middle when let go near it. It stays at the top of the display and remembers its position. Alt + Left/Right also moves a focused preview.
+- **Quick options.** Hidden by default; enable them in Settings, choose shortcuts and drag them into order. A small black circle buds from the island; click it and its icons slide out into one pill, each in its own circle. It opens to the left near the right screen edge. Centre horizontally glides the island back to the middle. Centre and Quit are also in Settings. Right click and Shift + F10 open enabled shortcuts. Hover labels no longer cover the collapsed preview.
+- **Notices fold away.** What waits for you no longer grows a long list under the island. A new notice shows as a row under the notch for a few seconds, then folds into a slim strip with one dot per waiting agent in its state's color. Click the strip to see the list again; Hide folds it at once.
+- **Limit reached.** When Claude Code or Codex stops at a usage limit, the agent says Limit reached in its own violet, instead of Your turn or Error. It interrupts once like any notice, says when the limit resets if the agent reported it, and stays until the agent works again.
+- **A brighter glow, your way.** A waiting, finished or failed agent lights the island itself, so the glow shows on Windows too. Settings > Island > Glow sets it from Off to 100%.
+
+### Improved
+
+- **The full message** slides out beside the island, shows its own scrollbar and fades where there is more to read. Esc closes it before the island.
+- **The header stays put** while a long list of agents scrolls, so Usage and Settings are always in reach.
+- **Codex setup says what it did.** Glim offers to add Codex hooks, then shows Hooks added with the steps left to do in Codex, since only Codex can trust them. Each Glim hook is labeled "Glim - <event>" in Codex's `/hooks`.
+
+### Fixed
+
+- The island's corners no longer show a pale frame after you click another window.
 
 ## 0.1.3 (2026-10-12)
 
