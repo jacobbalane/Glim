@@ -37,6 +37,11 @@ const STATES: [tone: string, name: string, meaning: string][] = [
   ['success', 'Your turn', 'The agent handed the turn back. It turns Ready once you have looked.'],
   ['calm', 'Ready', 'Nothing new since you last looked, or a session that has only just started.'],
   ['error', 'Error', 'The agent reported a failure. It stays until the agent moves on.'],
+  [
+    'limit',
+    'Limit reached',
+    'Claude Code or Codex stopped at a usage limit. It stays until the agent works again.',
+  ],
   ['calm', 'Interrupted', 'You stopped the turn, so there is nothing to chase.'],
   ['done', 'Done', 'The session ended, or its agent was closed. It leaves a few minutes later.'],
   ['off', 'Quiet', 'No activity for five minutes. Glim never guesses that a quiet agent is done.'],
@@ -149,8 +154,10 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
         </dl>
         <p>
           With several agents, the working ones take turns in the island. An approval, a question, a
-          finished turn or an error interrupts once, then waits in the banner below the island until
-          you deal with it.
+          finished turn, an error or a usage limit interrupts once, then waits as a row below the
+          island. After a few seconds the rows fold into a strip with one colored dot per agent;
+          click it to see them again, or <b>Hide</b> to fold them at once. The island glows in the
+          color of what waits; set how strongly under <b>Glow</b> in Settings.
         </p>
         <p>
           Click the island to open it. The agent you picked shows its current step, context use,
@@ -158,8 +165,29 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
           see what it said, asks or wants to run, and <b>Go to Claude</b> brings its terminal or
           editor window to the front
           {mac ? ', with its own tab selected in Terminal and iTerm2' : ''}. Every other project
-          gets one row, with its agents under it when it has several, named like "Glim · Codex".
-          Click its header, click outside it or press <kbd>Esc</kbd> to close it.
+          gets one row, with its agents under it when it has several, named like "Glim · Codex". Its
+          header stays at the top while a long list scrolls. Click the header, click outside the
+          island or press <kbd>Esc</kbd> to close it.
+        </p>
+        <p>
+          A long message opens in a panel beside the island, with its own scrollbar and a fade where
+          there is more to read. <kbd>Esc</kbd> closes the panel first.
+        </p>
+        <h3>Move it</h3>
+        <p>
+          Hold the island, or the header of the open island, for a moment, then drag it along the
+          top of the screen. Let go while moving and it glides on; let go near the middle and it
+          centres. With the island focused, <kbd>Alt</kbd> + <kbd>←</kbd> or <kbd>→</kbd> moves it
+          too. Glim remembers where you left it.
+          {mac ? ' On a MacBook with a notch it stays on the notch instead.' : ''}
+        </p>
+        <h3>Quick options</h3>
+        <p>
+          Turn them on under <b>Quick options</b> in Settings and pick the shortcuts you want:
+          centre the island, pause or resume monitoring, Settings, Usage history, connect agents and
+          quit. Hover over the island and a small round button appears beside it; click it for the
+          shortcuts. Right-click the island, or press <kbd>Shift</kbd> + <kbd>F10</kbd>, to open
+          them straight away.
         </p>
       </>,
     ],
@@ -174,8 +202,9 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
           </li>
           <li>
             <b>Island:</b> keep a small pill visible when nothing is running, or hide it; pick the
-            display; {mac ? 'open at login' : 'start with Windows'}; hide over fullscreen apps;
-            pause monitoring.
+            display; centre it again; {mac ? 'open at login' : 'start with Windows'}; hide over
+            fullscreen apps; set how strongly it glows, from off to bright; turn on quick options
+            and order them; pause monitoring.
           </li>
           <li>
             <b>Data:</b> view usage by day and by project for the last 30 days, or clear it.

@@ -199,6 +199,43 @@ mod tests {
         Store::open(Path::new(":memory:")).unwrap()
     }
     #[test]
+    fn island_position_survives_reload_and_old_preferences_keep_their_settings() {
+        let db = store();
+        let old = r#"{"idleBehavior":"hidden","startAtLogin":false,"hideFullscreen":false,"monitor":"second","paused":true,"onboardingComplete":true}"#;
+        db.conn
+            .execute("INSERT INTO preferences VALUES (1,?)", [old])
+            .unwrap();
+        let mut prefs = db.preferences();
+        assert_eq!(prefs.island_position, 0.5);
+        assert_eq!(prefs.glow, 50);
+        assert!(!prefs.quick_options_enabled);
+        assert_eq!(prefs.quick_options, ["centre", "quit"]);
+        assert_eq!(prefs.quick_options_order.len(), 6);
+        assert_eq!(prefs.monitor.as_deref(), Some("second"));
+        assert!(prefs.paused);
+        assert!(!prefs.hide_fullscreen);
+        prefs.island_position = 0.83;
+        prefs.quick_options_enabled = true;
+        prefs.quick_options = vec!["pause".into(), "centre".into()];
+        prefs.quick_options_order = vec![
+            "pause".into(),
+            "centre".into(),
+            "quit".into(),
+            "usage".into(),
+            "setup".into(),
+            "settings".into(),
+        ];
+        db.save_preferences(&prefs).unwrap();
+        let restored = db.preferences();
+        assert_eq!(restored.island_position, 0.83);
+        assert!(restored.quick_options_enabled);
+        assert_eq!(restored.quick_options, prefs.quick_options);
+        assert_eq!(restored.quick_options_order, prefs.quick_options_order);
+        assert!(restored.paused);
+        assert_eq!(restored.idle_behavior, "hidden");
+        assert_eq!(restored.monitor.as_deref(), Some("second"));
+    }
+    #[test]
     fn cumulative_snapshots_and_replays_dont_double_count() {
         let db = store();
         let t = Tokens {

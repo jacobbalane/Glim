@@ -214,7 +214,8 @@ pub fn set_connector_at(
                 .as_array_mut()
                 .ok_or("Existing hook groups have an unsupported shape.")?;
             let handler = if provider == Provider::Codex {
-                json!({"type":"command","command":command,"commandWindows":windows_command,"timeout":1})
+                // Codex owns the event names; statusMessage identifies our individual handler.
+                json!({"type":"command","command":command,"commandWindows":windows_command,"timeout":1,"statusMessage":format!("Glim - {event}")})
             } else {
                 json!({"type":"command","command":command,"timeout":1})
             };
@@ -540,6 +541,67 @@ mod tests {
         assert!(connected.starts_with("{\n  \"model\""));
         set_connector_at(Provider::Claude, false, &path, &root, bridge).unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), original);
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn codex_labels_upgrade_without_duplicating_or_renaming_events() {
+        let root = sandbox();
+        let path = root.join("hooks.json");
+        let bridge = Path::new("C:/Glim/glim-bridge.exe");
+        let other =
+            json!({"type":"command","command":"my-script","statusMessage":"My existing hook"});
+        let original =
+            json!({"description":"My hooks","hooks":{"Stop":[{"hooks":[other.clone()]}]}});
+        let original_bytes = serde_json::to_vec_pretty(&original).unwrap();
+        fs::write(&path, &original_bytes).unwrap();
+        set_connector_at(Provider::Codex, true, &path, &root, bridge).unwrap();
+        let owned = manifest(&root, Provider::Codex).unwrap();
+        let is_owned = |h: &Value| {
+            owned
+                .commands
+                .iter()
+                .any(|cmd| h["command"].as_str() == Some(cmd.as_str()))
+        };
+        // Simulate an existing Glim connection from before labels were added.
+        let (_, mut legacy) = read_config(&path).unwrap();
+        for groups in legacy["hooks"].as_object_mut().unwrap().values_mut() {
+            for group in groups.as_array_mut().unwrap() {
+                for handler in group["hooks"].as_array_mut().unwrap() {
+                    if is_owned(handler) {
+                        handler.as_object_mut().unwrap().remove("statusMessage");
+                    }
+                }
+            }
+        }
+        fs::write(&path, serde_json::to_vec_pretty(&legacy).unwrap()).unwrap();
+        let event_names: Vec<_> = legacy["hooks"]
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        for _ in 0..2 {
+            set_connector_at(Provider::Codex, true, &path, &root, bridge).unwrap();
+        }
+        let (_, installed) = read_config(&path).unwrap();
+        let events = installed["hooks"].as_object().unwrap();
+        assert_eq!(events.keys().cloned().collect::<Vec<_>>(), event_names);
+        assert_eq!(events.len(), 12);
+        for (event, groups) in events {
+            let handlers: Vec<_> = groups
+                .as_array()
+                .unwrap()
+                .iter()
+                .flat_map(|group| group["hooks"].as_array().unwrap())
+                .filter(|handler| is_owned(handler))
+                .collect();
+            assert_eq!(handlers.len(), 1, "one Glim handler per {event}");
+            assert_eq!(handlers[0]["statusMessage"], format!("Glim - {event}"));
+        }
+        assert_eq!(installed["description"], original["description"]);
+        assert_eq!(installed["hooks"]["Stop"][0]["hooks"][0], other);
+        set_connector_at(Provider::Codex, false, &path, &root, bridge).unwrap();
+        assert_eq!(fs::read(&path).unwrap(), original_bytes);
         fs::remove_dir_all(root).unwrap();
     }
     #[test]

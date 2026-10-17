@@ -1,6 +1,15 @@
 export type Provider = 'claude' | 'codex';
+export type QuickOptionId = 'centre' | 'pause' | 'settings' | 'usage' | 'setup' | 'quit';
+export const QUICK_OPTION_ORDER: QuickOptionId[] = [
+  'centre',
+  'pause',
+  'settings',
+  'usage',
+  'setup',
+  'quit',
+];
 export type Activity =
-  'working' | 'waiting' | 'idle' | 'finished' | 'interrupted' | 'error' | 'stale';
+  'working' | 'waiting' | 'idle' | 'finished' | 'interrupted' | 'error' | 'limited' | 'stale';
 export interface Tokens {
   input: number;
   output: number;
@@ -44,6 +53,12 @@ export interface Preferences {
   startAtLogin: boolean;
   hideFullscreen: boolean;
   monitor: string | null;
+  islandPosition: number;
+  // How strongly a waiting, finished or failed agent lights the island: 0 (none) to 100.
+  glow: number;
+  quickOptionsEnabled: boolean;
+  quickOptions: QuickOptionId[];
+  quickOptionsOrder: QuickOptionId[];
   paused: boolean;
   onboardingComplete: boolean;
 }
@@ -82,6 +97,11 @@ export const DEFAULT_PREFERENCES: Preferences = {
   startAtLogin: false,
   hideFullscreen: true,
   monitor: null,
+  islandPosition: 0.5,
+  glow: 50,
+  quickOptionsEnabled: false,
+  quickOptions: ['centre', 'quit'],
+  quickOptionsOrder: [...QUICK_OPTION_ORDER],
   paused: false,
   onboardingComplete: false,
 };

@@ -2,9 +2,11 @@ import {
   forwardRef,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -12,6 +14,7 @@ import { AnimatePresence, motion, useIsPresent } from 'motion/react';
 import {
   ArrowUpRight,
   ChartColumn,
+  ChevronDown,
   ChevronRight,
   ChevronUp,
   ListCollapse,
@@ -35,7 +38,7 @@ import {
   type Group,
   type NotchView,
 } from './session-presentation';
-import { PROVIDERS } from './types';
+import { PROVIDERS, type Session } from './types';
 import { compactNumber, totalTokens } from './format';
 import type { Notch } from './api';
 export function Compact({
@@ -45,8 +48,8 @@ export function Compact({
   onOpen,
   onRun,
   count,
-  inboxHidden,
-  onInboxHiddenChange,
+  folded,
+  onFoldedChange,
   notch = null,
 }: {
   view: NotchView;
@@ -55,14 +58,16 @@ export function Compact({
   now: number;
   onOpen?: (id?: string, picked?: boolean) => void;
   onRun?: (px: number) => void;
-  inboxHidden: boolean;
-  onInboxHiddenChange: (hidden: boolean) => void;
+  // Notices waiting under the island fold into a strip of colored dots.
+  folded: boolean;
+  onFoldedChange: (folded: boolean) => void;
   notch?: Notch | null;
 }) {
   const ink = useContext(Ink);
   const reduced = useReducedMotion();
   const opener = useRef<HTMLButtonElement>(null);
   const showNotices = useRef<HTMLButtonElement>(null);
+  const notices = useRef<HTMLUListElement>(null);
   const top = paused ? undefined : view.current;
   const s = top?.session;
   const tone: Tone = !top ? 'calm' : top.look.tone;
@@ -98,11 +103,18 @@ export function Compact({
       <button
         ref={opener}
         className={`compact tone-${tone}${notch ? ' notched' : ''}`}
+        data-island-drag
+        data-island-options
+        // Around a notch the island stays on it, so it is not moved.
+        aria-description={
+          notch
+            ? 'Click to open. Use Shift and F10 for options.'
+            : 'Click to open. Hold to move horizontally. Use Alt and the arrow keys to move, or Shift and F10 for options.'
+        }
         onClick={() => onOpen?.(s?.id)}
         data-session-id={s?.id}
         aria-expanded={false}
         aria-label={`Glim: ${title}${status ? `, ${status}` : ''}. ${plural(agents, 'agent')}. Open.`}
-        title={status ? `${title} · ${status}` : title}
         style={
           notch
             ? ({
@@ -147,42 +159,103 @@ export function Compact({
           </>
         )}
       </button>
-      {inboxHidden && inbox.length > 0 && (
-        <motion.button
-          ref={showNotices}
-          className="inbox-show"
-          aria-label="Show notices"
-          aria-expanded={false}
-          title={plural(inbox.length, 'hidden notice')}
-          style={{ opacity: ink?.settle ?? 1 }}
-          onClick={(event) => {
-            onInboxHiddenChange(false);
-            if (event.detail === 0) opener.current?.focus();
-          }}
-        >
-          Show
-        </motion.button>
-      )}
-      {/* Keep hiding separate from acknowledging or resolving a session. */}
+      {/* Keep folding separate from acknowledging or resolving a session. Between the list and
+          the strip, each agent's dot travels to its new place while the island changes height. */}
       <AnimatePresence initial={false} mode="popLayout">
-        {!inboxHidden && inbox.length > 0 && (
-          <Inbox
-            key="notices"
-            groups={inbox}
-            now={now}
-            reduced={reduced}
-            onOpen={onOpen}
-            onHide={(keyboard) => {
-              onInboxHiddenChange(true);
-              if (keyboard) requestAnimationFrame(() => showNotices.current?.focus());
-            }}
-          />
-        )}
+        {inbox.length > 0 &&
+          (folded ? (
+            <NoticeStrip
+              key="strip"
+              ref={showNotices}
+              groups={inbox}
+              reduced={reduced}
+              onShow={(keyboard) => {
+                onFoldedChange(false);
+                if (keyboard)
+                  requestAnimationFrame(() =>
+                    notices.current?.querySelector<HTMLButtonElement>('.inbox-row')?.focus(),
+                  );
+              }}
+            />
+          ) : (
+            <Inbox
+              key="notices"
+              ref={notices}
+              groups={inbox}
+              now={now}
+              reduced={reduced}
+              onOpen={onOpen}
+              onHide={(keyboard) => {
+                onFoldedChange(true);
+                if (keyboard) requestAnimationFrame(() => showNotices.current?.focus());
+              }}
+            />
+          ))}
       </AnimatePresence>
     </div>
   );
 }
 
+// Words in the list and the strip arrive just after the dots start moving, and leave quickly.
+const EASE_OUT = [0.23, 1, 0.32, 1] as const;
+const textIn = (reduced: boolean, delay = 0.1) => ({
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: reduced ? 0 : 0.24, delay: reduced ? 0 : delay, ease: EASE_OUT },
+});
+
+// How the dots of waiting agents travel between the list and the strip.
+const DOT_LAYOUT = { type: 'spring' as const, stiffness: 420, damping: 40, mass: 1 };
+const STRIP_DOTS = 6;
+
+// The folded notices: one dot per waiting agent in its state's color, then how many there are.
+const NoticeStrip = forwardRef<
+  HTMLButtonElement,
+  { groups: Group[]; reduced: boolean; onShow: (keyboard: boolean) => void }
+>(function NoticeStrip({ groups, reduced, onShow }, ref) {
+  const present = useIsPresent();
+  const labels = new Map<string, number>();
+  for (const g of groups) labels.set(g.look.label, (labels.get(g.look.label) ?? 0) + 1);
+  const summary = [...labels].map(([label, n]) => `${n} ${label}`).join(', ');
+  return (
+    <motion.button
+      ref={ref}
+      className="inbox-strip"
+      aria-label={`${summary}. Show notices.`}
+      aria-expanded={false}
+      aria-hidden={!present || undefined}
+      inert={!present}
+      onClick={(event) => onShow(event.detail === 0)}
+      initial={false}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.14, ease: EASE_OUT } }}
+    >
+      <span className="inbox-strip-dots" aria-hidden="true">
+        {groups.slice(0, STRIP_DOTS).map((g) => (
+          <motion.i
+            key={g.session.id}
+            layoutId={reduced ? undefined : `notice-dot-${g.session.id}`}
+            transition={DOT_LAYOUT}
+            className={`dot tone-${g.look.tone}`}
+          />
+        ))}
+        {groups.length > STRIP_DOTS && (
+          <motion.span className="num" {...textIn(reduced)}>
+            +{groups.length - STRIP_DOTS}
+          </motion.span>
+        )}
+      </span>
+      <motion.span className="inbox-strip-count num" aria-hidden="true" {...textIn(reduced)}>
+        {groups.length} waiting
+        <ChevronDown size={12} strokeWidth={2.4} />
+      </motion.span>
+    </motion.button>
+  );
+});
+
+// The notices as a list under the island, one row per agent. Its dots stay solid while the
+// rest of it fades, so they can travel to and from the strip.
 const Inbox = forwardRef<
   HTMLUListElement,
   {
@@ -201,39 +274,45 @@ const Inbox = forwardRef<
       aria-label="Waiting for you"
       aria-hidden={!present || undefined}
       inert={!present}
-      initial={{ opacity: 0, y: reduced ? 0 : -6 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: reduced ? 0 : -6 }}
-      transition={{ duration: reduced ? 0 : 0.16, ease: [0.23, 1, 0.32, 1] }}
+      initial={false}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.14, ease: EASE_OUT } }}
     >
-      <AnimatePresence initial={false}>
-        {groups.slice(0, 3).map((g) => (
+      <AnimatePresence>
+        {groups.slice(0, 3).map((g, index) => (
           <motion.li
             key={g.session.id}
-            initial={{ opacity: 0, y: reduced ? 0 : -12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: reduced ? 0 : -6 }}
-            // Rows land once the island has had a moment to make room for them.
-            transition={{
-              duration: reduced ? 0 : 0.32,
-              delay: reduced ? 0 : 0.18,
-              ease: [0.23, 1, 0.32, 1],
-            }}
+            // A row that arrives while the list is open slides in under the ones above it.
+            initial={{ y: reduced ? 0 : -8 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: reduced ? 0 : 0.14 } }}
+            transition={{ duration: reduced ? 0 : 0.32, ease: EASE_OUT }}
           >
             <button
               className={`inbox-row tone-${g.look.tone}`}
               onClick={() => onOpen?.(g.session.id, true)}
               aria-label={`${nameOf(g)}: ${g.look.label}. Open.`}
             >
-              <i className="dot" aria-hidden="true" />
-              <span className="inbox-name">{nameOf(g)}</span>
-              <span className="state-text">{g.look.label}</span>
-              <span className="inbox-time num">{timeOf(g.session, now)}</span>
+              <motion.i
+                layoutId={reduced ? undefined : `notice-dot-${g.session.id}`}
+                transition={DOT_LAYOUT}
+                className="dot"
+                aria-hidden="true"
+              />
+              <motion.span className="inbox-name" {...textIn(reduced, 0.08 + index * 0.04)}>
+                {nameOf(g)}
+              </motion.span>
+              <motion.span className="state-text" {...textIn(reduced, 0.08 + index * 0.04)}>
+                {g.look.label}
+              </motion.span>
+              <motion.span className="inbox-time num" {...textIn(reduced, 0.08 + index * 0.04)}>
+                {timeOf(g.session, now)}
+              </motion.span>
             </button>
           </motion.li>
         ))}
       </AnimatePresence>
-      <li className="inbox-actions">
+      <motion.li className="inbox-actions" {...textIn(reduced, 0.2)}>
         {groups.length > 3 && (
           <button className="inbox-more" onClick={() => onOpen?.(groups[3].session.id, true)}>
             {groups.length - 3} more
@@ -246,7 +325,7 @@ const Inbox = forwardRef<
         >
           Hide
         </button>
-      </li>
+      </motion.li>
     </motion.ul>
   );
 });
@@ -259,6 +338,146 @@ const Inbox = forwardRef<
 // text in place instead of stretching it.
 const rolledUp = 'inset(0 0 100% 0 round 14px)';
 const unrolled = 'inset(0 0 0% 0 round 14px)';
+
+// An agent's whole message, beside the open island. It slides out of the island's side as it
+// unrolls from its top edge, its words following a beat later; it rolls back up faster than it
+// came. A long message scrolls, with a thin scrollbar always shown and its edges fading wherever
+// there is more to read. Escape closes it before it closes the island.
+function SaidPanel({
+  tone,
+  title,
+  message,
+  reduced,
+  fromLeft,
+  onClose,
+}: {
+  tone: Tone;
+  title: string;
+  message: string;
+  reduced: boolean;
+  fromLeft: boolean;
+  onClose: () => void;
+}) {
+  const body = useRef<HTMLDivElement>(null);
+  // Whether there is more above or below, and the scroll thumb's size and place, as fractions.
+  const [more, setMore] = useState({ above: false, below: false, size: 1, at: 0 });
+  const close = useRef(onClose);
+  close.current = onClose;
+  useLayoutEffect(() => {
+    const el = body.current;
+    if (!el) return;
+    const update = () => {
+      const range = el.scrollHeight - el.clientHeight;
+      setMore({
+        above: el.scrollTop > 1,
+        below: el.scrollTop < range - 1,
+        size: el.scrollHeight > 0 ? el.clientHeight / el.scrollHeight : 1,
+        at: range > 0 ? el.scrollTop / range : 0,
+      });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    // The text itself too: it can reflow, as when its font arrives, without the panel resizing.
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    el.addEventListener('scroll', update, { passive: true });
+    return () => {
+      observer.disconnect();
+      el.removeEventListener('scroll', update);
+    };
+  }, [message]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      close.current();
+    };
+    window.addEventListener('keydown', key, true);
+    return () => window.removeEventListener('keydown', key, true);
+  }, []);
+  // Dragging the thumb scrolls the message by as much as the thumb moves along its track.
+  const drag = (event: ReactPointerEvent<HTMLElement>) => {
+    const el = body.current;
+    const thumb = event.currentTarget;
+    const track = thumb.parentElement;
+    if (!el || !track || event.button !== 0) return;
+    event.preventDefault();
+    const start = { y: event.clientY, top: el.scrollTop };
+    const scale =
+      (el.scrollHeight - el.clientHeight) / Math.max(1, track.clientHeight - thumb.offsetHeight);
+    thumb.setPointerCapture(event.pointerId);
+    const move = (e: PointerEvent) => {
+      el.scrollTop = start.top + (e.clientY - start.y) * scale;
+    };
+    const end = () => {
+      thumb.removeEventListener('pointermove', move);
+      thumb.removeEventListener('pointerup', end);
+      thumb.removeEventListener('pointercancel', end);
+    };
+    thumb.addEventListener('pointermove', move);
+    thumb.addEventListener('pointerup', end);
+    thumb.addEventListener('pointercancel', end);
+  };
+  const scrolls = more.above || more.below;
+  const offset = reduced ? 0 : fromLeft ? 12 : -12;
+  return (
+    <motion.aside
+      className={`side-said tone-${tone}`}
+      aria-label={`What ${title}`}
+      initial={{ clipPath: rolledUp, x: offset }}
+      animate={{ clipPath: unrolled, x: 0 }}
+      exit={{
+        clipPath: rolledUp,
+        x: offset,
+        transition: { duration: reduced ? 0 : 0.2, ease: EASE_OUT },
+      }}
+      transition={{
+        clipPath: { duration: reduced ? 0 : 0.36, ease: EASE_OUT },
+        x: reduced ? { duration: 0 } : DOT_LAYOUT,
+      }}
+    >
+      <motion.header {...textIn(reduced, 0.06)}>
+        <span>{title}</span>
+        <IconButton label="Close" onClick={onClose}>
+          <X size={14} />
+        </IconButton>
+      </motion.header>
+      <motion.div
+        ref={body}
+        className="side-said-body"
+        data-more-above={more.above}
+        data-more-below={more.below}
+        // A message longer than the panel can be scrolled from the keyboard too.
+        tabIndex={scrolls ? 0 : undefined}
+        {...textIn(reduced, 0.12)}
+      >
+        <p>{message}</p>
+      </motion.div>
+      {/* The panel's own scrollbar, always shown while there is more to read: system scrollbars
+          hide until hovered on Windows 11 and macOS. */}
+      <AnimatePresence>
+        {scrolls && (
+          <motion.div className="side-said-track" aria-hidden="true" {...textIn(reduced, 0.16)}>
+            <i
+              style={{ height: `${more.size * 100}%`, top: `${more.at * (1 - more.size) * 100}%` }}
+              onPointerDown={drag}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.aside>
+  );
+}
+
+// When a usage limit stops an agent: when the full limit resets, if it reported that, and what
+// to do then.
+function limitHint(s: Session, agent: string, now: number) {
+  const full = s.limits.find((limit) => limit.usedPercent >= 100 && limit.resetsAt > now);
+  return full
+    ? `${limitName(full.label)} resets in ${ago(full.resetsAt - now)}. Continue in ${agent} then.`
+    : `Continue in ${agent} once the limit resets.`;
+}
 
 function Hero({
   group,
@@ -292,6 +511,7 @@ function Hero({
         ? 'asks'
         : 'said';
   const [reading, setReading] = useState(false);
+  const preview = useRef<HTMLButtonElement>(null);
   const reduced = useReducedMotion();
   // A new message, or another agent, starts with the panel closed.
   useEffect(() => setReading(false), [s.id, s.message]);
@@ -302,7 +522,9 @@ function Hero({
       ? `Respond in ${agent} to keep it going.`
       : s.activity === 'error'
         ? `Open the ${agent} session to see what failed.`
-        : null;
+        : s.activity === 'limited'
+          ? limitHint(s, agent, now)
+          : null;
   return (
     <section className={`hero tone-${look.tone}`} aria-label={`${nameOf(group)}: ${look.label}`}>
       <div className="hero-head">
@@ -328,6 +550,7 @@ function Hero({
             it opens beside the island, so the island never grows taller for it. */}
         {said && (
           <button
+            ref={preview}
             className="hero-said"
             aria-expanded={reading}
             aria-label={`Read what ${agent} ${saidVerb}`}
@@ -340,25 +563,18 @@ function Hero({
           createPortal(
             <AnimatePresence>
               {said && reading && (
-                // Unrolls downward from its top edge, and rolls back up when it closes.
-                <motion.aside
-                  className={`side-said tone-${look.tone}`}
-                  aria-label={`What ${agent} ${saidVerb}`}
-                  initial={{ clipPath: rolledUp }}
-                  animate={{ clipPath: unrolled }}
-                  exit={{ clipPath: rolledUp }}
-                  transition={{ duration: reduced ? 0 : 0.34, ease: [0.23, 1, 0.32, 1] }}
-                >
-                  <header>
-                    <span>
-                      {agent} {saidVerb}
-                    </span>
-                    <IconButton label="Close" onClick={() => setReading(false)}>
-                      <X size={14} />
-                    </IconButton>
-                  </header>
-                  <p>{s.message}</p>
-                </motion.aside>
+                <SaidPanel
+                  key="said"
+                  tone={look.tone}
+                  title={`${agent} ${saidVerb}`}
+                  message={s.message ?? ''}
+                  reduced={reduced}
+                  fromLeft={slot.classList.contains('on-left')}
+                  onClose={() => {
+                    setReading(false);
+                    preview.current?.focus({ preventScroll: true });
+                  }}
+                />
               )}
             </AnimatePresence>,
             slot,
@@ -543,12 +759,15 @@ export function Glance({
   );
   const waiting = groups.filter((g) => g.look.tone === 'attention').length;
   const errors = groups.filter((g) => g.look.tone === 'error').length;
+  const limited = groups.filter((g) => g.look.tone === 'limit').length;
   return (
     <div className={`glance${paused ? ' is-paused' : ''}`}>
       <header className="bar">
         {/* The whole bar collapses for the pointer; the chevron is the keyboard stop. */}
         <button
           className="bar-toggle"
+          data-island-drag
+          aria-description="Click to collapse. Hold to move horizontally."
           aria-label="Collapse Glim"
           tabIndex={-1}
           onClick={onCollapse}
@@ -561,6 +780,7 @@ export function Glance({
             </span>
           )}
           {errors > 0 && <span className="tone-error state-text">{plural(errors, 'error')}</span>}
+          {limited > 0 && <span className="tone-limit state-text">{limited} at limit</span>}
         </p>
         <div className="bar-actions">
           <IconButton label="Usage" onClick={onUsage}>

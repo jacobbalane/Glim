@@ -6,6 +6,8 @@ const scenes = JSON.parse(
 ) as { id: string; width: number; height: number }[];
 
 test('preview includes every view and logo, with isolated interactive scenes', async ({ page }) => {
+  // It loads every view of the app at once, each in its own frame.
+  test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/preview');
@@ -76,7 +78,8 @@ test('interactive notch keeps one surface and animates working activity', async 
   await expect(island.getByRole('heading', { level: 3 })).toBeVisible();
   await island.evaluate((node) => node.setAttribute('data-persistence-check', 'same'));
   await controls.getByRole('button', { name: 'Collapse', exact: true }).click();
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(101, 0);
+  // The compact island, with its notices folded into the strip under it.
+  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(60, 0);
   const samples = frame.locator('html').evaluate(
     () =>
       new Promise<{ width: number; center: number }[]>((resolve) => {

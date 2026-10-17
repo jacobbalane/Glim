@@ -1,3 +1,4 @@
+import { quickAction, selectedQuickOptions } from './quick-options';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { ArrowUpRight, X } from 'lucide-react';
@@ -11,6 +12,7 @@ import BrandPreview from './BrandPreview';
 import { CharacterEnvironment } from './Character';
 import { groupSessions, isNotice } from './session-presentation';
 import useSessionPreview from './useSessionPreview';
+import useNoticeFold from './useNoticeFold';
 import useReducedMotion from './useReducedMotion';
 import './preview-embed.css';
 
@@ -43,7 +45,6 @@ export default function App() {
     return () => window.removeEventListener('resize', read);
   }, []);
   const [seenAt, setSeenAt] = useState(Date.now);
-  const [inboxHidden, setInboxHidden] = useState(false);
   const [snapshot, setSnapshot] = useState<Snapshot>({
     sessions: [],
     preferences: DEFAULT_PREFERENCES,
@@ -73,6 +74,8 @@ export default function App() {
     ready: loaded,
     dwell: Math.max(6000, 2600 + (run / 40) * 1000),
   });
+  // The open island shows every notice, so the list waits while it is open.
+  const [folded, setFolded] = useNoticeFold(notch, held || focused || expanded);
   const hidden =
     !expanded &&
     snapshot.preferences.idleBehavior === 'hidden' &&
@@ -206,6 +209,7 @@ export default function App() {
           'idle',
           'interrupted',
           'error',
+          'limited',
           'stale',
           'reset',
         ].includes(event.data.status)
@@ -239,8 +243,8 @@ export default function App() {
     content = (
       <Compact
         view={notch}
-        inboxHidden={inboxHidden}
-        onInboxHiddenChange={setInboxHidden}
+        folded={folded}
+        onFoldedChange={setFolded}
         count={groups.length}
         paused={paused}
         now={now}
@@ -317,9 +321,31 @@ export default function App() {
           expanded={expanded}
           viewKey={viewKey}
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
+          glow={snapshot.preferences.glow ?? 50}
           reduced={reduced}
           onError={setError}
           notch={screen.notch}
+          position={screen.notch ? 0.5 : (snapshot.preferences.islandPosition ?? 0.5)}
+          onPosition={screen.notch ? undefined : api.islandPosition}
+          options={
+            snapshot.preferences.quickOptionsEnabled
+              ? selectedQuickOptions(snapshot.preferences).map((id) =>
+                  quickAction(
+                    id,
+                    {
+                      centre: () => api.islandPosition(0.5),
+                      pause: () =>
+                        api.savePreferences({ ...snapshot.preferences, paused: !paused }),
+                      settings: async () => openPanel('settings'),
+                      usage: async () => openPanel('history'),
+                      setup: async () => openPanel('setup'),
+                      quit: native ? api.quit : undefined,
+                    }[id],
+                    paused,
+                  ),
+                )
+              : undefined
+          }
         >
           <CharacterEnvironment.Provider value={{ animate: !reduced, active: !hidden }}>
             {content}

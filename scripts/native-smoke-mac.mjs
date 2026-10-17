@@ -120,7 +120,7 @@ try {
   // Onboarding, connecting both agents through the UI.
   await click('Get started');
   for (const [provider, button] of [
-    ['Codex', 'Connect Codex'],
+    ['Codex', 'Add Codex hooks'],
     ['Claude Code', 'Connect Claude'],
   ]) {
     // Opens the agent's row in the live view (not one fading out) unless it is open already.

@@ -22,7 +22,8 @@ import {
 } from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
-export type Tone = 'brand' | 'active' | 'attention' | 'success' | 'error' | 'done' | 'calm' | 'off';
+export type Tone =
+  'brand' | 'active' | 'attention' | 'success' | 'error' | 'limit' | 'done' | 'calm' | 'off';
 export type Mood = 'open' | 'scan' | 'wide' | 'happy' | 'cross' | 'half' | 'closed';
 export interface Options {
   tone: Tone;
@@ -48,6 +49,7 @@ const COLORS: Record<Tone, string> = {
   attention: '#ffc53d',
   success: '#36d4c4',
   error: '#ff6a5f',
+  limit: '#a78bfa',
   done: '#3ddc84',
   calm: '#a3a3b2',
   off: '#6b6b78',

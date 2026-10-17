@@ -8,7 +8,9 @@ import { Compact, Glance } from '../src/island-views';
 import { Details, SettingsSheet, SetupSheet, UsageSheet } from '../src/panels';
 import { groupSessions } from '../src/session-presentation';
 import useSessionPreview from '../src/useSessionPreview';
+import useNoticeFold from '../src/useNoticeFold';
 import useReducedMotion from '../src/useReducedMotion';
+import { quickAction, selectedQuickOptions } from '../src/quick-options';
 import type { Connector, Preferences, Session } from '../src/types';
 import type { Notch } from '../src/api';
 
@@ -48,8 +50,9 @@ export function AppIsland({
   const [focusId, setFocusId] = useState<string | null>(null);
   const [listed, setListed] = useState(false);
   const [held, setHeld] = useState(false);
+  // Where along the top the visitor has moved the island; the page forgets it on reload.
+  const [position, setPosition] = useState(0.5);
   const [run, setRun] = useState(0);
-  const [inboxHidden, setInboxHidden] = useState(false);
   const expanded = view !== 'compact';
   const viewKey = useViewKey(view, focusId ?? undefined);
   const groups = groupSessions(sessions, seenAt);
@@ -62,6 +65,7 @@ export function AppIsland({
     dwell: fast ? 1800 : Math.max(6000, 2600 + (run / 40) * 1000),
     pace: fast ? 0.35 : 1,
   });
+  const [folded, setFolded] = useNoticeFold(preview, held || expanded);
   const save = async (next: Preferences) => onPrefs(next);
 
   const collapse = useCallback(() => {
@@ -118,8 +122,8 @@ export function AppIsland({
       <Compact
         view={preview}
         notch={notch}
-        inboxHidden={inboxHidden}
-        onInboxHiddenChange={setInboxHidden}
+        folded={folded}
+        onFoldedChange={setFolded}
         count={groups.length}
         paused={prefs.paused}
         now={now}
@@ -173,8 +177,31 @@ export function AppIsland({
         notch={notch}
         viewKey={viewKey}
         tone={prefs.paused || !preview.current ? 'calm' : preview.current.look.tone}
+        glow={prefs.glow ?? 50}
         reduced={reduced}
         onError={() => {}}
+        // Around a notch the island stays on it, as in the app.
+        position={notch ? 0.5 : position}
+        onPosition={notch ? undefined : async (next) => setPosition(next)}
+        // The app's quick options, acting on this page; Quit has nothing to quit here.
+        options={
+          prefs.quickOptionsEnabled
+            ? selectedQuickOptions(prefs).map((id) =>
+                quickAction(
+                  id,
+                  {
+                    centre: async () => setPosition(0.5),
+                    pause: async () => onPrefs({ ...prefs, paused: !prefs.paused }),
+                    settings: async () => onView('settings'),
+                    usage: async () => onView('usage'),
+                    setup: async () => onView('setup'),
+                    quit: undefined,
+                  }[id],
+                  prefs.paused,
+                ),
+              )
+            : undefined
+        }
       >
         {content}
       </IslandSurface>

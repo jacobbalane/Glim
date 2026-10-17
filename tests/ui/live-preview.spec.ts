@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { hasGpu } from './gpu';
+import { settledBox } from './settle';
 
 async function simulate(page: Page, activity: string, id: string, detail?: string) {
   await page.evaluate(
@@ -46,7 +47,8 @@ test('compact fits its text, loops only the status, and respects reduced motion'
     (await hasGpu(page)) ? '3d' : 'fallback',
   );
   await expect(character).toHaveAttribute('data-motion', 'false');
-  await expect(trigger).toHaveAttribute('title', `glim-desktop · Claude · ${long}`);
+  // No hover tooltip; the full status is in its accessible name.
+  expect(await trigger.getAttribute('aria-label')).toContain(`glim-desktop · Claude, ${long}`);
 });
 
 test('working agents rotate by project, notices present once then dock, and hover holds', async ({
@@ -77,10 +79,18 @@ test('working agents rotate by project, notices present once then dock, and hove
     name: 'api-service · Codex: Needs an answer. Open.',
   });
   await expect(approval).toBeVisible();
-  for (let i = 0; i < 4; i++) {
+  // Docked, the notice waits as a row, then folds into the strip under the island.
+  await page.clock.fastForward(6500);
+  await expect(trigger).not.toHaveAttribute('data-session-id', 'demo-codex');
+  await expect(approval).toBeVisible();
+  await page.clock.fastForward(2500);
+  await expect(approval).toBeHidden();
+  const strip = island.getByRole('button', { name: /Show notices/ });
+  await expect(strip).toContainText('1 waiting');
+  for (let i = 0; i < 3; i++) {
     await page.clock.fastForward(6500);
     await expect(trigger).not.toHaveAttribute('data-session-id', 'demo-codex');
-    await expect(approval).toBeVisible();
+    await expect(strip).toBeVisible();
   }
   await simulate(page, 'idle', 'demo-claude-2', 'Turn finished');
   await expect(trigger).toHaveAttribute('data-session-id', 'demo-claude-2');
@@ -139,25 +149,34 @@ test('existing notices dock silently and disappear when their agent resumes', as
   const island = page.getByTestId('island');
   const trigger = island.getByRole('button', { name: /^Glim:/ });
   await expect(trigger).toHaveAttribute('data-session-id', 'demo-claude');
-  await expect(island.locator('.inbox-row')).toHaveCount(1);
-  await simulate(page, 'working', 'demo-codex', 'Running tests');
+  // Found at the start, it waits folded in the strip, not as a list.
+  const strip = island.getByRole('button', { name: /Show notices/ });
+  await expect(strip).toContainText('1 waiting');
   await expect(island.locator('.inbox-row')).toHaveCount(0);
+  await simulate(page, 'working', 'demo-codex', 'Running tests');
+  await expect(strip).toHaveCount(0);
   await expect(island).toHaveAttribute('data-expanded', 'false');
 });
 
-test('notices can stay tucked away without losing sessions or blocking updates', async ({
-  page,
-}) => {
+test('notices fold into a strip of colored dots and unfold on demand', async ({ page }) => {
   await page.goto('/');
   const island = page.getByTestId('island');
   const trigger = island.getByRole('button', { name: /^Glim:/ });
   const hide = island.getByRole('button', { name: 'Hide notices' });
-  const show = island.getByRole('button', { name: 'Show notices' });
+  const show = island.getByRole('button', { name: /Show notices/ });
+  // The strip names each kind of notice for assistive technology, and shows one dot each.
+  await expect(show).toHaveAccessibleName(/Needs approval.*Show notices/);
+  await expect(show.locator('.dot')).toHaveCount(5);
+  await expect(show.locator('.dot.tone-attention')).toHaveCount(3);
+  const folded = (await settledBox(island)).height;
+  expect(folded).toBeLessThan(70);
+  await show.click();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
   await expect(island.getByRole('button', { name: '2 more', exact: true })).toBeVisible();
+  await expect.poll(async () => (await island.boundingBox())!.height).toBeGreaterThan(folded + 60);
   await hide.click();
   await expect(island.locator('.inbox-row')).toHaveCount(0);
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
+  await expect.poll(async () => (await island.boundingBox())!.height).toBeCloseTo(folded, 0);
   await expect(show).toBeVisible();
   await expect(island).toHaveAttribute('data-expanded', 'false');
 
@@ -172,7 +191,7 @@ test('notices can stay tucked away without losing sessions or blocking updates',
   await expect(island.locator('.inbox-row')).toHaveCount(0);
   await page.getByRole('button', { name: 'Finished', exact: true }).click();
   await expect(trigger).toContainText('Done');
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
+  await expect(show).toBeVisible();
 
   await show.click();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
@@ -184,15 +203,41 @@ test('notices can stay tucked away without losing sessions or blocking updates',
   await hide.focus();
   await page.keyboard.press('Enter');
   await expect(show).toBeFocused();
-  await expect.poll(async () => (await island.boundingBox())?.height).toBeCloseTo(34, 0);
+  await expect(island.locator('.inbox-row')).toHaveCount(0);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
   ).toBeTruthy();
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.keyboard.press('Enter');
-  await expect(trigger).toBeFocused();
+  await expect(island.locator('.inbox-row').first()).toBeFocused();
   await expect(island.locator('.inbox-row')).toHaveCount(3);
   await expect(island).toHaveAttribute('data-expanded', 'false');
+});
+
+test('a notice that arrives opens the list, which folds itself after a while unless held', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await page.goto('/?scene=compact&motion=1');
+  const island = page.getByTestId('island');
+  const strip = island.getByRole('button', { name: /Show notices/ });
+  await expect(strip).toContainText('1 waiting');
+  await simulate(page, 'error', 'demo-claude-2', 'Agent reported an error');
+  // It takes over the notch first, then docks in the list under it.
+  await page.clock.fastForward(7000);
+  const failed = island.getByRole('button', { name: /design-system · Claude: Error/ });
+  await expect(failed).toBeVisible();
+  // Held under the pointer, the list stays open.
+  await failed.hover();
+  await page.clock.fastForward(12000);
+  await expect(failed).toBeVisible();
+  // Left alone, it folds; the strip now counts both.
+  await page.mouse.move(20, 300);
+  await page.clock.fastForward(8500);
+  await expect(failed).toBeHidden();
+  await expect(strip).toContainText('2 waiting');
+  await expect(strip.locator('.dot.tone-error')).toHaveCount(1);
 });
 
 test('connector disclosure preserves connection until the named removal is confirmed', async ({
@@ -207,7 +252,7 @@ test('connector disclosure preserves connection until the named removal is confi
   await claude.getByRole('button', { name: 'Keep', exact: true }).click();
   await claude.getByRole('button', { name: 'Disconnect…' }).click();
   await claude.getByRole('button', { name: 'Remove from settings.json' }).click();
-  await expect(page.getByRole('status')).toContainText('disconnected');
+  await expect(page.getByRole('status').filter({ hasText: 'disconnected' })).toBeVisible();
   await expect(claude.locator('.conn-status')).toHaveCount(0);
   await claude.getByRole('button', { name: /Claude Code.*Connect/ }).click();
   await claude.getByRole('button', { name: 'Connect Claude', exact: true }).click();
@@ -251,7 +296,55 @@ test('clearing history calls the API only after confirmation', async ({ page }) 
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
   await page.getByRole('button', { name: 'Clear…', exact: true }).click();
   await page.getByRole('button', { name: 'Clear history', exact: true }).click();
-  await expect(page.getByRole('status')).toHaveText('History cleared.');
+  await expect(page.getByRole('status').filter({ hasText: 'History cleared.' })).toBeVisible();
   await page.getByRole('button', { name: 'View', exact: true }).click();
   await expect(page.getByText('Nothing recorded in this period.')).toBeVisible();
+});
+
+test('the glow slider sets how strongly the island lights up, down to off', async ({ page }) => {
+  await page.goto('/?scene=settings&motion=1');
+  const slider = page.getByRole('slider', { name: 'Glow' });
+  const island = page.getByTestId('island');
+  await expect(slider).toHaveValue('50');
+  await expect(slider).toHaveAttribute('aria-valuetext', '50%');
+  await slider.focus();
+  await page.keyboard.press('Home');
+  await expect(slider).toHaveAttribute('aria-valuetext', 'Off');
+  await expect(island).toHaveAttribute('data-glow', 'off');
+  await page.keyboard.press('End');
+  await expect(slider).toHaveAttribute('aria-valuetext', '100%');
+  await expect(island).not.toHaveAttribute('data-glow', 'off');
+  await expect
+    .poll(() =>
+      island.evaluate((el) => getComputedStyle(el).getPropertyValue('--glow-level').trim()),
+    )
+    .toBe('1');
+  const saved = await page.evaluate(
+    "import('/src/api.ts').then(({ api }) => api.snapshot()).then(s => s.preferences.glow)",
+  );
+  expect(saved).toBe(100);
+});
+
+test('an agent stopped by a usage limit shows Limit reached, in its own color', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.clock.install();
+  await page.goto('/?scene=compact&motion=1');
+  const island = page.getByTestId('island');
+  const trigger = island.getByRole('button', { name: /^Glim:/ });
+  await simulate(page, 'limited', 'demo-claude-2', 'Usage limit reached');
+  // It takes over the notch in violet, glowing, then waits with the other notices.
+  await expect(trigger).toContainText('Limit reached');
+  await expect(island).toHaveAttribute('data-tone', 'limit');
+  await expect(trigger).not.toContainText('Your turn');
+  await page.clock.fastForward(7500);
+  const limited = island.getByRole('button', { name: /design-system · Claude: Limit reached/ });
+  await expect(limited).toBeVisible();
+  await expect(limited.locator('.dot')).toHaveCSS('background-color', 'rgb(167, 139, 250)');
+  // Open, it says what to do about it.
+  await limited.click();
+  await expect(page.locator('.hero .chip').filter({ hasText: 'Limit reached' })).toBeVisible();
+  await expect(page.locator('.hero-hint')).toContainText('once the limit resets');
+  await expect(page.locator('.bar-title')).toContainText('1 at limit');
 });

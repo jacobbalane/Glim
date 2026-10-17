@@ -14,6 +14,7 @@
   --teal: #36d4c4;
   --amber: #ffc53d;
   --red: #ff6a5f;
+  --violet: #a78bfa;
   --green: #3ddc84;
   font-family:
     'Manrope Variable',
@@ -516,6 +517,9 @@ html {
 .tone-error {
   --tone: var(--red);
 }
+.tone-limit {
+  --tone: var(--violet);
+}
 .tone-success {
   --tone: var(--teal);
 }
@@ -597,10 +601,14 @@ html {
 .shell[data-tone='success'] {
   --glow: var(--teal);
 }
+.shell[data-tone='limit'] {
+  --glow: var(--violet);
+}
 .shell[data-compact='true']:is(
     [data-tone='attention'],
     [data-tone='error'],
-    [data-tone='success']
+    [data-tone='success'],
+    [data-tone='limit']
   )::after {
   content: '';
   position: absolute;

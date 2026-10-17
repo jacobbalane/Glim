@@ -15,10 +15,14 @@ A minimal desktop island for Claude Code and Codex CLI, on macOS and Windows. On
 ## What it does
 
 - A compact island attached to the top of your selected display; on a Mac with a notch, it grows out of the notch, with nothing drawn where the camera is. Its width fits the live status, and long text scrolls into view.
-- Rotating session previews, with new approvals, questions, and completions briefly taking priority. An attached banner keeps their counts visible.
+- Rotating session previews, with new approvals, questions, completions, errors and usage limits briefly taking priority. They then wait in a list under the island that folds into a strip of colored dots, one per waiting agent.
 - Click the preview to expand; click its header again or outside the island to collapse. The expanded view keeps your selected session stable.
+- Hold the preview or header for 350 ms to move the island left or right; it presses in when picked up, glides on when thrown, and centres when let go near the middle. With the preview focused, Alt + Left/Right moves it by keyboard.
+- Enable **Quick options** in Settings to reveal a small round **⋯** button after hovering over the collapsed preview. Choose shortcuts and drag them into order. Centre, monitoring, Settings, usage, agent setup and Quit are available. Right click or Shift + F10 opens the enabled shortcuts. Centre and Quit are also in Settings; Quit remains in the tray menu.
 - Reported token counts, cached reads, context usage, and structured task steps.
-- Account limits and reset times when Claude Code supplies them.
+- Account limits and reset times when Claude Code supplies them, and a **Limit reached** state when Claude Code or Codex stops at a usage limit.
+- A glow in the color of what waits, from off to bright under **Glow** in Settings.
+- The full message an agent left, in a scrolling panel beside the open island.
 - Local daily usage charts and 30-day retention.
 - One-click, reversible connectors that preserve existing agent configuration.
 - **Go to agent** brings the agent's terminal or editor to the front; on a Mac it also selects its tab in Terminal and iTerm2.
@@ -29,7 +33,7 @@ A minimal desktop island for Claude Code and Codex CLI, on macOS and Windows. On
 
 1. Download Glim from the [website](https://glim.jacobbalane.com/) or [Releases](https://github.com/jacobbalane/Glim/releases/latest): `Glim_<version>_universal.dmg` for macOS 13 or later (Apple silicon and Intel), or `Glim_<version>_x64-setup.exe` for Windows 11. On a Mac, drag Glim to Applications; on Windows, run the installer.
 2. Open Glim. Connect Claude Code, Codex, or both in onboarding. Glim previews the configuration entries it will add and saves backups.
-3. For Codex, open `/hooks` and review and trust the Glim hooks. Glim never bypasses provider trust checks.
+3. For Codex, choose **Add Codex hooks** in Glim, then open the Codex CLI and enter `/hooks`. Review and trust the Glim hooks there. **Hooks added** means Glim wrote the configuration; Codex must trust it before live hooks can run. Glim cannot confirm that trust setting or approve it for you.
 4. Start a new agent session as usual. No separate Glim account or API key is required.
 5. Click the island for details. Use Glim's menu-bar or tray icon to open settings, pause, or quit.
 

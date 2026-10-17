@@ -12,6 +12,7 @@
   --teal: #36d4c4;
   --amber: #ffc53d;
   --red: #ff6a5f;
+  --violet: #a78bfa;
   --green: #3ddc84;
   font-family:
     'Manrope Variable',
@@ -97,6 +98,84 @@ html:has(.native-stage) {
 }
 .idle-hidden {
   visibility: hidden;
+}
+.island-shell [data-island-drag] {
+  touch-action: none;
+  user-select: none;
+}
+.island-shell[data-dragging='true'] [data-island-drag] {
+  cursor: grabbing;
+}
+.island-options {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: calc(100% - 8px);
+  display: flex;
+  align-items: flex-start;
+  width: max-content;
+  /* A 28-pixel circle, centred on the 34-pixel island beside it. */
+  padding: 3px 4px 3px 12px;
+}
+.island-options-pill {
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--ink);
+}
+.island-options-pill[data-left='true'] {
+  flex-direction: row-reverse;
+}
+.island-options.on-left {
+  left: auto;
+  right: calc(100% - 8px);
+  padding: 3px 12px 3px 4px;
+}
+.island-options.below {
+  left: auto;
+  padding: 12px 0 4px;
+}
+.island-options-button,
+.island-action {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition:
+    color 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+.island-options-button {
+  background: var(--ink);
+}
+.island-options-button:hover,
+.island-options-button:focus-visible,
+.island-action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg-1);
+}
+.island-options-button[aria-expanded='true'] {
+  color: var(--fg-1);
+}
+.island-shell[data-expanded='true'] .island-options {
+  left: auto;
+  right: 4px;
+}
+.island-options-menu {
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  width: max-content;
+  height: 28px;
+  padding-left: 2px;
+}
+.island-options.on-left .island-options-menu {
+  padding: 0 2px 0 0;
 }
 .preview-bottom {
   position: absolute;
@@ -223,6 +302,10 @@ html:has(.native-stage) {
   outline-offset: 1px;
   border-radius: 8px;
 }
+.gl :is(.island-options-button, .island-action):focus-visible {
+  outline-offset: -3px;
+  border-radius: 50%;
+}
 /* Zero-specificity resets, so every component class below wins. */
 :where(.gl button) {
   border: 0;
@@ -240,6 +323,9 @@ html:has(.native-stage) {
 }
 .tone-error {
   --tone: var(--red);
+}
+.tone-limit {
+  --tone: var(--violet);
 }
 .tone-success {
   --tone: var(--teal);
@@ -272,7 +358,17 @@ html:has(.native-stage) {
 .shell {
   position: relative;
   flex-shrink: 0;
-  filter: drop-shadow(0 12px 20px rgba(9, 9, 11, 0.24)) drop-shadow(0 2px 3px rgba(9, 9, 11, 0.16));
+  --island-shadow: drop-shadow(0 12px 20px rgba(9, 9, 11, 0.24))
+    drop-shadow(0 2px 3px rgba(9, 9, 11, 0.16));
+  filter: var(--island-shadow);
+}
+.island-shell {
+  filter: none;
+}
+.island-body {
+  position: absolute;
+  inset: 0;
+  filter: var(--island-shadow);
 }
 .shell .surface {
   position: absolute;
@@ -311,7 +407,12 @@ html:has(.native-stage) {
   left: calc(100% - 1px);
   clip-path: path('M9 0H0V8H1A8 8 0 0 1 9 0Z');
 }
-/* When something wants you to look, light in its color spills under the island. */
+/* When something wants you to look, light in its color spills under the island and rises
+   lights it from inside. --glow-level (0 to 1, the Glow setting) sets how far and how bright. Windows clips
+   the window to the island, so there the light inside it is what shows. */
+.shell {
+  --glow-level: 0.5;
+}
 .shell[data-tone='attention'] {
   --glow: var(--amber);
 }
@@ -321,27 +422,70 @@ html:has(.native-stage) {
 .shell[data-tone='success'] {
   --glow: var(--teal);
 }
-.shell[data-compact='true']:is(
+.shell[data-tone='limit'] {
+  --glow: var(--violet);
+}
+/* Moving the Glow slider lights the island in its color, or in amber, to show the strength. */
+.island-shell:has(.glow-range:is(:active, :focus-visible)):not(
     [data-tone='attention'],
     [data-tone='error'],
-    [data-tone='success']
-  )::after {
+    [data-tone='success'],
+    [data-tone='limit']
+  ) {
+  --glow: var(--amber);
+}
+.shell:not([data-glow='off'])[data-compact='true']:is(
+    [data-tone='attention'],
+    [data-tone='error'],
+    [data-tone='success'],
+    [data-tone='limit']
+  )::after,
+.island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible))::after {
   content: '';
   position: absolute;
   z-index: -1;
-  left: 16%;
-  right: 16%;
-  bottom: -5px;
-  height: 12px;
+  left: calc(16% - var(--glow-level) * 12%);
+  right: calc(16% - var(--glow-level) * 12%);
+  bottom: calc(-4px - var(--glow-level) * 6px);
+  height: calc(8px + var(--glow-level) * 16px);
   border-radius: 50%;
   background: var(--glow);
-  filter: blur(9px);
-  opacity: 0.6;
+  filter: blur(calc(6px + var(--glow-level) * 12px));
+  opacity: min(1, calc(var(--glow-level) * 1.5));
   animation: spill 2s var(--ease-in-out) infinite;
+  pointer-events: none;
+}
+/* Inside, the light follows the island's whole outline, its shoulders' curves included, through
+   the SVG filter beside it (IslandSurface), so island and shoulders glow as one shape. */
+.shell:not([data-glow='off'])[data-compact='true']:is(
+    [data-tone='attention'],
+    [data-tone='error'],
+    [data-tone='success'],
+    [data-tone='limit']
+  )
+  .island-body,
+.island-shell:not([data-glow='off']):has(.glow-range:is(:active, :focus-visible)) .island-body {
+  filter: var(--glow-filter) var(--island-shadow);
+}
+.island-glow-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.island-glow-light {
+  flood-color: var(--glow);
+  flood-opacity: min(1, calc(var(--glow-level) * 1.6));
+  animation: glow-flood 2s var(--ease-in-out) infinite;
 }
 @keyframes spill {
   50% {
-    opacity: 0.18;
+    opacity: calc(min(1, calc(var(--glow-level) * 1.5)) * 0.35);
+  }
+}
+@keyframes glow-flood {
+  50% {
+    flood-opacity: calc(min(1, calc(var(--glow-level) * 1.6)) * 0.45);
   }
 }
 .frame {
@@ -779,19 +923,52 @@ html:has(.native-stage) {
 .inbox-hide {
   margin-left: auto;
 }
-.inbox-show {
-  height: 34px;
-  padding: 0 12px 0 4px;
-}
 .inbox-more:hover,
-.inbox-hide:hover,
-.inbox-show:hover {
+.inbox-hide:hover {
   color: var(--fg-1);
 }
 .inbox-more:active,
-.inbox-hide:active,
-.inbox-show:active {
+.inbox-hide:active {
   opacity: 0.65;
+}
+/* Folded notices: a slim strip under the notch, one dot per waiting agent in its state's color,
+   with the same hairline and insets as the list it folds from. */
+.inbox-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 26px;
+  padding: 0 14px 2px 17px;
+  border-top: 1px solid var(--hair);
+  cursor: pointer;
+  transition: background-color 150ms var(--ease-out);
+}
+.inbox-strip:hover {
+  background: var(--hover);
+}
+.inbox-strip:active {
+  opacity: 0.8;
+}
+.inbox-strip-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--fg-3);
+}
+.inbox-strip-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: var(--fg-2);
+  transition: color 150ms var(--ease-out);
+}
+.inbox-strip:hover .inbox-strip-count {
+  color: var(--fg-1);
 }
 @keyframes breathe {
   50% {
@@ -811,6 +988,36 @@ html:has(.native-stage) {
   gap: 12px;
   height: 42px;
   padding: 0 2px 0 10px;
+}
+/* The open island's header stays put while its agents scroll under it, so Usage, Settings and
+   collapsing are always in reach. Its ink reaches the island's edges, and a hairline appears
+   under it once something has scrolled beneath. */
+.glance > .bar {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: 0 -8px;
+  padding: 0 10px 0 18px;
+  background: var(--ink);
+}
+.glance > .bar .bar-toggle {
+  inset: 0 8px;
+  width: auto;
+}
+@supports (animation-timeline: scroll()) {
+  .glance > .bar {
+    animation: bar-edge linear both;
+    animation-timeline: scroll(nearest);
+    animation-range: 0 12px;
+  }
+}
+@keyframes bar-edge {
+  from {
+    box-shadow: 0 1px 0 transparent;
+  }
+  to {
+    box-shadow: 0 1px 0 var(--hair);
+  }
 }
 .bar-title {
   display: flex;
@@ -960,6 +1167,10 @@ html:has(.native-stage) {
   bottom: 0;
   left: calc(100% + var(--gap));
 }
+.island-side.on-left {
+  left: auto;
+  right: calc(100% + var(--gap));
+}
 .side-said {
   display: flex;
   flex-direction: column;
@@ -981,16 +1192,92 @@ html:has(.native-stage) {
   font-weight: 700;
   color: var(--tone);
 }
-.side-said p {
+/* The message scrolls inside the panel. A thin scrollbar is always shown, and the text fades out
+   at whichever edge has more beyond it, so a long message reads as one to scroll. */
+.side-said-body {
+  flex: 1;
   min-height: 0;
-  margin: 0;
-  padding: 0 14px 14px;
+  margin-right: 12px;
+  padding: 0 4px 14px 14px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  border-radius: 0 0 12px 12px;
+  outline: none;
+  --fade-top: 0px;
+  --fade-bottom: 0px;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+  transition:
+    --fade-top 180ms var(--ease-out),
+    --fade-bottom 180ms var(--ease-out);
+}
+.side-said-body[data-more-above='true'] {
+  --fade-top: 22px;
+}
+.side-said-body[data-more-below='true'] {
+  --fade-bottom: 30px;
+}
+.side-said-body:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--blue);
+}
+/* The system scrollbar gives way to the panel's own, drawn beside the text. */
+.side-said-body {
+  scrollbar-width: none;
+}
+.side-said-body::-webkit-scrollbar {
+  display: none;
+}
+.side-said {
+  position: relative;
+}
+.side-said-track {
+  position: absolute;
+  top: 40px;
+  right: 5px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.side-said-track i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  min-height: 18px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: grab;
+  transition: background-color 150ms var(--ease-out);
+}
+.side-said-track i:hover,
+.side-said-track i:active {
+  background: rgba(255, 255, 255, 0.5);
+}
+.side-said-track i:active {
+  cursor: grabbing;
+}
+.side-said p {
+  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 12.5px;
   line-height: 1.6;
+}
+/* The fade's edges are registered so they ease in and out as the scroll position changes. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
 }
 .hero-actions {
   display: inline-flex;
@@ -1287,6 +1574,65 @@ html:has(.native-stage) {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   padding: 6px 10px 4px;
+}
+.island-action:disabled {
+  color: var(--fg-3);
+  cursor: default;
+}
+.about .link:disabled {
+  color: var(--fg-3);
+  cursor: default;
+}
+.quick-options-choices {
+  overflow: hidden;
+}
+.quick-options-choices > .fine {
+  margin: 0 0 8px;
+}
+.quick-options-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.quick-option-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 10px;
+  color: var(--fg-2);
+  font-size: 13px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.quick-option-row[data-grabbed='true'] {
+  background: #19191b;
+  color: var(--fg-1);
+  cursor: grabbing;
+}
+.quick-option-row > span {
+  flex: 1;
+}
+.quick-option-grip {
+  color: var(--fg-3);
+}
+.quick-option-select {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--hair);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 120ms var(--ease-out);
+}
+.quick-option-select[aria-checked='true'] {
+  background: var(--fg-1);
 }
 .sheet-body.scroll {
   max-height: 470px;
@@ -1657,6 +2003,26 @@ html:has(.native-stage) {
   font-weight: 650;
   color: var(--fg-2);
 }
+.conn-status.hooks-added {
+  --tone: var(--fg-3);
+}
+.conn-next {
+  margin-top: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.conn-next b {
+  font-weight: 700;
+}
+.conn-next p {
+  margin-top: 5px;
+  color: var(--fg-2);
+}
+.conn-next kbd {
+  font-family: ui-monospace, monospace;
+  font-weight: 650;
+  color: var(--fg-1);
+}
 .conn-chev {
   flex-shrink: 0;
   color: var(--fg-3);
@@ -2021,4 +2387,56 @@ html:has(.native-stage) {
   list-style: none;
   margin: 0;
   padding: 0 0 0 12px;
+}
+.island-options-glyph {
+  display: grid;
+  place-items: center;
+}
+/* The Glow slider: a thin track filled to its value, with a white thumb. */
+.glow-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.glow-range {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 132px;
+  height: 20px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.glow-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--fg-1) var(--fill, 50%),
+    rgba(255, 255, 255, 0.14) var(--fill, 50%)
+  );
+}
+.glow-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 120ms var(--ease-out);
+}
+.glow-range:active::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+.glow-range:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+.glow-value {
+  min-width: 34px;
+  color: var(--fg-2);
+  font-size: 12px;
+  text-align: right;
 }

@@ -19,6 +19,26 @@ const session = (patch: Partial<Session> = {}): Session => ({
 });
 
 describe('session presentation', () => {
+  it('reads a usage limit as Limit reached: a notice of its own, not Your turn or an error', () => {
+    const limited = session({ activity: 'limited', detail: 'Usage limit reached' });
+    expect(lookOf(limited, now - 1)).toMatchObject({ label: 'Limit reached', tone: 'limit' });
+    // Seen or not, it stays until the agent works again.
+    expect(lookOf(limited, now + 1).label).toBe('Limit reached');
+    expect(attentionKind(limited, now, now + 1)).toBe('limit');
+    const [group] = groupSessions([limited], now + 1);
+    expect(isNotice(group, now + 1, now)).toBe(true);
+    // After a question or an error, before a finished turn.
+    const order = groupSessions(
+      [
+        session({ id: 'turn', activity: 'idle', detail: 'Turn finished' }),
+        session({ id: 'limit', activity: 'limited' }),
+        session({ id: 'error', activity: 'error' }),
+        session({ id: 'ask', activity: 'waiting' }),
+      ],
+      now - 1,
+    );
+    expect(order.map((g) => g.session.id)).toEqual(['ask', 'error', 'limit', 'turn']);
+  });
   it('groups subagents under their parent and sorts top-level sessions by urgency', () => {
     const groups = groupSessions(
       [

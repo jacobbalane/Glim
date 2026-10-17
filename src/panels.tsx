@@ -1,7 +1,18 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronDown, ShieldCheck } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import {
+  AlignHorizontalJustifyCenter,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUpRight,
+  Check,
+  ChevronDown,
+  Power,
+  ShieldCheck,
+} from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
-import { api, mac } from './api';
+import { api, mac, native } from './api';
+import { motion } from 'motion/react';
+import QuickOptionsSettings from './QuickOptionsSettings';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
 import { ago, limitName, nameOf, type Group } from './session-presentation';
@@ -35,7 +46,7 @@ function Sheet({
 }) {
   return (
     <div className="sheet">
-      <header className="sheet-head">
+      <header className="sheet-head" data-island-drag>
         {onBack && (
           <IconButton label="Back" onClick={onBack}>
             <ArrowLeft size={15} />
@@ -47,13 +58,14 @@ function Sheet({
         </div>
         {end}
       </header>
-      <div
+      <motion.div
+        layoutScroll
         role={bodyLabel ? 'region' : undefined}
         aria-label={bodyLabel}
         className={`sheet-body${scroll ? ' scroll' : ''}`}
       >
         {children}
-      </div>
+      </motion.div>
       {foot}
     </div>
   );
@@ -202,10 +214,12 @@ export function Connectors({
       onChange(result.connectors);
       setNotice(
         enabled
-          ? `${PROVIDERS[c.provider].name} connected. ${c.note}`
+          ? c.provider === 'codex'
+            ? 'Codex hooks added. Finish setup in Codex.'
+            : `${PROVIDERS[c.provider].name} connected. ${c.note}`
           : `${PROVIDERS[c.provider].name} disconnected. Its other settings are untouched.`,
       );
-      setOpen(null);
+      setOpen(enabled && c.provider === 'codex' ? 'codex' : null);
       setConfirm(null);
     } catch (e) {
       setError(String(e));
@@ -238,12 +252,12 @@ export function Connectors({
                 </small>
               </span>
               {c.enabled ? (
-                <span className="conn-status">
+                <span className={`conn-status${c.provider === 'codex' ? ' hooks-added' : ''}`}>
                   <i className="dot" />
-                  Connected
+                  {c.provider === 'codex' ? 'Hooks added' : 'Connected'}
                 </span>
               ) : c.detected && !isOpen ? (
-                <span className="btn small">Connect</span>
+                <span className="btn small">{c.provider === 'codex' ? 'Set up' : 'Connect'}</span>
               ) : null}
               <ChevronDown size={15} className="conn-chev" />
             </button>
@@ -259,9 +273,23 @@ export function Connectors({
                   ))}
                 </ul>
                 <code>{c.configPath}</code>
-                <p className="fine">
-                  {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
-                </p>
+                {(c.enabled || c.provider !== 'codex') && (
+                  <p className="fine">
+                    {c.enabled ? 'Disconnecting removes only these entries.' : c.note}
+                  </p>
+                )}
+                {c.provider === 'codex' && (
+                  <div className="conn-next" aria-label="Codex setup steps">
+                    <b>{c.enabled ? 'Finish in Codex' : 'One more step in Codex'}</b>
+                    <p>
+                      Open the Codex CLI, enter <kbd>/hooks</kbd>, and review and trust the Glim
+                      hooks. Then start a new session with Glim running.
+                    </p>
+                    <p className="fine">
+                      Glim can add the hooks, but cannot confirm Codex's trust setting.
+                    </p>
+                  </div>
+                )}
                 {c.error && (
                   <p role="alert" className="inline-error">
                     {c.error}
@@ -275,8 +303,12 @@ export function Connectors({
                       onClick={() => set(c, true)}
                     >
                       {busy === c.provider
-                        ? 'Connecting…'
-                        : `Connect ${PROVIDERS[c.provider].short}`}
+                        ? c.provider === 'codex'
+                          ? 'Adding hooks…'
+                          : 'Connecting…'
+                        : c.provider === 'codex'
+                          ? 'Add Codex hooks'
+                          : `Connect ${PROVIDERS[c.provider].short}`}
                     </button>
                   ) : confirm === c.provider ? (
                     <>
@@ -320,6 +352,80 @@ export function Connectors({
         </p>
       )}
     </div>
+  );
+}
+
+// How strongly the island lights up when an agent wants you, from off to very bright. Moving the
+// slider lights the island so the strength shows; each change is saved as it comes, the latest
+// winning over any still being written.
+function GlowField({
+  prefs,
+  onPrefs,
+}: {
+  prefs: Preferences;
+  onPrefs: (next: Preferences) => Promise<void>;
+}) {
+  const id = useId();
+  const [value, setValue] = useState(prefs.glow ?? 50);
+  const [error, setError] = useState<string | null>(null);
+  const latest = useRef(prefs);
+  latest.current = prefs;
+  const queued = useRef<number | null>(null);
+  const saving = useRef(false);
+  useEffect(() => {
+    if (!saving.current && queued.current === null) setValue(prefs.glow ?? 50);
+  }, [prefs.glow]);
+  const commit = async (glow: number) => {
+    queued.current = glow;
+    if (saving.current) return;
+    saving.current = true;
+    while (queued.current !== null) {
+      const next = queued.current;
+      queued.current = null;
+      try {
+        await onPrefs({ ...latest.current, glow: next });
+        setError(null);
+      } catch (e) {
+        setError(String(e));
+      }
+    }
+    saving.current = false;
+  };
+  const shown = value === 0 ? 'Off' : `${value}%`;
+  return (
+    <>
+      <div className="field">
+        <label className="field-label" htmlFor={id}>
+          Glow
+        </label>
+        <div className="glow-control">
+          <input
+            id={id}
+            className="glow-range"
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={value}
+            aria-valuetext={shown}
+            style={{ '--fill': `${value}%` } as CSSProperties}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              setValue(next);
+              void commit(next);
+            }}
+          />
+          <span className="num glow-value" aria-hidden="true">
+            {shown}
+          </span>
+        </div>
+      </div>
+      {error && (
+        <p className="inline-error" role="alert">
+          {error}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -413,6 +519,7 @@ function IslandFields({
         checked={prefs.hideFullscreen}
         onChange={(hideFullscreen) => save({ ...prefs, hideFullscreen })}
       />
+      {full && <GlowField prefs={prefs} onPrefs={onPrefs} />}
       {full && (
         <Switch
           label="Pause monitoring"
@@ -456,6 +563,23 @@ export function SettingsSheet({
   const pending = useRef(false);
   const [cleared, setCleared] = useState(false);
   const [version, setVersion] = useState('');
+  const [appBusy, setAppBusy] = useState<'centre' | 'quit' | null>(null);
+  const appPending = useRef(false);
+  const appAction = async (kind: 'centre' | 'quit') => {
+    if (appPending.current) return;
+    appPending.current = true;
+    setAppBusy(kind);
+    setError(null);
+    try {
+      if (kind === 'centre') await api.islandPosition(0.5);
+      else await api.quit();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      appPending.current = false;
+      setAppBusy(null);
+    }
+  };
   useEffect(() => {
     api.version().then(setVersion, () => {});
   }, []);
@@ -468,6 +592,18 @@ export function SettingsSheet({
       <section className="sec">
         <h4>Island</h4>
         <IslandFields prefs={prefs} onPrefs={onPrefs} full />
+        <div className="field">
+          <span className="field-label">Position</span>
+          <button
+            className="btn small"
+            disabled={!!appBusy}
+            onClick={() => void appAction('centre')}
+          >
+            <AlignHorizontalJustifyCenter size={14} />
+            Centre horizontally
+          </button>
+        </div>
+        <QuickOptionsSettings prefs={prefs} onPrefs={onPrefs} />
       </section>
       <section className="sec">
         <h4>Data</h4>
@@ -542,12 +678,23 @@ export function SettingsSheet({
       )}
       <footer className="about">
         <span>Glim {version}</span>
-        <button
-          className="link"
-          onClick={() => api.openRelease().catch((e) => setError(String(e)))}
-        >
-          Releases <ArrowUpRight size={12} />
-        </button>
+        <div className="actions">
+          <button
+            className="link"
+            onClick={() => api.openRelease().catch((e) => setError(String(e)))}
+          >
+            Releases <ArrowUpRight size={12} />
+          </button>
+          <button
+            className="link"
+            disabled={!native || !!appBusy}
+            aria-description={native ? undefined : 'Available in the desktop app'}
+            onClick={() => void appAction('quit')}
+          >
+            <Power size={12} aria-hidden="true" />
+            Quit Glim
+          </button>
+        </div>
       </footer>
     </Sheet>
   );

@@ -1,6 +1,9 @@
 use crate::model::Preferences;
 use tauri::{AppHandle, Manager, PhysicalPosition};
 
+#[cfg(windows)]
+pub mod windows_frame;
+
 #[derive(Default)]
 pub struct IslandShape(std::sync::Mutex<ShapeState>);
 
@@ -8,6 +11,9 @@ struct ShapeState {
     width: u32,
     height: u32,
     side: Option<Side>,
+    offset: f64,
+    expanded: bool,
+    dragging: bool,
     applied: Option<RegionGeometry>,
 }
 impl Default for ShapeState {
@@ -16,13 +22,15 @@ impl Default for ShapeState {
             width: 300,
             height: 34,
             side: None,
+            offset: 0.0,
+            expanded: false,
+            dragging: false,
             applied: None,
         }
     }
 }
 
-/// A panel beside the open island, such as an agent's full message, in logical pixels from the
-/// window's top left.
+/// A panel or hover control beside the island, in logical pixels from the window's top left.
 #[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct Side {
     pub x: f64,
@@ -43,16 +51,29 @@ struct RegionGeometry {
     side: Option<[i32; 5]>,
 }
 impl RegionGeometry {
-    fn new(width: u32, height: u32, scale: f64, host_width: u32, side: Option<Side>) -> Self {
+    fn new(
+        width: u32,
+        height: u32,
+        scale: f64,
+        host_width: u32,
+        side: Option<Side>,
+        offset: f64,
+    ) -> Self {
         let px = |v: f64| (v * scale).round() as i32;
         let wide = (host_width as f64 / scale - 40.).clamp(204., 440.);
         let cap = 360_f64.min(wide - 60.);
         // Around a Mac's notch the compact island can be wider than the open one.
         let logical_width = (width as f64).clamp(144., (host_width as f64 / scale).max(144.));
+        let travel = ((host_width as f64 / scale - wide) / 2. - 20.).max(0.);
+        let offset = if offset.is_finite() {
+            px(offset.clamp(-travel, travel))
+        } else {
+            0
+        };
         let radius = 17. + ((logical_width - cap) / (wide - cap)).clamp(0., 1.) * 7.;
         let width = (logical_width * scale).round() as i32;
         Self {
-            x: ((host_width as f64 - width as f64) / 2.).round() as i32,
+            x: ((host_width as f64 - width as f64) / 2.).round() as i32 + offset,
             width,
             height: (height.clamp(34, 616) as f64 * scale).round() as i32,
             radius: (radius * scale).round() as i32,
@@ -207,9 +228,9 @@ pub fn position_island(app: &AppHandle, prefs: &Preferences) -> Result<(), Strin
         .ok_or("No display detected")?;
     let (left, top, width, height) = monitor_work_area(&monitor);
     let available_height = (height as f64 / monitor.scale_factor()).clamp(120., 640.);
-    // Room beside the open island for a side panel. The window's region keeps the rest of it
-    // transparent to the pointer.
-    let available_width = (width as f64 / monitor.scale_factor()).clamp(320., 1200.);
+    // Cover the display's width so the island can move without moving its transparent host.
+    // The shaped region keeps every other pixel transparent to the pointer.
+    let available_width = width as f64 / monitor.scale_factor();
     let size = tauri::PhysicalSize::new(
         (available_width * monitor.scale_factor()).round() as u32,
         (available_height * monitor.scale_factor()).round() as u32,
@@ -268,24 +289,29 @@ pub fn shape(
     height: u32,
     side: Option<Side>,
     focus: Option<bool>,
+    offset: f64,
 ) -> Result<(), String> {
     let window = app
         .get_webview_window("island")
         .ok_or("Island window not found")?;
     let scale = window.scale_factor().map_err(|e| e.to_string())?;
     let host_width = window.inner_size().map_err(|e| e.to_string())?.width;
-    let geometry = RegionGeometry::new(width, height, scale, host_width, side);
+    let geometry = RegionGeometry::new(width, height, scale, host_width, side, offset);
     let state = app.state::<IslandShape>();
-    let changed = {
+    let (changed, focusable) = {
         let mut state = state.0.lock().map_err(|e| e.to_string())?;
         state.width = width;
         state.height = height;
         state.side = side;
+        state.offset = offset;
+        if let Some(expanded) = focus {
+            state.expanded = expanded;
+        }
         let changed = state.applied != Some(geometry);
         // SetWindowRgn sends window-position events. Cache before applying so
         // a resulting resize callback cannot recursively apply the same region.
         state.applied = Some(geometry);
-        changed
+        (changed, state.expanded || state.dragging)
     };
     // On Windows the shape is the window's region. macOS has no regions: follow_pointer lets
     // the pointer through wherever the shape is not.
@@ -308,9 +334,9 @@ pub fn shape(
     }
     #[cfg(not(windows))]
     let _ = changed;
-    if let Some(expanded) = focus {
-        window.set_focusable(expanded).map_err(|e| e.to_string())?;
-        if expanded {
+    if focus.is_some() {
+        window.set_focusable(focusable).map_err(|e| e.to_string())?;
+        if focusable {
             window.set_focus().map_err(|e| e.to_string())?;
         }
     }
@@ -336,15 +362,20 @@ pub fn follow_pointer(app: AppHandle) {
             let (Ok(pointer), Ok(origin)) = (app.cursor_position(), window.outer_position()) else {
                 continue;
             };
-            let shape = app
+            let Some((shape, dragging)) = app
                 .state::<IslandShape>()
                 .0
                 .lock()
                 .ok()
-                .and_then(|state| state.applied);
-            let over = shape.is_some_and(|g| {
-                g.contains(pointer.x - origin.x as f64, pointer.y - origin.y as f64)
-            });
+                .map(|state| (state.applied, state.dragging))
+            else {
+                continue;
+            };
+            // While the island is dragged the whole window keeps the pointer, as on Windows.
+            let over = dragging
+                || shape.is_some_and(|g| {
+                    g.contains(pointer.x - origin.x as f64, pointer.y - origin.y as f64)
+                });
             if passing != Some(!over) && window.set_ignore_cursor_events(!over).is_ok() {
                 passing = Some(!over);
                 POINTER.store(
@@ -355,13 +386,31 @@ pub fn follow_pointer(app: AppHandle) {
         }
     });
 }
+pub fn dragging(app: &AppHandle, active: bool) -> Result<(), String> {
+    let window = app
+        .get_webview_window("island")
+        .ok_or("Island window not found")?;
+    let focusable = {
+        let state = app.state::<IslandShape>();
+        let mut state = state.0.lock().map_err(|e| e.to_string())?;
+        state.dragging = active;
+        state.expanded || active
+    };
+    // Windows background windows receive captured input only inside their visible region.
+    // Activate on a long hold so WebView pointer capture works outside the moving island.
+    window.set_focusable(focusable).map_err(|e| e.to_string())?;
+    if active {
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
 pub fn refresh_shape(app: &AppHandle) -> Result<(), String> {
-    let (width, height, side) = {
+    let (width, height, side, offset) = {
         let state = app.state::<IslandShape>();
         let state = state.0.lock().map_err(|e| e.to_string())?;
-        (state.width, state.height, state.side)
+        (state.width, state.height, state.side, state.offset)
     };
-    shape(app, width, height, side, None)
+    shape(app, width, height, side, None, offset)
 }
 pub fn fullscreen_over_island(app: &AppHandle) -> bool {
     // macOS keeps the island off full-screen Spaces through its collection behaviour instead.
@@ -619,7 +668,7 @@ mod shape_tests {
             width: 300.,
             height: 200.,
         };
-        let g = RegionGeometry::new(440, 400, 2., 2400, Some(side));
+        let g = RegionGeometry::new(440, 400, 2., 2400, Some(side), 0.);
         // The island spans x 760..1640 and y 0..800 in physical pixels at scale 2.
         assert!(g.contains(1200., 10.));
         assert!(!g.contains(1200., 801.));
@@ -640,11 +689,122 @@ mod tests {
     };
 
     #[test]
+    fn hover_options_have_a_continuous_hit_bridge_at_each_position_and_scale() {
+        for scale in [1., 1.25, 1.5, 2.] {
+            for offset in [-480., 0., 480.] {
+                let right = (1440. + 300.) / 2. + offset;
+                let side = Side {
+                    x: right - 8.,
+                    y: 0.,
+                    width: 48.,
+                    height: 34.,
+                };
+                let g =
+                    RegionGeometry::new(300, 34, scale, (1440. * scale) as u32, Some(side), offset);
+                let region = region::create(g).unwrap();
+                let y = (17. * scale).round() as i32;
+                // The pointer can travel from the island to the floating button without
+                // crossing a click-through hole and losing hover.
+                for x in
+                    ((right - 8.) * scale).round() as i32..((right + 36.) * scale).round() as i32
+                {
+                    assert_ne!(unsafe { PtInRegion(region.0, x, y) }, 0, "bridge {g:?}");
+                }
+                let x = ((right + 20.) * scale).round() as i32;
+                assert_eq!(
+                    unsafe { PtInRegion(region.0, x, (35. * scale).round() as i32) },
+                    0
+                );
+                let hidden = region::create(RegionGeometry::new(
+                    300,
+                    34,
+                    scale,
+                    (1440. * scale) as u32,
+                    None,
+                    offset,
+                ))
+                .unwrap();
+                assert_eq!(
+                    unsafe { PtInRegion(hidden.0, x, y) },
+                    0,
+                    "hidden hover control passes through"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn icon_options_region_tracks_horizontal_pills_on_either_side() {
+        for scale in [1., 1.25, 1.5, 2.] {
+            for offset in [-480., 0., 480.] {
+                let right = (1440. + 300.) / 2. + offset;
+                for left in [false, true] {
+                    for count in [1, 2, 6] {
+                        let pill_width = 32. + count as f64 * 36.;
+                        let body_left = right - 300.;
+                        // A 26-pixel-high pill, with its bridge and outer padding.
+                        let side = Side {
+                            x: if left {
+                                body_left - pill_width - 8.
+                            } else {
+                                right - 8.
+                            },
+                            y: 0.,
+                            width: pill_width + 16.,
+                            height: 34.,
+                        };
+                        let region = region::create(RegionGeometry::new(
+                            300,
+                            34,
+                            scale,
+                            (1440. * scale) as u32,
+                            Some(side),
+                            offset,
+                        ))
+                        .unwrap();
+                        let icon_start = if left {
+                            body_left - pill_width + 12.
+                        } else {
+                            right + 20.
+                        };
+                        for icon in 0..=count {
+                            let x = icon_start + icon as f64 * 36.;
+                            let y = 17.;
+                            assert_ne!(
+                                unsafe {
+                                    PtInRegion(
+                                        region.0,
+                                        (x * scale).round() as i32,
+                                        (y * scale).round() as i32,
+                                    )
+                                },
+                                0,
+                                "icon pill at {scale}, offset {offset}"
+                            );
+                        }
+                        assert_eq!(
+                            unsafe {
+                                PtInRegion(
+                                    region.0,
+                                    (icon_start * scale).round() as i32,
+                                    ((side.height + 1.) * scale).round() as i32,
+                                )
+                            },
+                            0
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn native_region_excludes_the_first_transparent_row_at_each_scale() {
         for scale in [1., 1.25, 1.5, 2.] {
             for width in [144, 211, 300, 360, 400, 440] {
                 for height in [34, 101, 348, 616] {
-                    let g = RegionGeometry::new(width, height, scale, (680. * scale) as u32, None);
+                    let g =
+                        RegionGeometry::new(width, height, scale, (680. * scale) as u32, None, 0.);
                     let region = region::create(g).unwrap();
                     let mut bounds: RECT = unsafe { std::mem::zeroed() };
                     assert_ne!(unsafe { GetRgnBox(region.0, &mut bounds) }, 0);
@@ -679,7 +839,7 @@ mod tests {
     #[test]
     fn native_shoulders_are_small_circles_with_click_through_cutouts() {
         for scale in [1., 1.5] {
-            let g = RegionGeometry::new(300, 34, scale, (680. * scale) as u32, None);
+            let g = RegionGeometry::new(300, 34, scale, (680. * scale) as u32, None, 0.);
             let region = region::create(g).unwrap();
             let point = |x: f64, y: f64| unsafe {
                 PtInRegion(
@@ -707,7 +867,7 @@ mod tests {
                 width: 300.,
                 height: 200.,
             };
-            let g = RegionGeometry::new(440, 400, scale, (1200. * scale) as u32, Some(side));
+            let g = RegionGeometry::new(440, 400, scale, (1200. * scale) as u32, Some(side), 0.);
             let region = region::create(g).unwrap();
             let point = |x: f64, y: f64| unsafe {
                 PtInRegion(
@@ -726,13 +886,49 @@ mod tests {
     #[test]
     fn native_geometry_tracks_the_surface_radius_and_host_size() {
         for (width, radius) in [(144, 17), (300, 17), (360, 17), (400, 21), (440, 24)] {
-            assert_eq!(RegionGeometry::new(width, 34, 1., 680, None).radius, radius);
+            assert_eq!(
+                RegionGeometry::new(width, 34, 1., 680, None, 0.).radius,
+                radius
+            );
         }
-        assert_eq!(RegionGeometry::new(300, 1, 1.5, 1020, None).height, 51);
-        assert_eq!(RegionGeometry::new(440, 900, 1.5, 1020, None).height, 924);
-        let narrow = RegionGeometry::new(350, 200, 1., 390, None);
+        assert_eq!(RegionGeometry::new(300, 1, 1.5, 1020, None, 0.).height, 51);
+        assert_eq!(
+            RegionGeometry::new(440, 900, 1.5, 1020, None, 0.).height,
+            924
+        );
+        let narrow = RegionGeometry::new(350, 200, 1., 390, None, 0.);
         assert_eq!((narrow.x, narrow.width, narrow.radius), (20, 350, 24));
-        let narrow_compact = RegionGeometry::new(290, 34, 1., 390, None);
+        let narrow_compact = RegionGeometry::new(290, 34, 1., 390, None, 0.);
         assert_eq!(narrow_compact.radius, 17);
+    }
+    #[test]
+    fn dragging_moves_the_hit_region_and_keeps_the_open_island_on_screen() {
+        for scale in [1., 1.25, 1.5, 2.] {
+            let host = (1920. * scale) as u32;
+            let centre = RegionGeometry::new(440, 348, scale, host, None, 0.);
+            for offset in [-2000., -240., 240., 2000.] {
+                let moved = RegionGeometry::new(440, 348, scale, host, None, offset);
+                let region = region::create(moved).unwrap();
+                assert!(moved.x >= (20. * scale) as i32);
+                assert!(moved.x + moved.width <= host as i32 - (20. * scale) as i32);
+                assert_eq!(moved.height, centre.height);
+                assert_eq!(moved.radius, centre.radius);
+                assert_ne!(
+                    unsafe { PtInRegion(region.0, moved.x + moved.width / 2, 20) },
+                    0
+                );
+                assert_eq!(
+                    unsafe { PtInRegion(region.0, moved.x - moved.shoulder - 1, 20) },
+                    0
+                );
+                if offset.abs() == 240. {
+                    assert_eq!(moved.x - centre.x, (offset * scale) as i32);
+                }
+            }
+            assert_eq!(
+                RegionGeometry::new(440, 348, scale, host, None, f64::NAN),
+                centre
+            );
+        }
     }
 }

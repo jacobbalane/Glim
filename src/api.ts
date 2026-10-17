@@ -98,8 +98,25 @@ export const api = {
     if (native) await invoke('open_panel', { view });
   },
   // The island's size, and a panel beside it when one is open, in window pixels.
-  shape: async (expanded: boolean, width: number, height: number, side: Side | null = null) => {
-    if (native) await invoke('island_shape', { expanded, width, height, side });
+  shape: async (
+    expanded: boolean,
+    width: number,
+    height: number,
+    side: Side | null = null,
+    offset = 0,
+  ) => {
+    if (native) await invoke('island_shape', { expanded, width, height, side, offset });
+  },
+  islandPosition: async (position: number) => {
+    if (native) return invoke<void>('set_island_position', { position });
+    browserState.preferences = { ...browserState.preferences, islandPosition: position };
+    emitBrowser();
+  },
+  islandDragging: async (active: boolean) => {
+    if (native) await invoke('set_island_dragging', { active });
+  },
+  quit: async () => {
+    if (native) await invoke('quit_glim');
   },
   version: () => (native ? getVersion() : Promise.resolve(packageVersion)),
   // Glim goes online only here, when the person asks: GitHub's latest release, signature checked.
@@ -133,7 +150,9 @@ export const api = {
                   ? 'Running tests'
                   : kind === 'waiting'
                     ? 'Waiting for approval'
-                    : 'Turn finished'),
+                    : kind === 'limited'
+                      ? 'Usage limit reached'
+                      : 'Turn finished'),
               updatedAt: Date.now(),
             }
           : s,

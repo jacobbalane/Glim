@@ -178,7 +178,7 @@ try {
       assert.match(await row.innerText(), /\/hooks/, 'Setup must explain Codex hook trust.');
     await row
       .getByRole('button', {
-        name: `Connect ${provider === 'Codex' ? 'Codex' : 'Claude'}`,
+        name: provider === 'Codex' ? 'Add Codex hooks' : 'Connect Claude',
         exact: true,
       })
       .click();

@@ -114,6 +114,16 @@
     "height": 190
   },
   {
+    "id": "limit",
+    "title": "Limit reached",
+    "group": "Island",
+    "expanded": true,
+    "activity": "limited",
+    "detail": "Usage limit reached",
+    "width": 680,
+    "height": 190
+  },
+  {
     "id": "stale",
     "title": "No recent activity",
     "group": "Island",
