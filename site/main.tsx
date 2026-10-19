@@ -407,7 +407,6 @@ type SceneId =
   | 'details-glance'
   | 'details-details'
   | 'details-usage'
-  | 'details-settings'
   | 'privacy'
   | 'install'
   | 'close';
@@ -425,7 +424,6 @@ const SCENES: Record<SceneId, Scene> = {
   'details-glance': { group: 'details', build: detailed, view: 'glance' },
   'details-details': { group: 'details', build: detailed, view: 'details' },
   'details-usage': { group: 'details', build: detailed, view: 'usage' },
-  'details-settings': { group: 'details', build: detailed, view: 'settings' },
   privacy: { group: 'privacy', build: working },
   install: { group: 'install', build: () => [] },
   // A turn on a loop, as in the hero, so the notch keeps changing and the hello Glim with it.
@@ -447,11 +445,6 @@ const FACTS: { scene: SceneId; title: string; text: string }[] = [
     scene: 'details-usage',
     title: 'Thirty days of history',
     text: 'Daily charts by agent and project, kept on this computer.',
-  },
-  {
-    scene: 'details-settings',
-    title: 'Yours to place',
-    text: 'Hold the island to slide it along the top of the screen. Quick options are a hover away, and the glow goes from off to bright.',
   },
 ];
 
