@@ -2374,6 +2374,21 @@ body {
     animation: site-pop 900ms var(--ease-out) backwards;
   }
 
+  /* The platform choice arrives with the install section, once it is well in view. */
+  .can-reveal #install .site-system[data-show] {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 600ms var(--ease-out),
+      transform 700ms var(--ease-expo);
+  }
+  .can-reveal #install .site-system[data-in] {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+  }
+
   /* Install: circle one pops, the line runs to circle two, which pops, and on to three. Each
      step's words follow its circle. */
   .can-reveal .site-steps[data-show]:not([data-in]) > li::before {

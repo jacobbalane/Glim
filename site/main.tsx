@@ -1538,7 +1538,7 @@ function Site() {
             <h2 id="install-title" className="site-rise" data-show>
               <span>Three steps, then back to work.</span>
             </h2>
-            <SystemSwitch value={system} onChange={setSystem} label="Install steps for" />
+            <SystemSwitch value={system} onChange={setSystem} label="Install steps for" reveal />
             <ol className="site-steps" data-show>
               <li className="site-item" style={at(0)}>
                 <b>Download</b>

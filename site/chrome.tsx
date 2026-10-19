@@ -136,13 +136,20 @@ export function SystemSwitch({
   value,
   onChange,
   label,
+  reveal = false,
 }: {
   value: System;
   onChange: (system: System) => void;
   label: string;
+  reveal?: boolean;
 }) {
   return (
-    <div className="pseg site-system" role="group" aria-label={label}>
+    <div
+      className="pseg site-system"
+      role="group"
+      aria-label={label}
+      data-show={reveal || undefined}
+    >
       {(['macOS', 'Windows'] as const).map((system) => (
         <button
           key={system}
