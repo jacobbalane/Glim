@@ -48,8 +48,9 @@ test('settings select actions and save pointer and keyboard reordering', async (
     'aria-checked',
     'true',
   );
-  await page.getByRole('checkbox', { name: 'Pause monitoring' }).click();
-  await page.getByRole('checkbox', { name: 'Quit Glim' }).click();
+  // The list slides open with the switch; pick once each checkbox is in place.
+  await tap(page.getByRole('checkbox', { name: 'Pause monitoring' }));
+  await tap(page.getByRole('checkbox', { name: 'Quit Glim' }));
   const row = page.getByRole('listitem', { name: 'Reorder Pause monitoring' });
   await row.scrollIntoViewIfNeeded();
   // The rows slide into place as options are picked; measure them once they rest.
