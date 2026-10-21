@@ -2,6 +2,13 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
+## 0.2.1 (2026-10-21)
+
+### Improved
+
+- **A new app icon.** Glim leans into a night-blue tile from its lower corner and looks up at the open sky, on macOS, Windows and the website's tab. On a Mac it keeps the margin and shadow of the icons beside it in the Dock.
+- **The website** shows one download button for your system, with both systems in a menu beside it, and the nine states three to a row.
+
 ## 0.2.0 (2026-10-17)
 
 Glim comes to the Mac.
