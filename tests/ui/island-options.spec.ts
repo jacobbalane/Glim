@@ -21,7 +21,8 @@ async function gotoWithOptions(page: Page, url = '/') {
 }
 async function openOptions(page: Page) {
   await compact(page).hover();
-  await trigger(page).click();
+  // The button buds out of the island on hover; click it once it has grown into place.
+  await tap(trigger(page));
   await expect(options(page)).toBeVisible();
 }
 
@@ -328,9 +329,9 @@ test('the icon options toggle, dismiss on focus loss, and keep a failed action u
 }) => {
   await gotoWithOptions(page);
   await openOptions(page);
-  await trigger(page).click();
+  await tap(trigger(page));
   await expect(options(page)).toHaveCount(0);
-  await trigger(page).click();
+  await tap(trigger(page));
   await expect(options(page)).toBeVisible();
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   await expect(options(page)).toHaveCount(0);
@@ -339,7 +340,7 @@ test('the icon options toggle, dismiss on focus loss, and keep a failed action u
   );
   await openOptions(page);
   const action = options(page).getByRole('menuitem', { name: 'Centre horizontally' });
-  await action.click();
+  await tap(action);
   await expect(page.getByRole('alert')).toContainText('Could not save position');
   await expect(action).toBeEnabled();
   await page.keyboard.press('ArrowRight');
