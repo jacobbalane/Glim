@@ -25,9 +25,16 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 export type Tone =
   'brand' | 'active' | 'attention' | 'success' | 'error' | 'limit' | 'done' | 'calm' | 'off';
 export type Mood = 'open' | 'scan' | 'wide' | 'happy' | 'cross' | 'half' | 'closed';
+// A still portrait's pose, for the app icon: turned (radians, yaw) and looking up or down
+// (radians, up when negative), where the island's Glim follows the pointer instead.
+export interface Pose {
+  turn?: number;
+  look?: number;
+}
 export interface Options {
   tone: Tone;
   mood: Mood;
+  pose?: Pose;
   // Turns toward the pointer.
   follow: boolean;
   // Each new value makes it hop once.
@@ -281,6 +288,8 @@ function pose(s: Stage, item: Instance, rect: DOMRect, t: number, dt: number) {
     yawTarget = clamp((pointer.x - (rect.left + rect.width / 2)) / 520) * 0.62;
     pitchTarget = clamp((pointer.y - (rect.top + rect.height / 2)) / 520) * 0.38;
   }
+  yawTarget = item.pose?.turn ?? yawTarget;
+  pitchTarget = item.pose?.look ?? pitchTarget;
   const ease = calm ? 1 : 1 - Math.exp(-dt * 5);
   item.yaw += (yawTarget - item.yaw) * ease;
   item.pitch += (pitchTarget - item.pitch) * ease;
