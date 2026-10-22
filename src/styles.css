@@ -96,8 +96,20 @@ html:has(.native-stage) {
   width: 100%;
   min-height: 34px;
 }
-.idle-hidden {
-  visibility: hidden;
+/* Out of the way, over a fullscreen app or while idle: the island slides up into the screen's top
+   edge, shadow and all, and comes back down out of it. */
+.island-anchor {
+  transition: transform 420ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.island-anchor.tucked {
+  transform: translateY(calc(-100% - 40px));
+  transition-duration: 260ms;
+  transition-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+}
+@media (prefers-reduced-motion: reduce) {
+  .island-anchor {
+    transition: none;
+  }
 }
 .island-shell [data-island-drag] {
   touch-action: none;
