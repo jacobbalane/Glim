@@ -201,7 +201,8 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
             <b>Agents:</b> connect or disconnect Claude Code and Codex.
           </li>
           <li>
-            <b>Island:</b> keep a small pill visible when nothing is running, or hide it; pick the
+            <b>Island:</b> keep a small pill visible when nothing is running, or hide it; close it
+            to the island or to Glim alone, which can grow into the island while you hover; pick the
             display; centre it again; {mac ? 'open at login' : 'start with Windows'}; hide over
             fullscreen apps; set how strongly it glows, from off to bright; turn on quick options
             and order them; pause monitoring.

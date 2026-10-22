@@ -492,6 +492,27 @@ function IslandFields({
       </div>
       {full && (
         <div className="field">
+          <span className="field-label">Compact</span>
+          <Segmented
+            label="Compact"
+            value={prefs.compactStyle}
+            options={[
+              ['island', 'Island'],
+              ['glim', 'Glim only'],
+            ]}
+            onChange={(compactStyle) => save({ ...prefs, compactStyle })}
+          />
+        </div>
+      )}
+      {full && prefs.compactStyle === 'glim' && (
+        <Switch
+          label="Show the island on hover"
+          checked={prefs.hoverOpens}
+          onChange={(hoverOpens) => save({ ...prefs, hoverOpens })}
+        />
+      )}
+      {full && (
+        <div className="field">
           <label className="field-label" htmlFor={display}>
             Display
           </label>

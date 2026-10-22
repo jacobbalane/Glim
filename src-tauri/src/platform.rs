@@ -74,8 +74,9 @@ impl RegionGeometry {
         let px = |v: f64| (v * scale).round() as i32;
         let wide = (host_width as f64 / scale - 40.).clamp(204., 440.);
         let cap = 360_f64.min(wide - 60.);
-        // Around a Mac's notch the compact island can be wider than the open one.
-        let logical_width = (width as f64).clamp(144., (host_width as f64 / scale).max(144.));
+        // Around a Mac's notch the compact island can be wider than the open one; closed to Glim
+        // alone, it is only as wide as Glim.
+        let logical_width = (width as f64).clamp(34., (host_width as f64 / scale).max(34.));
         let travel = ((host_width as f64 / scale - wide) / 2. - 20.).max(0.);
         let offset = if offset.is_finite() {
             px(offset.clamp(-travel, travel))
@@ -685,6 +686,11 @@ mod shape_tests {
         assert!(g.contains(1700., 100.));
         assert!(!g.contains(1700., 500.));
         assert!(!g.contains(1650., 100.));
+        // Closed to Glim alone, only Glim catches the pointer: 52 points, 104 pixels, x 1148..1252.
+        let glim = RegionGeometry::new(52, 34, 2., 2400, None, 0.);
+        assert!(glim.contains(1200., 30.));
+        assert!(!glim.contains(1140., 30.));
+        assert!(!glim.contains(1260., 30.));
     }
 }
 

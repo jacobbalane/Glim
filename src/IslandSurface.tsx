@@ -50,7 +50,7 @@ function ViewFrame({
   children,
 }: {
   width: number;
-  // The least width of a view sized about the centre.
+  // The least width of a view sized by its content.
   least: number;
   // How the view is sized: by its content from the left edge, by its content about the centre
   // (around a notch), or at the open island's width.
@@ -84,7 +84,7 @@ function ViewFrame({
       className="frame"
       style={
         fit === 'start'
-          ? { width: 'max-content', minWidth: 144, maxWidth: width, left: 0 }
+          ? { width: 'max-content', minWidth: least, maxWidth: width, left: 0 }
           : fit === 'centre'
             ? {
                 width: 'max-content',
@@ -224,6 +224,7 @@ export default function IslandSurface({
   onPosition,
   options,
   glow = 50,
+  bare = false,
 }: {
   expanded: boolean;
   viewKey: string;
@@ -239,6 +240,8 @@ export default function IslandSurface({
   options?: QuickAction[];
   // The Glow setting, 0 (none) to 100.
   glow?: number;
+  // Closed to Glim alone: no surface around it, and only as wide as Glim.
+  bare?: boolean;
 }) {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const [fitted, setFitted] = useState(300);
@@ -274,7 +277,13 @@ export default function IslandSurface({
   const horizontal = useTransform(drag.x, (value) => Math.round(value));
   const [sideLeft, setSideLeft] = useState(false);
   const cap = Math.min(360, wide - 60);
-  const targetWidth = expanded ? wide : notch ? winged : Math.max(144, Math.min(cap, fitted));
+  const targetWidth = expanded
+    ? wide
+    : bare
+      ? fitted
+      : notch
+        ? winged
+        : Math.max(144, Math.min(cap, fitted));
   const floor = notch && !expanded ? notch.height : 34;
   const inset = notch && expanded ? notch.height : 0;
   const width = useSpring(targetWidth, SURFACE_SPRING);
@@ -297,6 +306,13 @@ export default function IslandSurface({
   const settle = useTransform(() =>
     Math.max(0, Math.min(1, 1 - (Math.abs(width.get() - target.get()) - 3) / 16)),
   );
+  // How much of the island is drawn around Glim alone: nothing at Glim's width, all of it 48 pixels
+  // wider, so the island grows out of Glim and shrinks back into it. Its light follows.
+  const bareWidth = useRef(52);
+  const fill = useTransform(() => Math.max(0, Math.min(1, (width.get() - bareWidth.current) / 48)));
+  const glowRef = useRef(glow);
+  glowRef.current = glow;
+  const glowLevel = useTransform(() => (glowRef.current / 100) * fill.get());
   const ink = useMemo(
     () => ({ compact: compactInk, expanded: expandedInk, settle }),
     [compactInk, expandedInk, settle],
@@ -370,6 +386,7 @@ export default function IslandSurface({
   }, [targetWidth, reduced, width, target]);
   const onSize = (w: number, h: number) => {
     if (!expanded) setFitted(Math.ceil(w));
+    if (bare) bareWidth.current = Math.ceil(w);
     if (reduced) height.jump(Math.max(floor, h));
     else height.set(Math.max(floor, h));
   };
@@ -474,6 +491,7 @@ export default function IslandSurface({
       data-compact={!expanded}
       data-testid="island"
       data-expanded={expanded}
+      data-bare={bare}
       data-dragging={drag.dragging}
       data-glow={glow === 0 ? 'off' : undefined}
       style={
@@ -483,7 +501,8 @@ export default function IslandSurface({
           x: horizontal,
           scale: drag.scale,
           originY: 0,
-          '--glow-level': glow / 100,
+          '--glow-level': glowLevel,
+          '--fill': fill,
           '--glow-filter': `url(#${glowId})`,
         } as MotionStyle
       }
@@ -538,7 +557,7 @@ export default function IslandSurface({
                 <ViewFrame
                   key={viewKey}
                   width={expanded ? wide : notch ? widest : cap}
-                  least={narrowest}
+                  least={bare ? 0 : notch ? narrowest : 144}
                   fit={expanded ? 'open' : notch ? 'centre' : 'start'}
                   inset={inset}
                   reduced={reduced}
