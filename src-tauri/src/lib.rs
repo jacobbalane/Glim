@@ -397,6 +397,7 @@ fn start_collector(
 ) {
     std::thread::spawn(move || {
         let mut tick = 0u64;
+        let mut tucked = false;
         loop {
             std::thread::sleep(std::time::Duration::from_millis(500));
             tick += 1;
@@ -438,7 +439,15 @@ fn start_collector(
                 let hidden = (preferences.idle_behavior == "hidden" && !active && !expanded)
                     || (preferences.hide_fullscreen && platform::fullscreen_over_island(&app));
                 if let Some(w) = platform::island(&app) {
-                    if hidden {
+                    // The island slides up into the screen's edge, and its window hides a check
+                    // later; the window shows before the island slides back down.
+                    if hidden != tucked {
+                        tucked = hidden;
+                        if !hidden && !w.is_visible().unwrap_or(false) {
+                            let _ = w.show();
+                        }
+                        let _ = app.emit_to("island", "glim:tucked", hidden);
+                    } else if hidden {
                         let _ = w.hide();
                     } else if !w.is_visible().unwrap_or(false) {
                         let _ = w.show();

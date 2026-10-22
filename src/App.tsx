@@ -76,10 +76,17 @@ export default function App() {
   });
   // The open island shows every notice, so the list waits while it is open.
   const [folded, setFolded] = useNoticeFold(notch, held || focused || expanded);
+  // Glim tucks the island away over a fullscreen app, or when idle and set to hide, before it
+  // hides the window. The app starts tucked, so the island comes down out of the screen's edge
+  // once it has something to show.
+  const [tucked, setTucked] = useState(false);
+  const [arrived, setArrived] = useState(!native);
   const hidden =
     !expanded &&
-    snapshot.preferences.idleBehavior === 'hidden' &&
-    !groups.some((g) => g.session.activity === 'working' || isNotice(g, seenAt, now));
+    (!arrived ||
+      tucked ||
+      (snapshot.preferences.idleBehavior === 'hidden' &&
+        !groups.some((g) => g.session.activity === 'working' || isNotice(g, seenAt, now))));
   const collapse = useCallback(() => {
     setView('compact');
     setFocusId(null);
@@ -129,6 +136,11 @@ export default function App() {
       }
       document.documentElement.dataset.previewReady = 'true';
     });
+    return () => cancelAnimationFrame(frame);
+  }, [loaded]);
+  useEffect(() => {
+    if (!loaded) return;
+    const frame = requestAnimationFrame(() => setArrived(true));
     return () => cancelAnimationFrame(frame);
   }, [loaded]);
   useEffect(() => {
@@ -185,6 +197,9 @@ export default function App() {
       const navigate = await listen<Panel>('glim:view', (event) => openPanel(event.payload));
       if (disposed) navigate();
       else cleanups.push(navigate);
+      const tuck = await listen<boolean>('glim:tucked', (event) => setTucked(event.payload));
+      if (disposed) tuck();
+      else cleanups.push(tuck);
     };
     void register().catch((e) => setError(String(e)));
     return () => {
@@ -308,8 +323,9 @@ export default function App() {
   return (
     <main className={native || designScene ? 'native-stage' : 'preview-stage'}>
       <div
-        className={`island-anchor${hidden ? ' idle-hidden' : ''}`}
+        className={`island-anchor${hidden ? ' tucked' : ''}`}
         ref={boundary}
+        inert={hidden}
         onPointerMove={(e) => setHeld(!!(e.target as Element).closest('.island-shell'))}
         onPointerLeave={() => setHeld(false)}
         onFocusCapture={() => setFocused(true)}
