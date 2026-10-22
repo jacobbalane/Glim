@@ -2,6 +2,16 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
+## 0.2.2 (2026-10-22)
+
+### New
+
+- **Glim only.** Under **Compact** in Settings, close the island to Glim alone, in the color of what it shows. Hover it and the island grows out of Glim, then shrinks back into it when you move away; turn off **Show the island on hover** to keep just Glim. A click still opens the island, and quick options and moving it work as before.
+
+### Improved
+
+- **Out of the way, smoothly.** Over a fullscreen app on Windows, or while idle when set to hide, the island slides up into the top of the screen instead of vanishing, and slides back down when it returns. When Glim starts, the island comes down out of the top edge.
+
 ## 0.2.1 (2026-10-21)
 
 ### Improved
