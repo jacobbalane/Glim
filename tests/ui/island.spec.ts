@@ -242,10 +242,9 @@ test('Glim only closes the island to Glim, which grows into the island on hover 
   // Away from Glim, and focus too: focused from the keyboard, Glim shows the island as well.
   const away = () => page.mouse.click(700, 600);
   await settings.click();
-  await page
-    .getByRole('group', { name: 'Compact' })
-    .getByRole('button', { name: 'Glim only' })
-    .click();
+  await tap(
+    page.getByRole('group', { name: 'Compact' }).getByRole('button', { name: 'Glim only' }),
+  );
   const hover = page.getByRole('switch', { name: 'Show the island on hover' });
   await expect(hover).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
@@ -262,7 +261,7 @@ test('Glim only closes the island to Glim, which grows into the island on hover 
   expect((await settledBox(island)).width).toBeCloseTo(52, 0);
   // Set to stay, Glim stays alone under the pointer and still opens on a click.
   await settings.click();
-  await hover.click();
+  await tap(hover);
   await expect(hover).toHaveAttribute('aria-checked', 'false');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
