@@ -50,6 +50,10 @@ export interface Session {
 }
 export interface Preferences {
   idleBehavior: 'pill' | 'hidden';
+  // The closed island: the island itself, or Glim alone with nothing around it.
+  compactStyle: 'island' | 'glim';
+  // Whether Glim alone shows the island while the pointer rests on it.
+  hoverOpens: boolean;
   startAtLogin: boolean;
   hideFullscreen: boolean;
   monitor: string | null;
@@ -94,6 +98,8 @@ export interface Monitor {
 }
 export const DEFAULT_PREFERENCES: Preferences = {
   idleBehavior: 'pill',
+  compactStyle: 'island',
+  hoverOpens: true,
   startAtLogin: false,
   hideFullscreen: true,
   monitor: null,

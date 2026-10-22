@@ -51,6 +51,7 @@ export function Compact({
   folded,
   onFoldedChange,
   notch = null,
+  bare = false,
 }: {
   view: NotchView;
   count: number;
@@ -62,6 +63,8 @@ export function Compact({
   folded: boolean;
   onFoldedChange: (folded: boolean) => void;
   notch?: Notch | null;
+  // Glim alone, in its own colors while calm. Glim stays mounted as the rest comes and goes.
+  bare?: boolean;
 }) {
   const ink = useContext(Ink);
   const reduced = useReducedMotion();
@@ -71,6 +74,7 @@ export function Compact({
   const top = paused ? undefined : view.current;
   const s = top?.session;
   const tone: Tone = !top ? 'calm' : top.look.tone;
+  const glim = bare && tone === 'calm' ? 'brand' : tone;
   const mood: Mood = paused ? 'closed' : top ? top.look.mood : 'open';
   const title = paused ? 'Monitoring paused' : top ? nameOf(top) : 'No agents running';
   // While working, the current plan step says more than the tool category does.
@@ -102,7 +106,7 @@ export function Compact({
     <div className="compact-wrap">
       <button
         ref={opener}
-        className={`compact tone-${tone}${notch ? ' notched' : ''}`}
+        className={`compact tone-${tone}${notch ? ' notched' : ''}${bare ? ' bare' : ''}`}
         data-island-drag
         data-island-options
         // Around a notch the island stays on it, so it is not moved.
@@ -129,29 +133,35 @@ export function Compact({
           // its right, and nothing where the camera is.
           <>
             <span className="wing">
-              <Eyes mood={mood} tone={tone} size={26} />
-              <b className="compact-title">{title}</b>
+              <Eyes mood={mood} tone={glim} size={26} />
+              {!bare && <b className="compact-title">{title}</b>}
             </span>
             <span className="notch-gap" aria-hidden="true" />
             <span className="wing">
-              <AnimatePresence initial={false} mode="popLayout">
-                <Ticker key={`${s?.id}|${status}`} title={null} onRun={onRun}>
-                  {status && <span className="state-text">{status}</span>}
-                </Ticker>
-              </AnimatePresence>
-              {end && <span className="compact-end">{end}</span>}
+              {!bare && (
+                <>
+                  <AnimatePresence initial={false} mode="popLayout">
+                    <Ticker key={`${s?.id}|${status}`} title={null} onRun={onRun}>
+                      {status && <span className="state-text">{status}</span>}
+                    </Ticker>
+                  </AnimatePresence>
+                  {end && <span className="compact-end">{end}</span>}
+                </>
+              )}
             </span>
           </>
         ) : (
           <>
-            <Eyes mood={mood} tone={tone} size={28} />
+            <Eyes mood={mood} tone={glim} size={28} />
             {/* The old text fades out while the island changes width; the new one follows. */}
-            <AnimatePresence initial={false} mode="popLayout">
-              <Ticker key={`${s?.id}|${title}|${status}`} title={title} onRun={onRun}>
-                {status && <span className="state-text">{status}</span>}
-              </Ticker>
-            </AnimatePresence>
-            {end && (
+            {!bare && (
+              <AnimatePresence initial={false} mode="popLayout">
+                <Ticker key={`${s?.id}|${title}|${status}`} title={title} onRun={onRun}>
+                  {status && <span className="state-text">{status}</span>}
+                </Ticker>
+              </AnimatePresence>
+            )}
+            {!bare && end && (
               <motion.span className="compact-end" style={{ opacity: ink?.settle ?? 1 }}>
                 {end}
               </motion.span>
@@ -162,7 +172,8 @@ export function Compact({
       {/* Keep folding separate from acknowledging or resolving a session. Between the list and
           the strip, each agent's dot travels to its new place while the island changes height. */}
       <AnimatePresence initial={false} mode="popLayout">
-        {inbox.length > 0 &&
+        {!bare &&
+          inbox.length > 0 &&
           (folded ? (
             <NoticeStrip
               key="strip"

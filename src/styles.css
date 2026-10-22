@@ -391,6 +391,30 @@ html:has(.native-stage) {
   background: var(--ink);
   border-radius: 0 0 24px 24px;
 }
+/* The app's island draws its black, shoulders and shadow at --fill (0 to 1): closed to Glim alone
+   they fade in as the island grows out of Glim, and out as it shrinks back into it. */
+.island-shell {
+  --island-shadow: drop-shadow(0 12px 20px rgb(9 9 11 / calc(0.24 * var(--fill, 1))))
+    drop-shadow(0 2px 3px rgb(9 9 11 / calc(0.16 * var(--fill, 1))));
+}
+.island-shell .surface {
+  background: none;
+}
+.island-shell .surface::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  opacity: var(--fill, 1);
+}
+.island-shell .shoulder {
+  opacity: var(--fill, 1);
+}
+.compact.bare,
+.compact.bare:hover {
+  padding: 0 12px;
+  background: none;
+}
 .shell.static .surface {
   position: relative;
   inset: auto;

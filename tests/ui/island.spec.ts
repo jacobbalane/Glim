@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { settledBox, tap } from './settle';
 
 test('island expands, selects a session, and interrupts cleanly', async ({ page }) => {
   const errors: string[] = [];
@@ -94,7 +95,15 @@ test('outside clicks collapse every view and compact stays black', async ({ page
   await expect(page.getByRole('heading', { name: 'Agents', exact: true })).toBeVisible();
   await page.mouse.click(40, 100);
   await expect(page.getByRole('button', { name: /^Glim:/ })).toBeVisible();
-  await expect(page.locator('.island')).toHaveCSS('background-color', 'rgb(0, 0, 0)');
+  // The island's black is drawn under its views, fully once it has come to rest.
+  await expect
+    .poll(() =>
+      page.locator('.island').evaluate((el) => {
+        const black = getComputedStyle(el, '::before');
+        return `${black.backgroundColor} ${black.opacity}`;
+      }),
+    )
+    .toBe('rgb(0, 0, 0) 1');
   await page.getByRole('button', { name: 'Set up', exact: true }).click();
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   await expect(page.getByRole('button', { name: /^Glim:/ })).toBeVisible();
@@ -221,4 +230,46 @@ test('a long message shows it scrolls, and Escape closes it before the island', 
   await expect(page.getByRole('complementary', { name: 'What Claude said' })).toHaveCount(0);
   await expect(page.getByTestId('island')).toHaveAttribute('data-expanded', 'true');
   await expect(preview).toBeFocused();
+});
+
+test('Glim only closes the island to Glim, which grows into the island on hover unless set to stay', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const island = page.getByTestId('island');
+  const glim = page.getByRole('button', { name: /^Glim:/ });
+  const settings = page.locator('.preview-navigation').getByRole('button', { name: 'Settings' });
+  // Away from Glim, and focus too: focused from the keyboard, Glim shows the island as well.
+  const away = () => page.mouse.click(700, 600);
+  await settings.click();
+  await page
+    .getByRole('group', { name: 'Compact' })
+    .getByRole('button', { name: 'Glim only' })
+    .click();
+  const hover = page.getByRole('switch', { name: 'Show the island on hover' });
+  await expect(hover).toHaveAttribute('aria-checked', 'true');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await away();
+  await expect(island).toHaveAttribute('data-bare', 'true');
+  expect((await settledBox(island)).width).toBeCloseTo(52, 0);
+  await glim.hover();
+  await expect(island).toHaveAttribute('data-bare', 'false');
+  expect((await settledBox(island)).width).toBeGreaterThan(144);
+  await expect(glim).toContainText('glim-desktop');
+  await away();
+  await expect(island).toHaveAttribute('data-bare', 'true');
+  expect((await settledBox(island)).width).toBeCloseTo(52, 0);
+  // Set to stay, Glim stays alone under the pointer and still opens on a click.
+  await settings.click();
+  await hover.click();
+  await expect(hover).toHaveAttribute('aria-checked', 'false');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await away();
+  await glim.hover();
+  await page.waitForTimeout(600);
+  await expect(island).toHaveAttribute('data-bare', 'true');
+  await tap(glim);
+  await expect(island).toHaveAttribute('data-expanded', 'true');
 });

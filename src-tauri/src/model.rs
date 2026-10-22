@@ -123,6 +123,10 @@ impl Session {
 #[serde(rename_all = "camelCase", default)]
 pub struct Preferences {
     pub idle_behavior: String,
+    /// The closed island: "island", or "glim" for Glim alone with nothing around it.
+    pub compact_style: String,
+    /// Whether Glim alone shows the island while the pointer rests on it.
+    pub hover_opens: bool,
     pub start_at_login: bool,
     pub hide_fullscreen: bool,
     pub monitor: Option<String>,
@@ -139,6 +143,8 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             idle_behavior: "pill".into(),
+            compact_style: "island".into(),
+            hover_opens: true,
             start_at_login: false,
             hide_fullscreen: true,
             monitor: None,
