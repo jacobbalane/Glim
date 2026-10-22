@@ -453,6 +453,15 @@ try {
   launch({ GLIM_TEST_NOTCH: '200x32' });
   await until(() => stat(controlSocket).then(() => true), 'test control again');
   await until(() => has('.compact.notched'), 'notched island');
+  // Started again, the island comes down out of the top of the screen once it has loaded.
+  await until(
+    () =>
+      run(`
+        const island = document.querySelector('[data-testid=island]');
+        return !island.closest('.tucked') && Math.round(island.getBoundingClientRect().top) === 0;`),
+    'the island down from the top edge',
+    5000,
+  );
   // Measured once the island has settled; what crosses the camera, if anything, is named.
   let layout;
   const clear = await until(
