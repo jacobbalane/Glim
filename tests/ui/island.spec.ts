@@ -249,6 +249,8 @@ test('Glim only closes the island to Glim, which grows into the island on hover 
   await expect(hover).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
+  // Closed from the keyboard, focus comes back to Glim a frame later.
+  await expect(glim).toBeFocused();
   await away();
   await expect(island).toHaveAttribute('data-bare', 'true');
   expect((await settledBox(island)).width).toBeCloseTo(52, 0);
@@ -265,6 +267,8 @@ test('Glim only closes the island to Glim, which grows into the island on hover 
   await expect(hover).toHaveAttribute('aria-checked', 'false');
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
+  // Closed from the keyboard, focus comes back to Glim a frame later.
+  await expect(glim).toBeFocused();
   await away();
   await glim.hover();
   await page.waitForTimeout(600);
