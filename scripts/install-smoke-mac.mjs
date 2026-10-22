@@ -121,8 +121,9 @@ try {
     readFileSync(helper).equals(readFileSync(join(app, 'Contents', 'MacOS', 'glim-bridge'))),
     "Hooks call the installed Glim's own helper.",
   );
-  // What the installed Glim shows on its first start, before any agent.
-  await delay(3000);
+  // What the installed Glim shows on its first start, before any agent, once it has come down out
+  // of the top edge.
+  await delay(5000);
   screencapture(join(shots, 'installed-start.png'));
   const installedHook = JSON.parse(readFileSync(join(installed.home, '.claude', 'settings.json')))
     .hooks.Stop.flatMap((group) => group.hooks)
