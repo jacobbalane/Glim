@@ -181,6 +181,22 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
           too. Glim remembers where you left it.
           {mac ? ' On a MacBook with a notch it stays on the notch instead.' : ''}
         </p>
+        <h3>Mini and Glim only</h3>
+        <p>
+          Under <b>Compact</b> in Settings, pick <b>Mini</b> and the closed island is a small black
+          notch holding just Glim, or <b>Glim only</b> and it is Glim alone, in the color of what it
+          shows{mac ? ', beside the notch on a MacBook' : ''}. Rest the pointer on Glim and the
+          island grows out of it, then shrinks back when you move away; turn off{' '}
+          <b>Show the island on hover</b> to keep just Glim. Click Glim to open the island either
+          way.
+        </p>
+        <h3>When it hides</h3>
+        <p>
+          While idle, if you chose <b>Hide</b>
+          {mac ? '' : ', or over a fullscreen app'}, the island slides up into the top of the
+          screen, and back down when it is needed again.
+          {mac ? ' Over a fullscreen app, macOS keeps it off that screen.' : ''}
+        </p>
         <h3>Quick options</h3>
         <p>
           Turn them on under <b>Quick options</b> in Settings and pick the shortcuts you want:
@@ -202,10 +218,11 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
           </li>
           <li>
             <b>Island:</b> keep a small pill visible when nothing is running, or hide it; close it
-            to the island or to Glim alone, which can grow into the island while you hover; pick the
-            display; centre it again; {mac ? 'open at login' : 'start with Windows'}; hide over
-            fullscreen apps; set how strongly it glows, from off to bright; turn on quick options
-            and order them; pause monitoring.
+            to the island, a mini notch with just Glim, or Glim alone, which can grow into the
+            island while you hover; pick the display; centre it again;{' '}
+            {mac ? 'open at login' : 'start with Windows'}; hide over fullscreen apps; set how
+            strongly it glows, from off to bright; turn on quick options and order them; pause
+            monitoring.
           </li>
           <li>
             <b>Data:</b> view usage by day and by project for the last 30 days, or clear it.

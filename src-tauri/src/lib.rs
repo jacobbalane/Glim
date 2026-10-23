@@ -46,7 +46,7 @@ fn save_preferences(
     if !["pill", "hidden"].contains(&preferences.idle_behavior.as_str()) {
         return Err("Unknown idle behavior".into());
     }
-    if !["island", "glim"].contains(&preferences.compact_style.as_str()) {
+    if !["island", "mini", "glim"].contains(&preferences.compact_style.as_str()) {
         return Err("Unknown compact style".into());
     }
     if !preferences.island_position.is_finite()

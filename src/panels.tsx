@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 import type { Update } from '@tauri-apps/plugin-updater';
 import { api, mac, native } from './api';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import QuickOptionsSettings from './QuickOptionsSettings';
+import useReducedMotion from './useReducedMotion';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
 import { ago, limitName, nameOf, type Group } from './session-presentation';
@@ -441,6 +442,7 @@ function IslandFields({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const display = useId();
+  const reduced = useReducedMotion();
   const [monitors, setMonitors] = useState<Monitor[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -498,19 +500,35 @@ function IslandFields({
             value={prefs.compactStyle}
             options={[
               ['island', 'Island'],
+              ['mini', 'Mini'],
               ['glim', 'Glim only'],
             ]}
             onChange={(compactStyle) => save({ ...prefs, compactStyle })}
           />
         </div>
       )}
-      {full && prefs.compactStyle === 'glim' && (
-        <Switch
-          label="Show the island on hover"
-          checked={prefs.hoverOpens}
-          onChange={(hoverOpens) => save({ ...prefs, hoverOpens })}
-        />
-      )}
+      {/* Closed to Glim, the hover switch slides open under the choice it belongs to. */}
+      <AnimatePresence initial={false}>
+        {full && prefs.compactStyle !== 'island' && (
+          <motion.div
+            key="hover"
+            className="field-reveal"
+            initial={{ height: reduced ? 'auto' : 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: reduced ? 'auto' : 0, opacity: 0 }}
+            transition={{
+              height: { type: 'spring', stiffness: 420, damping: 40 },
+              opacity: { duration: reduced ? 0.06 : 0.15 },
+            }}
+          >
+            <Switch
+              label="Show the island on hover"
+              checked={prefs.hoverOpens}
+              onChange={(hoverOpens) => save({ ...prefs, hoverOpens })}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
       {full && (
         <div className="field">
           <label className="field-label" htmlFor={display}>

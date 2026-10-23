@@ -232,32 +232,54 @@ test('a long message shows it scrolls, and Escape closes it before the island', 
   await expect(preview).toBeFocused();
 });
 
-test('Glim only closes the island to Glim, which grows into the island on hover unless set to stay', async ({
+test('Mini and Glim only close the island to Glim, which grows into the island on hover unless set to stay', async ({
   page,
 }) => {
   await page.goto('/');
   const island = page.getByTestId('island');
   const glim = page.getByRole('button', { name: /^Glim:/ });
   const settings = page.locator('.preview-navigation').getByRole('button', { name: 'Settings' });
+  const compact = (name: string) =>
+    page.getByRole('group', { name: 'Compact' }).getByRole('button', { name, exact: true });
+  const hover = page.getByRole('switch', { name: 'Show the island on hover' });
+  // How much of the island's black is drawn, under its views.
+  const black = () =>
+    page.locator('.island').evaluate((el) => Number(getComputedStyle(el, '::before').opacity));
   // Away from Glim, and focus too: focused from the keyboard, Glim shows the island as well.
   const away = () => page.mouse.click(700, 600);
+  const close = async () => {
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
+    // Closed from the keyboard, focus comes back to Glim a frame later.
+    await expect(glim).toBeFocused();
+    await away();
+  };
+  // The island itself keeps the hover switch away; Mini slides it open.
   await settings.click();
-  await tap(
-    page.getByRole('group', { name: 'Compact' }).getByRole('button', { name: 'Glim only' }),
-  );
-  const hover = page.getByRole('switch', { name: 'Show the island on hover' });
+  await expect(hover).toHaveCount(0);
+  await tap(compact('Mini'));
   await expect(hover).toHaveAttribute('aria-checked', 'true');
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  // Closed from the keyboard, focus comes back to Glim a frame later.
-  await expect(glim).toBeFocused();
-  await away();
+  await close();
+  // Mini: Glim in a black notch just its size, growing into the island on hover.
   await expect(island).toHaveAttribute('data-bare', 'true');
   expect((await settledBox(island)).width).toBeCloseTo(52, 0);
+  await expect.poll(black).toBe(1);
   await glim.hover();
   await expect(island).toHaveAttribute('data-bare', 'false');
   expect((await settledBox(island)).width).toBeGreaterThan(144);
   await expect(glim).toContainText('glim-desktop');
+  await away();
+  await expect(island).toHaveAttribute('data-bare', 'true');
+  // Glim only: the black fades away from Glim, and comes back as the island grows on hover.
+  await settings.click();
+  await tap(compact('Glim only'));
+  await close();
+  expect((await settledBox(island)).width).toBeCloseTo(52, 0);
+  await expect.poll(black).toBe(0);
+  await glim.hover();
+  await expect(island).toHaveAttribute('data-bare', 'false');
+  expect((await settledBox(island)).width).toBeGreaterThan(144);
+  await expect.poll(black).toBe(1);
   await away();
   await expect(island).toHaveAttribute('data-bare', 'true');
   expect((await settledBox(island)).width).toBeCloseTo(52, 0);
@@ -265,14 +287,14 @@ test('Glim only closes the island to Glim, which grows into the island on hover 
   await settings.click();
   await tap(hover);
   await expect(hover).toHaveAttribute('aria-checked', 'false');
-  await page.keyboard.press('Escape');
-  await page.keyboard.press('Escape');
-  // Closed from the keyboard, focus comes back to Glim a frame later.
-  await expect(glim).toBeFocused();
-  await away();
+  await close();
   await glim.hover();
   await page.waitForTimeout(600);
   await expect(island).toHaveAttribute('data-bare', 'true');
   await tap(glim);
   await expect(island).toHaveAttribute('data-expanded', 'true');
+  // Back to the island, the hover switch slides away.
+  await settings.click();
+  await tap(compact('Island'));
+  await expect(hover).toHaveCount(0);
 });

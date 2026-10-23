@@ -52,6 +52,7 @@ export function Compact({
   onFoldedChange,
   notch = null,
   bare = false,
+  clear = false,
 }: {
   view: NotchView;
   count: number;
@@ -63,8 +64,10 @@ export function Compact({
   folded: boolean;
   onFoldedChange: (folded: boolean) => void;
   notch?: Notch | null;
-  // Glim alone, in its own colors while calm. Glim stays mounted as the rest comes and goes.
+  // Glim alone, in a mini notch or, when clear, with nothing around it and in its own colors
+  // while calm. Glim stays mounted as the rest comes and goes.
   bare?: boolean;
+  clear?: boolean;
 }) {
   const ink = useContext(Ink);
   const reduced = useReducedMotion();
@@ -74,7 +77,7 @@ export function Compact({
   const top = paused ? undefined : view.current;
   const s = top?.session;
   const tone: Tone = !top ? 'calm' : top.look.tone;
-  const glim = bare && tone === 'calm' ? 'brand' : tone;
+  const glim = bare && clear && tone === 'calm' ? 'brand' : tone;
   const mood: Mood = paused ? 'closed' : top ? top.look.mood : 'open';
   const title = paused ? 'Monitoring paused' : top ? nameOf(top) : 'No agents running';
   // While working, the current plan step says more than the tool category does.

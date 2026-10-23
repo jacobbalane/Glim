@@ -87,18 +87,18 @@ export default function App() {
       tucked ||
       (snapshot.preferences.idleBehavior === 'hidden' &&
         !groups.some((g) => g.session.activity === 'working' || isNotice(g, seenAt, now))));
-  // Closed to Glim alone, the island shows while the pointer or focus rests on Glim, if set to;
-  // a moment's pause either way, so passing over the top of the screen leaves it be.
+  // Closed to Glim, in a mini notch or alone, the island shows while the pointer or focus rests on
+  // Glim, if set to; a moment's pause either way, so passing over the top of the screen leaves it
+  // be.
   const reach = held || focused;
   const [peek, setPeek] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setPeek(reach), reach ? 120 : 360);
     return () => clearTimeout(timer);
   }, [reach]);
-  const bare =
-    !expanded &&
-    snapshot.preferences.compactStyle === 'glim' &&
-    !(snapshot.preferences.hoverOpens && peek);
+  const style = snapshot.preferences.compactStyle ?? 'island';
+  const bare = !expanded && style !== 'island' && !(snapshot.preferences.hoverOpens && peek);
+  const clear = style === 'glim';
   const collapse = useCallback(() => {
     setView('compact');
     setFocusId(null);
@@ -277,6 +277,7 @@ export default function App() {
         now={now}
         notch={screen.notch}
         bare={bare}
+        clear={clear}
         onRun={setRun}
         onOpen={(id, picked) => {
           setFocusId(id ?? null);
@@ -352,6 +353,7 @@ export default function App() {
           tone={paused || !notch.current ? 'calm' : notch.current.look.tone}
           glow={snapshot.preferences.glow ?? 50}
           bare={bare}
+          clear={clear}
           reduced={reduced}
           onError={setError}
           notch={screen.notch}

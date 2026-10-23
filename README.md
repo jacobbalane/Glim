@@ -22,7 +22,7 @@ A minimal desktop island for Claude Code and Codex CLI, on macOS and Windows. On
 - Reported token counts, cached reads, context usage, and structured task steps.
 - Account limits and reset times when Claude Code supplies them, and a **Limit reached** state when Claude Code or Codex stops at a usage limit.
 - A glow in the color of what waits, from off to bright under **Glow** in Settings.
-- **Glim only** under **Compact** in Settings closes the island to Glim alone, in the color of what it shows. Hover it and the island grows out of Glim, or turn off **Show the island on hover** to keep just Glim.
+- **Compact** in Settings closes the island to **Mini**, a small black notch holding just Glim, or **Glim only**, Glim alone in the color of what it shows. Hover Glim and the island grows out of it, or turn off **Show the island on hover** to keep just Glim.
 - Hidden over a fullscreen app or while idle, the island slides up into the top of the screen, and slides back down when it returns.
 - The full message an agent left, in a scrolling panel beside the open island.
 - Local daily usage charts and 30-day retention.
