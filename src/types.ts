@@ -50,9 +50,10 @@ export interface Session {
 }
 export interface Preferences {
   idleBehavior: 'pill' | 'hidden';
-  // The closed island: the island itself, or Glim alone with nothing around it.
-  compactStyle: 'island' | 'glim';
-  // Whether Glim alone shows the island while the pointer rests on it.
+  // The closed island: the island itself, Glim in a notch just its size, or Glim alone with
+  // nothing around it.
+  compactStyle: 'island' | 'mini' | 'glim';
+  // Whether Glim, in a mini notch or alone, shows the island while the pointer rests on it.
   hoverOpens: boolean;
   startAtLogin: boolean;
   hideFullscreen: boolean;

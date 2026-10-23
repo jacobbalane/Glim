@@ -2,6 +2,20 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
+## 0.2.3 (2026-10-23)
+
+### New
+
+- **Mini.** Under **Compact** in Settings, a third choice beside Island and Glim only: a small black notch holding just Glim. Like Glim only, it grows into the island while you rest the pointer on Glim.
+
+### Improved
+
+- **Show the island on hover** slides open under Compact when it applies, and away again when it does not.
+
+### Fixed
+
+- Mini and Glim only now close down as soon as Settings closes. Closing Settings with Esc, or on Windows by clicking outside it, used to leave the full island showing until you clicked somewhere else, and could keep the rotating preview paused.
+
 ## 0.2.2 (2026-10-23)
 
 ### New

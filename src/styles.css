@@ -1794,6 +1794,14 @@ html:has(.native-stage) {
 .field + .field {
   border-top: 1px solid var(--hair);
 }
+/* A field that slides open under the one it belongs to. */
+.field-reveal {
+  overflow: hidden;
+}
+.field-reveal > .field,
+.field-reveal + .field {
+  border-top: 1px solid var(--hair);
+}
 .field-label {
   font-size: 13px;
   font-weight: 600;

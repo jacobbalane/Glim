@@ -123,9 +123,10 @@ impl Session {
 #[serde(rename_all = "camelCase", default)]
 pub struct Preferences {
     pub idle_behavior: String,
-    /// The closed island: "island", or "glim" for Glim alone with nothing around it.
+    /// The closed island: "island", "mini" for Glim in a notch just its size, or "glim" for Glim
+    /// alone with nothing around it.
     pub compact_style: String,
-    /// Whether Glim alone shows the island while the pointer rests on it.
+    /// Whether Glim, in a mini notch or alone, shows the island while the pointer rests on it.
     pub hover_opens: bool,
     pub start_at_login: bool,
     pub hide_fullscreen: bool,

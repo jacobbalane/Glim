@@ -225,6 +225,7 @@ export default function IslandSurface({
   options,
   glow = 50,
   bare = false,
+  clear = false,
 }: {
   expanded: boolean;
   viewKey: string;
@@ -240,8 +241,9 @@ export default function IslandSurface({
   options?: QuickAction[];
   // The Glow setting, 0 (none) to 100.
   glow?: number;
-  // Closed to Glim alone: no surface around it, and only as wide as Glim.
+  // Closed to Glim: only as wide as Glim, in a mini notch or, when clear, with nothing around it.
   bare?: boolean;
+  clear?: boolean;
 }) {
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const [fitted, setFitted] = useState(300);
@@ -307,9 +309,18 @@ export default function IslandSurface({
     Math.max(0, Math.min(1, 1 - (Math.abs(width.get() - target.get()) - 3) / 16)),
   );
   // How much of the island is drawn around Glim alone: nothing at Glim's width, all of it 48 pixels
-  // wider, so the island grows out of Glim and shrinks back into it. Its light follows.
+  // wider, so the island grows out of Glim and shrinks back into it. Its light follows. Between a
+  // mini notch and Glim alone, the notch fades.
   const bareWidth = useRef(52);
-  const fill = useTransform(() => Math.max(0, Math.min(1, (width.get() - bareWidth.current) / 48)));
+  const clearing = useSpring(clear ? 1 : 0, SURFACE_SPRING);
+  useEffect(() => {
+    if (reduced) clearing.jump(clear ? 1 : 0);
+    else clearing.set(clear ? 1 : 0);
+  }, [clear, reduced, clearing]);
+  const fill = useTransform(
+    () =>
+      1 - clearing.get() * (1 - Math.max(0, Math.min(1, (width.get() - bareWidth.current) / 48))),
+  );
   const glowRef = useRef(glow);
   glowRef.current = glow;
   const glowLevel = useTransform(() => (glowRef.current / 100) * fill.get());
