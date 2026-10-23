@@ -2,7 +2,7 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
-## 0.2.2 (2026-10-22)
+## 0.2.2 (2026-10-23)
 
 ### New
 
