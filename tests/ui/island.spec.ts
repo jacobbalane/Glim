@@ -245,12 +245,11 @@ test('Mini and Glim only close the island to Glim, which grows into the island o
   // How much of the island's black is drawn, under its views.
   const black = () =>
     page.locator('.island').evaluate((el) => Number(getComputedStyle(el, '::before').opacity));
-  // Away from Glim, and focus too: focused from the keyboard, Glim shows the island as well.
-  const away = () => page.mouse.click(700, 600);
+  // Only the pointer resting on Glim shows the island, not focus left on Glim.
+  const away = () => page.mouse.move(700, 600);
   const close = async () => {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
-    // Closed from the keyboard, focus comes back to Glim a frame later.
     await expect(glim).toBeFocused();
     await away();
   };
@@ -271,9 +270,12 @@ test('Mini and Glim only close the island to Glim, which grows into the island o
   await away();
   await expect(island).toHaveAttribute('data-bare', 'true');
   // Glim only: the black fades away from Glim, and comes back as the island grows on hover.
+  // Closed by a click outside: the choice clicked in Settings goes with it, and Chrome never says
+  // it lost focus.
   await settings.click();
   await tap(compact('Glim only'));
-  await close();
+  await page.mouse.click(700, 600);
+  await expect(island).toHaveAttribute('data-expanded', 'false');
   expect((await settledBox(island)).width).toBeCloseTo(52, 0);
   await expect.poll(black).toBe(0);
   await glim.hover();

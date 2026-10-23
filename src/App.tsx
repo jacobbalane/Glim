@@ -87,15 +87,13 @@ export default function App() {
       tucked ||
       (snapshot.preferences.idleBehavior === 'hidden' &&
         !groups.some((g) => g.session.activity === 'working' || isNotice(g, seenAt, now))));
-  // Closed to Glim, in a mini notch or alone, the island shows while the pointer or focus rests on
-  // Glim, if set to; a moment's pause either way, so passing over the top of the screen leaves it
-  // be.
-  const reach = held || focused;
+  // Closed to Glim, in a mini notch or alone, the island shows while the pointer rests on Glim, if
+  // set to; a moment's pause either way, so passing over the top of the screen leaves it be.
   const [peek, setPeek] = useState(false);
   useEffect(() => {
-    const timer = setTimeout(() => setPeek(reach), reach ? 120 : 360);
+    const timer = setTimeout(() => setPeek(held), held ? 120 : 360);
     return () => clearTimeout(timer);
-  }, [reach]);
+  }, [held]);
   const style = snapshot.preferences.compactStyle ?? 'island';
   const bare = !expanded && style !== 'island' && !(snapshot.preferences.hoverOpens && peek);
   const clear = style === 'glim';
@@ -162,11 +160,16 @@ export default function App() {
     }
   }, [loaded, snapshot.preferences.onboardingComplete, openPanel]);
   useEffect(() => {
-    if (view !== 'compact' || !returnFocus.current) return;
-    returnFocus.current = false;
-    const frame = requestAnimationFrame(() =>
-      boundary.current?.querySelector<HTMLButtonElement>('.compact')?.focus(),
-    );
+    if (view !== 'compact') return;
+    const frame = requestAnimationFrame(() => {
+      if (returnFocus.current) {
+        returnFocus.current = false;
+        boundary.current?.querySelector<HTMLButtonElement>('.compact')?.focus();
+      }
+      // A focused control that closes with its view never says it lost focus in Chrome, and so in
+      // WebView2: whether the island still has focus is read again once it has closed.
+      else setFocused(!!boundary.current?.contains(document.activeElement));
+    });
     return () => cancelAnimationFrame(frame);
   }, [view]);
   useEffect(() => {
