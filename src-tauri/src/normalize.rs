@@ -135,7 +135,7 @@ pub fn apply_hook(s: &mut Session, e: &AgentEvent) {
     }
     s.updated_at = e.timestamp;
     if let Some(cwd) = &e.cwd {
-        s.project = basename(cwd);
+        s.project = project_name(cwd);
     }
     if let Some(model) = &e.model {
         s.model = model.clone();
@@ -764,5 +764,26 @@ mod tests {
         .unwrap();
         assert_eq!(own.session_id, "parent");
         assert_eq!(own.parent_id, None);
+    }
+    #[test]
+    fn a_session_in_a_worktree_belongs_to_its_project() {
+        for (dir, project) in [
+            ("/Users/me/work/veyl/.claude/worktrees/fuzzy-otter", "veyl"),
+            ("C:\\work\\veyl\\.claude\\worktrees\\fuzzy-otter\\", "veyl"),
+            ("/Users/me/work/veyl", "veyl"),
+            // Only Claude Code's own worktree folder counts.
+            ("/Users/me/notes/worktrees/draft", "draft"),
+        ] {
+            let mut s = Session::new(Provider::Claude, "s".into());
+            s.updated_at = 0;
+            let hook = hook_event(
+                Provider::Claude,
+                json!({"session_id":"s","hook_event_name":"Stop","project_dir":dir}),
+                false,
+            )
+            .unwrap();
+            apply_hook(&mut s, &hook);
+            assert_eq!(s.project, project, "{dir}");
+        }
     }
 }

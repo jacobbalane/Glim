@@ -322,7 +322,7 @@ fn transcript_identity(
             .get("payload")?;
         return Some((
             p.get("id")?.as_str()?.to_string(),
-            p.get("cwd").and_then(|v| v.as_str()).map(basename),
+            p.get("cwd").and_then(|v| v.as_str()).map(project_name),
             p.pointer("/source/subagent").is_some(),
         ));
     }
@@ -331,7 +331,7 @@ fn transcript_identity(
         id.to_string(),
         meta.iter()
             .find_map(|v| v.get("cwd")?.as_str())
-            .map(basename),
+            .map(project_name),
         meta.iter()
             .any(|v| v.get("isSidechain").and_then(|v| v.as_bool()) == Some(true)),
     ))

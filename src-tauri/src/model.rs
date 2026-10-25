@@ -235,3 +235,15 @@ pub fn basename(path: &str) -> String {
         .unwrap_or("Workspace")
         .to_owned()
 }
+/// The project a folder is in: its own name, or for a Claude Code worktree in
+/// `<project>/.claude/worktrees/<name>`, as the Claude app and `claude -w` make them, the project's.
+pub fn project_name(path: &str) -> String {
+    let parts: Vec<&str> = path.split(['/', '\\']).filter(|p| !p.is_empty()).collect();
+    match parts
+        .windows(2)
+        .rposition(|pair| pair == [".claude", "worktrees"])
+    {
+        Some(at) if at > 0 && parts.len() > at + 2 => parts[at - 1].to_owned(),
+        _ => basename(path),
+    }
+}
