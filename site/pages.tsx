@@ -81,10 +81,13 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
             <>
               <li>Open it and drag Glim to Applications.</li>
               <li>
-                Open Glim from Applications. Apple has not notarized Glim yet, so macOS says it
-                cannot check it: click <b>Done</b>, then open <b>System Settings</b>,{' '}
-                <b>Privacy &amp; Security</b>, and click <b>Open Anyway</b> beside Glim. You do this
-                once; updates from Settings do not ask again.
+                Open Glim from Applications. Apple has not notarized Glim yet, so the first time,
+                macOS says <b>“Glim.app” Not Opened</b>. Click <b>Done</b>, not Move to Trash.
+              </li>
+              <li>
+                Open <b>System Settings</b>, <b>Privacy &amp; Security</b>, scroll down to{' '}
+                <b>Security</b>, and click <b>Open Anyway</b> beside Glim. Confirm with your
+                password, and Glim opens. You do this once; updates from Settings do not ask again.
               </li>
               <li>Glim asks to connect your agents first.</li>
             </>
@@ -367,11 +370,20 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
         </ul>
         {mac && (
           <>
-            <h3>macOS says Glim cannot be opened</h3>
+            <h3>macOS says “Glim.app” Not Opened</h3>
             <p>
-              Apple has not notarized Glim yet. Open <b>System Settings</b>,{' '}
-              <b>Privacy &amp; Security</b>, and click <b>Open Anyway</b> beside Glim.
+              Apple could not verify Glim because Apple has not notarized it yet, not because
+              something is wrong with it. Click <b>Done</b>, not Move to Trash. Open{' '}
+              <b>System Settings</b>, <b>Privacy &amp; Security</b>, scroll down to <b>Security</b>,
+              and click <b>Open Anyway</b> beside Glim, then confirm with your password.
             </p>
+            <p>
+              The button shows for about an hour after macOS stops Glim. If it is not there, open
+              Glim from Applications again first. Or, in Terminal:
+            </p>
+            <pre>
+              <code>xattr -dr com.apple.quarantine /Applications/Glim.app</code>
+            </pre>
             <h3>Go to Claude does not pick the tab</h3>
             <p>
               The first time, macOS asks whether Glim may control Terminal or iTerm2, and it may ask
@@ -385,6 +397,20 @@ function sections(mac: boolean): [id: string, title: string, body: ReactNode][] 
         <p>
           It sent nothing for five minutes, often because a long command is running. It wakes with
           its next event.
+        </p>
+        <h3>The island lists agents you closed</h3>
+        <p>
+          Glim knows an agent is open from its process, which it learns from the agent&apos;s hooks,
+          and ends the session when the process ends. A session it only found in local records, or
+          whose agent it could not trace, leaves after 15 minutes without activity and comes back
+          with its next. An agent that is open but idle stays until you close it.
+        </p>
+        <h3>Context says Estimated, or limits are missing</h3>
+        <p>
+          Claude Code reports context and account limits in its status line, which runs only in a
+          terminal; the Claude app has none. Glim then measures the context from the session&apos;s
+          records against the model&apos;s context window and marks it Estimated. Account limits
+          show only for sessions in a terminal.
         </p>
         <h3>Token counts say unavailable</h3>
         <p>

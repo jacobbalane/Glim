@@ -1,7 +1,7 @@
 use crate::{
     connectors::provider_dir,
     model::*,
-    normalize::{apply_hook, parse_record},
+    normalize::{apply_hook, claude_window, parse_record},
     process,
     storage::Store,
 };
@@ -23,6 +23,8 @@ pub struct Collector {
     pub preferences: Preferences,
     pub connectors: Vec<Connector>,
     pub files: HashMap<PathBuf, TrackedFile>,
+    /// When each session's transcript last changed, by session key: activity a hook may not report.
+    pub written: HashMap<String, i64>,
     pub island_expanded: bool,
 }
 impl Collector {
@@ -48,6 +50,7 @@ impl Collector {
             preferences,
             connectors,
             files: HashMap::new(),
+            written: HashMap::new(),
             island_expanded: false,
         };
         collector.end_closed(0);
@@ -78,15 +81,20 @@ impl Collector {
         !closed.is_empty()
     }
     pub fn snapshot(&self) -> Snapshot {
-        // An ended session stays long enough to see it end, then leaves with its subagents.
+        // An ended session stays long enough to see it end, then leaves with its subagents. One
+        // whose agent's process Glim does not know may be closed without a word, so it leaves
+        // once it has gone a while without activity, and comes back with its next.
         let now = now_ms();
         let gone: HashSet<_> = self
             .sessions
             .values()
             .filter(|s| {
                 s.parent_id.is_none()
-                    && s.activity == "finished"
-                    && now - s.updated_at > ENDED_SHOWN
+                    && if s.activity == "finished" {
+                        now - s.updated_at > ENDED_SHOWN
+                    } else {
+                        s.process.is_none() && now - self.last_active(s) > UNTRACED_SHOWN
+                    }
             })
             .map(|s| (s.provider, s.id.as_str()))
             .collect();
@@ -112,6 +120,11 @@ impl Collector {
             preferences: self.preferences.clone(),
             connectors: self.connectors.clone(),
         }
+    }
+    /// The last sign of a session: its last event, or its transcript's last change.
+    fn last_active(&self, s: &Session) -> i64 {
+        s.updated_at
+            .max(self.written.get(&s.key()).copied().unwrap_or(0))
     }
     pub fn ingest(&mut self, event: AgentEvent) -> bool {
         if self.preferences.paused
@@ -192,11 +205,17 @@ impl Collector {
                     if child {
                         continue;
                     } // Child files are registered through hooks instead.
+                    let written = modified(&path);
                     let s = self
                         .sessions
                         .entry(format!("{}:{id}", c.provider.name()))
                         .or_insert_with(|| {
                             let mut s = Session::new(c.provider, id.clone());
+                            // As old as its transcript: one last written hours ago is not new.
+                            if let Some(at) = written {
+                                s.started_at = at;
+                                s.updated_at = at;
+                            }
                             s.activity = "stale".into();
                             s.detail = "Session found; waiting for activity".into();
                             s.source = "Local session records".into();
@@ -232,6 +251,10 @@ impl Collector {
                 continue;
             }
             let key = format!("{}:{}", tracked.provider.name(), tracked.session_id);
+            if let Some(at) = modified(&tracked.path) {
+                let last = self.written.entry(key.clone()).or_default();
+                *last = (*last).max(at);
+            }
             if let Some(session) = self.sessions.get_mut(&key) {
                 match tail(&self.store, tracked, session) {
                     Ok(did_change) => changed |= did_change,
@@ -260,6 +283,9 @@ impl Collector {
     }
 }
 const ENDED_SHOWN: i64 = 5 * 60 * 1000;
+/// How long a session whose agent's process Glim does not know stays without activity: one found
+/// in local records, or from an agent Glim could not trace. Glim cannot tell whether it is open.
+const UNTRACED_SHOWN: i64 = 15 * 60 * 1000;
 
 /// Ends a session and whatever is still open under it. A subagent cannot outlive its session,
 /// and cancelled ones never send SubagentStop. `at` is when, if later than the last event.
@@ -296,7 +322,7 @@ fn transcript_identity(
             .get("payload")?;
         return Some((
             p.get("id")?.as_str()?.to_string(),
-            p.get("cwd").and_then(|v| v.as_str()).map(basename),
+            p.get("cwd").and_then(|v| v.as_str()).map(project_name),
             p.pointer("/source/subagent").is_some(),
         ));
     }
@@ -305,10 +331,15 @@ fn transcript_identity(
         id.to_string(),
         meta.iter()
             .find_map(|v| v.get("cwd")?.as_str())
-            .map(basename),
+            .map(project_name),
         meta.iter()
             .any(|v| v.get("isSidechain").and_then(|v| v.as_bool()) == Some(true)),
     ))
+}
+/// When a file last changed, in milliseconds since 1970.
+fn modified(path: &Path) -> Option<i64> {
+    let at = fs::metadata(path).ok()?.modified().ok()?;
+    Some(at.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as i64)
 }
 fn safe_transcript(path: &Path, provider: Provider) -> bool {
     if path.extension().and_then(|s| s.to_str()) != Some("jsonl") {
@@ -409,6 +440,17 @@ fn tail(store: &Store, file: &TrackedFile, s: &mut Session) -> Result<bool, Stri
             }
             if let Some(context) = parsed.context_percent {
                 s.context_percent = Some(context);
+                changed = true;
+            }
+            // Claude's context, without its status line: against the window the status line last
+            // reported, else the model's usual one, an estimate.
+            if let Some(used) = parsed.context_tokens {
+                let model = parsed.model.as_deref().unwrap_or(&s.model);
+                let window = s
+                    .context_window
+                    .unwrap_or_else(|| claude_window(model, used));
+                s.context_estimated = s.context_window.is_none();
+                s.context_percent = Some((used as f64 / window as f64 * 100.).clamp(0., 100.));
                 changed = true;
             }
             if let Some(tasks) = parsed.tasks {
@@ -573,6 +615,45 @@ mod tests {
         assert_eq!(shown(&collector), ["kept"]);
     }
     #[test]
+    fn an_agent_glim_cannot_trace_leaves_once_quiet_and_comes_back_with_activity() {
+        let db = Store::open(Path::new(":memory:")).unwrap();
+        let connector = Connector {
+            provider: Provider::Claude,
+            detected: true,
+            enabled: true,
+            version: None,
+            config_path: String::new(),
+            changes: vec![],
+            note: String::new(),
+            error: None,
+        };
+        let mut collector = Collector::new(db, vec![connector]);
+        for id in ["traced", "untraced"] {
+            let mut event = crate::normalize::hook_event(
+                Provider::Claude,
+                serde_json::json!({ "session_id": id, "hook_event_name": "Stop" }),
+                false,
+            )
+            .unwrap();
+            // Whether that process still runs is for poll to check; knowing it is what counts.
+            event.process = (id == "traced").then_some((u32::MAX - 2, 1));
+            assert!(collector.ingest(event));
+        }
+        let shown = |c: &Collector| -> Vec<String> {
+            let mut ids: Vec<_> = c.snapshot().sessions.into_iter().map(|s| s.id).collect();
+            ids.sort();
+            ids
+        };
+        assert_eq!(shown(&collector), ["traced", "untraced"]);
+        for s in collector.sessions.values_mut() {
+            s.updated_at -= UNTRACED_SHOWN + 1;
+        }
+        assert_eq!(shown(&collector), ["traced"]);
+        // Its transcript growing is activity too.
+        collector.written.insert("claude:untraced".into(), now_ms());
+        assert_eq!(shown(&collector), ["traced", "untraced"]);
+    }
+    #[test]
     fn partial_lines_are_not_consumed_and_restart_replays_are_safe() {
         let path = std::env::temp_dir().join(format!("glim-tail-{}.jsonl", uuid::Uuid::new_v4()));
         let line = include_str!("../tests/fixtures/codex-token.json").trim();
@@ -592,6 +673,31 @@ mod tests {
         fs::write(&path, format!("{line}\n")).unwrap();
         tail(&db, &file, &mut s).unwrap();
         assert_eq!(s.tokens.unwrap().input, 10000);
+        fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn claude_context_without_a_status_line_is_estimated_from_the_model() {
+        let path =
+            std::env::temp_dir().join(format!("glim-context-{}.jsonl", uuid::Uuid::new_v4()));
+        // 50,000 tokens sent, on a model Claude Code gives 200K unless told otherwise.
+        let record = |id: &str| {
+            serde_json::json!({"type":"assistant","message":{"id":id,"model":"claude-opus-4-6","usage":{"input_tokens":10,"cache_read_input_tokens":49000,"cache_creation_input_tokens":990,"output_tokens":500}}}).to_string()
+        };
+        fs::write(&path, format!("{}\n", record("a"))).unwrap();
+        let db = Store::open(Path::new(":memory:")).unwrap();
+        let file = TrackedFile {
+            provider: Provider::Claude,
+            session_id: "s".into(),
+            path: path.clone(),
+        };
+        let mut s = Session::new(Provider::Claude, "s".into());
+        assert!(tail(&db, &file, &mut s).unwrap());
+        assert_eq!((s.context_percent, s.context_estimated), (Some(25.0), true));
+        // Once a status line names the session's window, the transcript measures against it.
+        s.context_window = Some(1_000_000);
+        fs::write(&path, format!("{}\n{}\n", record("a"), record("b"))).unwrap();
+        assert!(tail(&db, &file, &mut s).unwrap());
+        assert_eq!((s.context_percent, s.context_estimated), (Some(5.0), false));
         fs::remove_file(path).unwrap();
     }
     #[test]

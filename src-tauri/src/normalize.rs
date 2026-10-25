@@ -78,7 +78,7 @@ pub fn hook_event(provider: Provider, value: Value, statusline: bool) -> Option<
     let status_data = statusline.then(|| {
         let mut limits = serde_json::Map::new();
         for key in ["five_hour", "seven_day", "spend_limit"] { if let Some(v) = value.get("rate_limits").and_then(|v| v.get(key)) { limits.insert(key.into(), json!({ "used_percentage": v.get("used_percentage"), "resets_at": v.get("resets_at") })); } }
-        json!({ "context_window": { "used_percentage": value.pointer("/context_window/used_percentage") }, "rate_limits": limits })
+        json!({ "context_window": { "used_percentage": value.pointer("/context_window/used_percentage"), "context_window_size": value.pointer("/context_window/context_window_size") }, "rate_limits": limits })
     });
     Some(AgentEvent {
         event_id: uuid::Uuid::new_v4().to_string(),
@@ -135,7 +135,7 @@ pub fn apply_hook(s: &mut Session, e: &AgentEvent) {
     }
     s.updated_at = e.timestamp;
     if let Some(cwd) = &e.cwd {
-        s.project = basename(cwd);
+        s.project = project_name(cwd);
     }
     if let Some(model) = &e.model {
         s.model = model.clone();
@@ -273,6 +273,14 @@ pub fn apply_status(s: &mut Session, data: &Value) {
         .pointer("/context_window/used_percentage")
         .and_then(Value::as_f64)
         .map(|v| v.clamp(0.0, 100.0));
+    s.context_estimated = false;
+    if let Some(window) = data
+        .pointer("/context_window/context_window_size")
+        .and_then(Value::as_u64)
+        .filter(|w| *w > 0)
+    {
+        s.context_window = Some(window);
+    }
     s.limits = [
         ("five_hour", "5 hour"),
         ("seven_day", "7 day"),
@@ -300,6 +308,9 @@ pub struct ParsedRecord {
     pub cumulative: bool,
     pub request_id: Option<String>,
     pub context_percent: Option<f64>,
+    /// The tokens a Claude request sent, which is the context in use. Its window is the
+    /// session's: see collector.rs.
+    pub context_tokens: Option<u64>,
     pub tasks: Option<Vec<Task>>,
     pub model: Option<String>,
     pub activity: Option<(String, String)>,
@@ -317,6 +328,7 @@ pub fn parse_record(provider: Provider, v: &Value) -> ParsedRecord {
         cumulative: false,
         request_id: None,
         context_percent: None,
+        context_tokens: None,
         tasks: None,
         model: None,
         activity: None,
@@ -419,6 +431,13 @@ pub fn parse_record(provider: Provider, v: &Value) -> ParsedRecord {
                     result.request_id = str_field(message, "id")
                         .map(str::to_owned)
                         .or_else(|| str_field(v, "uuid").map(str::to_owned));
+                    // As Claude Code counts it: input, cache reads and cache writes, no output.
+                    result.context_tokens = Some(
+                        number(t, "input_tokens")
+                            + number(t, "cache_read_input_tokens")
+                            + number(t, "cache_creation_input_tokens"),
+                    )
+                    .filter(|used| *used > 0);
                 }
                 if let Some(content) = message.get("content").and_then(Value::as_array) {
                     for item in content {
@@ -450,6 +469,32 @@ pub fn parse_record(provider: Provider, v: &Value) -> ParsedRecord {
         }
     }
     result
+}
+/// The context window Claude Code gives a model when no status line says: 1M for Fable, Sonnet 5
+/// and later, Haiku 5.5 and Opus 4.7 and later, or a `[1m]` variant; 200K for the rest, as for a
+/// model ID Claude Code does not know. A request larger than 200K ran on 1M.
+pub fn claude_window(model: &str, used: u64) -> u64 {
+    let name = model
+        .find("claude-")
+        .map_or("", |at| &model[at + "claude-".len()..]);
+    let mut parts = name.split(['-', '[', '@']);
+    let family = parts.next().unwrap_or("");
+    let mut number = || parts.next().and_then(|p| p.parse::<u32>().ok());
+    let major = number();
+    // The minor version, unless what follows is the date: claude-sonnet-4-20250514.
+    let minor = number().filter(|m| *m < 100).unwrap_or(0);
+    let long = model.contains("[1m]")
+        || match (family, major) {
+            ("fable" | "mythos", _) => true,
+            ("opus", Some(major)) => (major, minor) >= (4, 7),
+            ("sonnet" | "haiku", Some(major)) => major >= 5,
+            _ => false,
+        };
+    if long || used > 200_000 {
+        1_000_000
+    } else {
+        200_000
+    }
 }
 fn normalized_task_status(s: &str) -> String {
     match s {
@@ -485,6 +530,53 @@ mod tests {
         assert_eq!(t.input, 1200);
         assert_eq!(t.cached, 1000);
         assert_eq!(t.cache_write, 50);
+    }
+    #[test]
+    fn claude_context_is_what_a_request_sent_against_its_models_window() {
+        let v: Value =
+            serde_json::from_str(include_str!("../tests/fixtures/claude-usage.json")).unwrap();
+        // Input, cache reads and cache writes; output is not in the context yet.
+        assert_eq!(
+            parse_record(Provider::Claude, &v).context_tokens,
+            Some(1250)
+        );
+        for (model, window) in [
+            ("claude-fable-5-1", 1_000_000),
+            ("claude-opus-5-5", 1_000_000),
+            ("claude-sonnet-5", 1_000_000),
+            ("claude-haiku-5-5", 1_000_000),
+            ("claude-opus-4-7", 1_000_000),
+            ("us.anthropic.claude-opus-4-8-v1:0", 1_000_000),
+            ("claude-opus-4-6", 200_000),
+            ("claude-sonnet-4-6[1m]", 1_000_000),
+            ("claude-sonnet-4-5-20250929", 200_000),
+            ("claude-haiku-4-5-20251001", 200_000),
+            ("claude-sonnet-4-20250514", 200_000),
+            ("claude-3-7-sonnet-20250219", 200_000),
+            // A gateway's own name for a model: Claude Code assumes 200K too.
+            ("team-default", 200_000),
+        ] {
+            assert_eq!(claude_window(model, 1250), window, "{model}");
+        }
+        // A request larger than 200K ran on 1M, whatever the model.
+        assert_eq!(claude_window("claude-opus-4-6", 300_000), 1_000_000);
+    }
+    #[test]
+    fn a_status_line_measures_the_context_exactly_and_names_its_window() {
+        let status = hook_event(
+            Provider::Claude,
+            json!({"session_id":"s","context_window":{"used_percentage":12.5,"context_window_size":1000000}}),
+            true,
+        )
+        .unwrap();
+        let mut s = Session::new(Provider::Claude, "s".into());
+        s.updated_at = 0;
+        s.context_estimated = true;
+        apply_hook(&mut s, &status);
+        assert_eq!(
+            (s.context_percent, s.context_window, s.context_estimated),
+            (Some(12.5), Some(1_000_000), false)
+        );
     }
     #[test]
     fn turn_completion_does_not_end_session() {
@@ -675,5 +767,26 @@ mod tests {
         .unwrap();
         assert_eq!(own.session_id, "parent");
         assert_eq!(own.parent_id, None);
+    }
+    #[test]
+    fn a_session_in_a_worktree_belongs_to_its_project() {
+        for (dir, project) in [
+            ("/Users/me/work/veyl/.claude/worktrees/fuzzy-otter", "veyl"),
+            ("C:\\work\\veyl\\.claude\\worktrees\\fuzzy-otter\\", "veyl"),
+            ("/Users/me/work/veyl", "veyl"),
+            // Only Claude Code's own worktree folder counts.
+            ("/Users/me/notes/worktrees/draft", "draft"),
+        ] {
+            let mut s = Session::new(Provider::Claude, "s".into());
+            s.updated_at = 0;
+            let hook = hook_event(
+                Provider::Claude,
+                json!({"session_id":"s","hook_event_name":"Stop","project_dir":dir}),
+                false,
+            )
+            .unwrap();
+            apply_hook(&mut s, &hook);
+            assert_eq!(s.project, project, "{dir}");
+        }
     }
 }

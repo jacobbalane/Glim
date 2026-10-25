@@ -29,6 +29,7 @@ import { Logo, IconButton, Meter } from './island-components';
 import {
   ago,
   byProject,
+  contextMissing,
   isLive,
   nameOf,
   timeOf,
@@ -612,7 +613,12 @@ function Hero({
           <Meter
             label="Context"
             value={s.contextPercent}
-            note={s.provider === 'codex' && s.contextPercent !== null ? 'Estimated' : undefined}
+            missing={contextMissing(s)}
+            note={
+              (s.provider === 'codex' || s.contextEstimated) && s.contextPercent !== null
+                ? 'Estimated'
+                : undefined
+            }
           />
           {limits.map((limit) => (
             <Meter

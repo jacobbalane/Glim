@@ -2,6 +2,19 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
+## 0.2.4 (2026-10-25)
+
+### Improved
+
+- **Opening Glim on a Mac the first time.** The README and website walk through macOS's “Glim.app” Not Opened message step by step: click Done, not Move to Trash, then Open Anyway under Privacy & Security, where the button lasts about an hour. Troubleshooting adds the Terminal alternative.
+- **Context in the Claude app.** Claude Code in the Claude app runs no status line, so its context read Unavailable. Glim now measures it from the session's records against the model's context window and marks it Estimated. Account limits still need a terminal.
+- **Context says when it will show.** Where there is nothing to measure yet, Context reads After its first reply, or After its next reply once a compaction clears it, instead of Unavailable.
+
+### Fixed
+
+- **Only the agents you have open.** A session Glim found in local records, or whose agent it could not trace, stayed on the island for a day, often as Quiet. It now leaves after 15 minutes without activity and comes back when the agent works again, and a found session is dated by its transcript, not by when Glim found it.
+- **Worktree sessions under their project.** A session in a Claude Code worktree, in `.claude/worktrees/` as the Claude app and `claude -w` make them, showed under the worktree's name. It now shows under its project's.
+
 ## 0.2.3 (2026-10-23)
 
 ### New

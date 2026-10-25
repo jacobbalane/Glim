@@ -39,6 +39,9 @@ export interface Session {
   updatedAt: number;
   tokens: Tokens | null;
   contextPercent: number | null;
+  // Claude's context measured against the model's usual window: no status line said, as in the
+  // Claude app.
+  contextEstimated?: boolean;
   tasks: Task[];
   limits: Limit[];
   source: string;

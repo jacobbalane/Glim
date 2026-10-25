@@ -1552,7 +1552,7 @@ function Site() {
                 <b>Install</b>
                 <span>
                   {system === 'macOS'
-                    ? 'Open it and drag Glim to Applications. Apple has not notarized Glim yet, so the first time, open System Settings, then Privacy & Security, and choose Open Anyway.'
+                    ? 'Open it and drag Glim to Applications. Apple has not notarized Glim yet, so the first time macOS says “Glim.app” Not Opened: click Done, then in System Settings, Privacy & Security, choose Open Anyway.'
                     : 'It installs for your account only, so no administrator rights. If Windows warns about a new app, choose More info, then Run anyway.'}
                 </span>
               </li>

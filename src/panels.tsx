@@ -16,7 +16,7 @@ import QuickOptionsSettings from './QuickOptionsSettings';
 import useReducedMotion from './useReducedMotion';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
-import { ago, limitName, nameOf, type Group } from './session-presentation';
+import { ago, contextMissing, limitName, nameOf, type Group } from './session-presentation';
 import { compactNumber, freshInput, totalTokens } from './format';
 import {
   PROVIDERS,
@@ -115,10 +115,15 @@ export function Details({
             large
             label="Context window"
             value={s.contextPercent}
+            missing={contextMissing(s)}
             note={
-              s.provider === 'codex' && s.contextPercent !== null
-                ? 'Estimated from Codex records.'
-                : undefined
+              s.contextPercent === null
+                ? undefined
+                : s.provider === 'codex'
+                  ? 'Estimated from Codex records.'
+                  : s.contextEstimated
+                    ? 'Estimated from Claude Code records and the model.'
+                    : undefined
             }
           />
           {limits.map((limit) => (
