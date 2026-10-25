@@ -18,7 +18,7 @@ Connectors merge user configuration only after the user chooses Connect. They re
 
 The helper sends lifecycle metadata and optional measurements over a channel only the current user can open: a named pipe on Windows, and on macOS a socket file with mode 0600 in the per-user temporary folder, whose server also checks the connecting user. It never sends prompts or tool arguments. Failure to reach Glim succeeds silently so monitoring does not block the agent. Claude's original status-line command still receives its original input.
 
-The collector discovers recent native session records and accepts hook-supplied transcript paths only inside the provider's directory. Parsers extract known token fields, structured task labels, model information, and supported lifecycle states. Raw records stay in memory.
+The collector discovers recent native session records and accepts hook-supplied transcript paths only inside the provider's directory. The island lists open agents: the helper names the agent process behind each hook, and a session ends when that process does. A session without a known process, found in records or from an agent the helper could not trace, leaves after 15 minutes without activity. Parsers extract known token fields, structured task labels, model information, and supported lifecycle states. Raw records stay in memory.
 
 Each transcript batch commits its counters, request high-water marks, cursor, and session snapshot in one SQLite transaction. Failed batches restore the live session state and can be retried. Claude streaming request snapshots use request IDs; Codex cumulative snapshots use session IDs. Optional or unsupported measurements remain unavailable in the interface.
 

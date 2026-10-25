@@ -2,6 +2,17 @@
 
 What changed in each Glim release. Installers, checksums and build attestations are on [GitHub Releases](https://github.com/jacobbalane/Glim/releases).
 
+## Unreleased
+
+### Improved
+
+- **Opening Glim on a Mac the first time.** The README and website walk through macOS's “Glim.app” Not Opened message step by step: click Done, not Move to Trash, then Open Anyway under Privacy & Security, where the button lasts about an hour. Troubleshooting adds the Terminal alternative.
+- **Context in the Claude app.** Claude Code in the Claude app runs no status line, so its context read Unavailable. Glim now measures it from the session's records against the model's context window and marks it Estimated. Account limits still need a terminal.
+
+### Fixed
+
+- **Only the agents you have open.** A session Glim found in local records, or whose agent it could not trace, stayed on the island for a day, often as Quiet. It now leaves after 15 minutes without activity and comes back when the agent works again, and a found session is dated by its transcript, not by when Glim found it.
+
 ## 0.2.3 (2026-10-23)
 
 ### New

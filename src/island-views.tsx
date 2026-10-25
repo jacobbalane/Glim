@@ -612,7 +612,11 @@ function Hero({
           <Meter
             label="Context"
             value={s.contextPercent}
-            note={s.provider === 'codex' && s.contextPercent !== null ? 'Estimated' : undefined}
+            note={
+              (s.provider === 'codex' || s.contextEstimated) && s.contextPercent !== null
+                ? 'Estimated'
+                : undefined
+            }
           />
           {limits.map((limit) => (
             <Meter

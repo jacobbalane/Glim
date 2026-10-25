@@ -420,18 +420,18 @@ fn start_collector(
                 if tick.is_multiple_of(7200) {
                     let _ = c.store.prune();
                 }
-                let active = c.sessions.values().any(|s| {
-                    (s.activity == "working" || s.activity == "waiting")
-                        && c.connectors
-                            .iter()
-                            .any(|connector| connector.enabled && connector.provider == s.provider)
-                });
+                // Of the agents the island shows: those of enabled connectors, still listed.
+                let snapshot = c.snapshot();
+                let active = snapshot
+                    .sessions
+                    .iter()
+                    .any(|s| s.activity == "working" || s.activity == "waiting");
                 (
                     changed,
                     c.preferences.clone(),
                     active,
                     c.island_expanded,
-                    c.snapshot(),
+                    snapshot,
                 )
             };
             if changed {

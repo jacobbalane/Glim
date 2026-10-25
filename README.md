@@ -10,7 +10,10 @@ A minimal desktop island for Claude Code and Codex CLI, on macOS and Windows. On
 
 [Download for macOS or Windows](https://github.com/jacobbalane/Glim/releases/latest) · [Docs](https://glim.jacobbalane.com/docs/) · [Changelog](CHANGELOG.md) · [Compatibility](docs/compatibility.md) · [Development](docs/development.md)
 
-> Glim is not code-signed yet. On macOS, the first time you open it, macOS says it cannot check it: click **Done**, then open **System Settings**, **Privacy & Security**, and click **Open Anyway**. On Windows, SmartScreen may warn on first run: choose **More info**, then **Run anyway**.
+> Glim is not code-signed yet, so the first time you open it, your system warns about it.
+>
+> - **macOS** says **“Glim.app” Not Opened**. Click **Done**, not Move to Trash. Open **System Settings**, **Privacy & Security**, scroll down to **Security**, and click **Open Anyway** beside Glim, then confirm with your password. The button shows for about an hour after macOS stops Glim; if it is not there, open Glim again first. Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Glim.app`.
+> - **Windows** SmartScreen may warn on first run: choose **More info**, then **Run anyway**.
 
 ## What it does
 

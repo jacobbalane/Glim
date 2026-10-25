@@ -116,9 +116,13 @@ export function Details({
             label="Context window"
             value={s.contextPercent}
             note={
-              s.provider === 'codex' && s.contextPercent !== null
-                ? 'Estimated from Codex records.'
-                : undefined
+              s.contextPercent === null
+                ? undefined
+                : s.provider === 'codex'
+                  ? 'Estimated from Codex records.'
+                  : s.contextEstimated
+                    ? 'Estimated from Claude Code records and the model.'
+                    : undefined
             }
           />
           {limits.map((limit) => (
