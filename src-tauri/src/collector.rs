@@ -446,11 +446,12 @@ fn tail(store: &Store, file: &TrackedFile, s: &mut Session) -> Result<bool, Stri
             // reported, else the model's usual one, an estimate.
             if let Some(used) = parsed.context_tokens {
                 let model = parsed.model.as_deref().unwrap_or(&s.model);
-                if let Some(window) = s.context_window.or_else(|| claude_window(model, used)) {
-                    s.context_estimated = s.context_window.is_none();
-                    s.context_percent = Some((used as f64 / window as f64 * 100.).clamp(0., 100.));
-                    changed = true;
-                }
+                let window = s
+                    .context_window
+                    .unwrap_or_else(|| claude_window(model, used));
+                s.context_estimated = s.context_window.is_none();
+                s.context_percent = Some((used as f64 / window as f64 * 100.).clamp(0., 100.));
+                changed = true;
             }
             if let Some(tasks) = parsed.tasks {
                 s.tasks = tasks;

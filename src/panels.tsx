@@ -16,7 +16,7 @@ import QuickOptionsSettings from './QuickOptionsSettings';
 import useReducedMotion from './useReducedMotion';
 import { Eyes, HelloCharacter } from './Character';
 import { Logo, IconButton, Meter, Switch, Segmented } from './island-components';
-import { ago, limitName, nameOf, type Group } from './session-presentation';
+import { ago, contextMissing, limitName, nameOf, type Group } from './session-presentation';
 import { compactNumber, freshInput, totalTokens } from './format';
 import {
   PROVIDERS,
@@ -115,6 +115,7 @@ export function Details({
             large
             label="Context window"
             value={s.contextPercent}
+            missing={contextMissing(s)}
             note={
               s.contextPercent === null
                 ? undefined

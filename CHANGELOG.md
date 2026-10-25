@@ -8,6 +8,7 @@ What changed in each Glim release. Installers, checksums and build attestations 
 
 - **Opening Glim on a Mac the first time.** The README and website walk through macOS's “Glim.app” Not Opened message step by step: click Done, not Move to Trash, then Open Anyway under Privacy & Security, where the button lasts about an hour. Troubleshooting adds the Terminal alternative.
 - **Context in the Claude app.** Claude Code in the Claude app runs no status line, so its context read Unavailable. Glim now measures it from the session's records against the model's context window and marks it Estimated. Account limits still need a terminal.
+- **Context says when it will show.** Where there is nothing to measure yet, Context reads After its first reply, or After its next reply once a compaction clears it, instead of Unavailable.
 
 ### Fixed
 

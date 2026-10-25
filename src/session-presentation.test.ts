@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   attentionKind,
   byProject,
+  contextMissing,
   groupSessions,
   isNotice,
   lookOf,
@@ -38,6 +39,17 @@ describe('session presentation', () => {
       now - 1,
     );
     expect(order.map((g) => g.session.id)).toEqual(['ask', 'error', 'limit', 'turn']);
+  });
+  it('says when context will show, rather than that it is unavailable', () => {
+    const none = { contextPercent: null };
+    expect(contextMissing(session({ ...none, tokens: null }))).toBe('After its first reply');
+    // Measured before, cleared since: a compaction, until the next request.
+    expect(contextMissing(session(none))).toBe('After its next reply');
+    expect(
+      contextMissing(
+        session({ ...none, measurementNote: 'Local usage records could not be read.' }),
+      ),
+    ).toBe('No readable records');
   });
   it('groups subagents under their parent and sorts top-level sessions by urgency', () => {
     const groups = groupSessions(

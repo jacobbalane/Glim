@@ -471,12 +471,14 @@ pub fn parse_record(provider: Provider, v: &Value) -> ParsedRecord {
     result
 }
 /// The context window Claude Code gives a model when no status line says: 1M for Fable, Sonnet 5
-/// and later, Haiku 5.5 and Opus 4.7 and later, or a `[1m]` variant; 200K for the rest. A request
-/// larger than 200K ran on 1M. None for what is not a Claude model, such as `<synthetic>`.
-pub fn claude_window(model: &str, used: u64) -> Option<u64> {
-    let name = &model[model.find("claude-")? + "claude-".len()..];
+/// and later, Haiku 5.5 and Opus 4.7 and later, or a `[1m]` variant; 200K for the rest, as for a
+/// model ID Claude Code does not know. A request larger than 200K ran on 1M.
+pub fn claude_window(model: &str, used: u64) -> u64 {
+    let name = model
+        .find("claude-")
+        .map_or("", |at| &model[at + "claude-".len()..]);
     let mut parts = name.split(['-', '[', '@']);
-    let family = parts.next()?;
+    let family = parts.next().unwrap_or("");
     let mut number = || parts.next().and_then(|p| p.parse::<u32>().ok());
     let major = number();
     // The minor version, unless what follows is the date: claude-sonnet-4-20250514.
@@ -488,11 +490,11 @@ pub fn claude_window(model: &str, used: u64) -> Option<u64> {
             ("sonnet" | "haiku", Some(major)) => major >= 5,
             _ => false,
         };
-    Some(if long || used > 200_000 {
+    if long || used > 200_000 {
         1_000_000
     } else {
         200_000
-    })
+    }
 }
 fn normalized_task_status(s: &str) -> String {
     match s {
@@ -551,12 +553,13 @@ mod tests {
             ("claude-haiku-4-5-20251001", 200_000),
             ("claude-sonnet-4-20250514", 200_000),
             ("claude-3-7-sonnet-20250219", 200_000),
+            // A gateway's own name for a model: Claude Code assumes 200K too.
+            ("team-default", 200_000),
         ] {
-            assert_eq!(claude_window(model, 1250), Some(window), "{model}");
+            assert_eq!(claude_window(model, 1250), window, "{model}");
         }
         // A request larger than 200K ran on 1M, whatever the model.
-        assert_eq!(claude_window("claude-opus-4-6", 300_000), Some(1_000_000));
-        assert_eq!(claude_window("<synthetic>", 1250), None);
+        assert_eq!(claude_window("claude-opus-4-6", 300_000), 1_000_000);
     }
     #[test]
     fn a_status_line_measures_the_context_exactly_and_names_its_window() {

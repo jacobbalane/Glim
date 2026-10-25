@@ -78,6 +78,13 @@ function agentNames(sessions: Session[]) {
   return names;
 }
 
+// Why a session has no context measure: nothing sent yet, its last one cleared (a compaction), or
+// records Glim cannot read. Said instead of a bare "Unavailable".
+export function contextMissing(s: Session) {
+  if (s.measurementNote) return 'No readable records';
+  return s.tokens === null ? 'After its first reply' : 'After its next reply';
+}
+
 // A subagent still at work. Finished ones, and ones gone quiet (often cancelled), are history.
 export const isLive = (s: Session) => s.activity !== 'finished' && s.activity !== 'stale';
 

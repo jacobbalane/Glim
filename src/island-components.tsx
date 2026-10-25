@@ -37,11 +37,14 @@ export function Meter({
   label,
   value,
   note,
+  missing = 'Unavailable',
   large = false,
 }: {
   label: string;
   value: number | null;
   note?: string;
+  // What stands in for the value while there is none.
+  missing?: string;
   large?: boolean;
 }) {
   const fill =
@@ -51,7 +54,7 @@ export function Meter({
       <div className="meter-row">
         <span>{label}</span>
         {value === null ? (
-          <b className="na">Unavailable</b>
+          <b className="na">{missing}</b>
         ) : (
           <b className="num">{Math.round(value)}%</b>
         )}
