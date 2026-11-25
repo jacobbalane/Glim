@@ -486,13 +486,22 @@ body {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  display: grid;
-  justify-items: center;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   min-height: max(100svh, 860px);
-  /* Room for the indigo Glim in the middle; the piles at the sides may rise higher. */
-  padding: 132px clamp(16px, 4vw, 40px) calc(var(--span, 1440px) * 0.13 + 56px);
+  /* Room above for the island and the navbar. */
+  padding: 132px clamp(16px, 4vw, 40px) 0;
   text-align: center;
+}
+/* The words sit in the middle of the first screen: the space below them starts at the same 132px
+   as the space above and takes the same share of what is left. It never gets shorter than the
+   room for the indigo Glim in the middle (the piles at the sides may rise higher), so on a short
+   window the words sit higher, and the hero grows when even that does not fit. */
+.site-hero::after {
+  content: '';
+  flex: 1 0 132px;
+  min-height: calc(var(--span, 1440px) * 0.13 + 56px);
 }
 /* No solid background here: the island's light, fixed behind the page, has to show through. */
 .site-hero::before {
@@ -531,8 +540,11 @@ body {
 .site-hero-copy {
   position: relative;
   z-index: 3;
+  /* Takes its share of the free space above the words: they sit at the bottom of the box. */
+  flex: 1 0 auto;
   display: grid;
   justify-items: center;
+  align-content: end;
 }
 .site-hero h1 {
   max-width: 18em;
@@ -2596,6 +2608,9 @@ body {
     min-height: auto;
     padding-top: 120px;
     padding-bottom: calc(var(--span, 390px) * 0.5 + 40px);
+  }
+  .site-hero::after {
+    display: none;
   }
   /* The two buttons, in the hero and the call to action, share one width. */
   :is(.site-cta, .site-close-cta) > a,
